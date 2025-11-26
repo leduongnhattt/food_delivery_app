@@ -44,3 +44,6 @@ next-env.d.ts
 # editors
 .idea/
 .vscode/
+
+.env
+/public/images/enterprise/

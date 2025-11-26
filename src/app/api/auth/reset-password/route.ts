@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-import { hashPassword } from '@/lib/auth';
+import { hashPassword } from '@/services/auth.service';
 import { sendPasswordResetSuccess } from '@/services/email.service';
 
 export async function POST(request: NextRequest) {

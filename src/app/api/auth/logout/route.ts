@@ -1,20 +1,32 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { revokeRefreshToken } from '@/services/auth.service'
+import { prisma } from '@/lib/db'
+import { getAuthenticatedUser } from '@/lib/auth-helpers'
 
 export async function POST(request: NextRequest) {
     try {
-        const refresh = request.cookies.get('refresh_token')?.value
-        const accountId = request.headers.get('x-account-id') || ''
-        if (refresh && accountId) {
-            await revokeRefreshToken(accountId, refresh)
-        }
-        const res = NextResponse.json({ success: true }, { status: 200 })
-        res.cookies.set('refresh_token', '', { httpOnly: true, expires: new Date(0) })
+        const auth = getAuthenticatedUser(request)
+        // Always clear cookie even if not authenticated
+        const res = NextResponse.json({ success: true })
+        res.cookies.set('refresh_token', '', {
+            httpOnly: true,
+            sameSite: 'lax',
+            secure: process.env.NODE_ENV === 'production',
+            path: '/',
+            expires: new Date(0)
+        })
+
+        if (!auth.success) return res
+
+        // Revoke all valid refresh tokens for this account
+        await prisma.authToken.updateMany({
+            where: { AccountID: auth.user!.id, IsValid: true },
+            data: { IsValid: false, RevokedAt: new Date() }
+        })
+
         return res
-    } catch {
-        return NextResponse.json({ error: 'Logout failed' }, { status: 500 })
+    } catch (error) {
+        console.error('Logout error:', error)
+        return NextResponse.json({ success: true })
     }
 }
-
-
 

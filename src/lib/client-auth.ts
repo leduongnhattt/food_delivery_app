@@ -3,6 +3,8 @@
 export interface AuthError {
     message: string;
     field?: string;
+    code?: string;
+    status?: number;
 }
 
 export interface RegisterData {
@@ -38,21 +40,45 @@ export async function registerUser(data: RegisterData): Promise<AuthResponse> {
         if (!data.username || !data.email || !data.password || !data.confirmPassword) {
             return {
                 success: false,
-                error: { message: "All fields are required" }
+                error: { message: "signup.errors.allFieldsRequired" }
             };
         }
 
         if (data.password !== data.confirmPassword) {
             return {
                 success: false,
-                error: { message: "Passwords do not match", field: "confirmPassword" }
+                error: { message: "signup.errors.passwordMismatch", field: "confirmPassword" }
             };
         }
 
-        if (data.password.length < 8) {
+        if (data.password.length < 6) {
             return {
                 success: false,
-                error: { message: "Password must be at least 8 characters long", field: "password" }
+                error: { message: "Password must be at least 6 characters long.", field: "password" }
+            };
+        }
+
+        // Check for at least one special character
+        if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(data.password)) {
+            return {
+                success: false,
+                error: { message: "Password must contain at least one special character.", field: "password" }
+            };
+        }
+
+        // Check for at least one number
+        if (!/\d/.test(data.password)) {
+            return {
+                success: false,
+                error: { message: "Password must contain at least one number.", field: "password" }
+            };
+        }
+
+        // Check for at least one letter
+        if (!/[a-zA-Z]/.test(data.password)) {
+            return {
+                success: false,
+                error: { message: "Password must contain at least one letter.", field: "password" }
             };
         }
 
@@ -71,7 +97,7 @@ export async function registerUser(data: RegisterData): Promise<AuthResponse> {
             return {
                 success: false,
                 error: {
-                    message: typeof result.error === 'string' ? result.error : "Registration failed",
+                    message: typeof result.error === 'string' ? result.error : "signup.errors.registrationFailed",
                     field: result.field
                 }
             };
@@ -85,7 +111,7 @@ export async function registerUser(data: RegisterData): Promise<AuthResponse> {
         return {
             success: false,
             error: {
-                message: err instanceof Error ? err.message : "An unexpected error occurred"
+                message: err instanceof Error ? err.message : "signup.errors.unexpectedError"
             }
         };
     }
@@ -118,6 +144,17 @@ export async function loginUser(data: LoginData): Promise<AuthResponse> {
         const result = await response.json();
 
         if (!response.ok) {
+            // Map locked account to a friendly popup message (vi)
+            if (response.status === 403) {
+                return {
+                    success: false,
+                    error: {
+                        message: "Your account has been locked. Please contact support.",
+                        code: 'ACCOUNT_LOCKED',
+                        status: 403
+                    }
+                };
+            }
             return {
                 success: false,
                 error: {

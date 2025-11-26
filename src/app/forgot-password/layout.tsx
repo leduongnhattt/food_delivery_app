@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import "../globals.css";
 import type { Metadata } from "next";
+import { AppProvider } from "@/components/providers/app-provider";
 
 export const metadata: Metadata = {
   title: "HanalaFood - Forgot Password",
@@ -11,7 +12,9 @@ export default function ForgotPasswordLayout({ children }: { children: ReactNode
   return (
     <html lang="en">
       <body className="antialiased">
-        {children}
+        <AppProvider>
+          {children}
+        </AppProvider>
       </body>
     </html>
   );

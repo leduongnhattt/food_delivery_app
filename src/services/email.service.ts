@@ -41,6 +41,7 @@ export async function sendEmail(options: EmailOptions): Promise<boolean> {
 
     return true;
   } catch (error) {
+    console.error('Failed to send email:', error);
     return false;
   }
 }

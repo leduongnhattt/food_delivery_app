@@ -23,12 +23,19 @@
     "errors": {
       "registrationFailed": "Registration failed",
       "passwordMismatch": "Passwords do not match. Please try again.",
-      "passwordTooShort": "Password must be at least 8 characters long."
+      "passwordTooShort": "Password must be at least 8 characters long.",
+      "usernameExists": "This username is already taken. Please choose another one.",
+      "emailExists": "This email is already registered. Please use a different email or sign in.",
+      "validationFailed": "Invalid information. Please check the required fields.",
+      "invalidEmail": "Please enter a valid email address",
+      "unexpectedError": "An unexpected error occurred. Please try again.",
+      "allFieldsRequired": "Please fill in all required information"
     },
     "success": {
       "title": "Registration Successful!",
       "registrationComplete": "Your account has been created successfully. You can now sign in with your credentials.",
-      "continue": "Continue to Sign In"
+      "continue": "Continue to Sign In",
+      "welcomeMessage": "Registration successful! Welcome to HanalaFood."
     }
   },
   "signin": {
@@ -43,11 +50,20 @@
       "accessDenied": "Access denied. This login is for customers only.",
       "popupBlocked": "Popup was blocked. Please allow popups for this site.",
       "timeout": "Authentication timeout. Please try again.",
-      "usernameExists": "Username already exists. Please contact support."
+      "usernameExists": "Username already exists. Please contact support.",
+      "usernameRequired": "Please enter your username",
+      "usernameTooLong": "Username must not exceed 30 characters",
+      "passwordRequired": "Please enter your password"
     },
     "success": {
       "registrationComplete": "Registration successful! Please sign in with your credentials.",
       "passwordResetSuccess": "Password has been reset successfully. Please sign in with your new password."
+    },
+    "lockout": {
+      "title": "Account Temporarily Locked",
+      "message": "You have entered incorrect password or username more than 5 times. Your account has been temporarily locked for 5 minutes.",
+      "timeRemaining": "Time Remaining",
+      "info": "Please wait until the time expires to try again."
     }
   },
   "forgotPassword": {
@@ -107,5 +123,14 @@
       "passwordReset": "Password has been reset successfully. Please log in with your new password.",
       "redirecting": "Redirecting to sign in page..."
     }
+  },
+  "checkout": {
+    "deliveryInfo": {
+      "missingMessage": "Please update your phone number and delivery address before continuing.",
+      "profileAction": "Go to Profile"
+    }
+  },
+  "cart": {
+    "orderLimitExceeded": "You've exceeded the per-item order limit of {amount}. Please place another order for additional items."
   }
 }

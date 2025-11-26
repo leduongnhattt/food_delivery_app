@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
-import { verifyToken } from '@/lib/auth'
+import { verifyTokenEdgeSync } from '@/lib/auth-edge'
 
 const ORDER_STATUS = {
     Pending: 'Pending',
@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
             )
         }
 
-        const decoded = verifyToken(token)
+        const decoded = verifyTokenEdgeSync(token)
         if (!decoded) {
             return NextResponse.json(
                 { error: 'Invalid token' },

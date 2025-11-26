@@ -5,6 +5,7 @@ import { useTranslations } from '@/lib/i18n';
 import { loginWithGoogle } from '@/lib/client-auth';
 import { setAuthToken } from '@/lib/auth-helpers';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 
 interface GoogleAuthButtonProps {
   onSuccess?: () => void;
@@ -82,6 +83,7 @@ export default function GoogleAuthButton({
             onError?.(data.error || t("signin.errors.googleAuthFailed"));
           }
         } catch (err) {
+          console.error('Google auth message handling failed:', err)
           cleanup();
           setIsLoading(false);
           onError?.(t("signin.errors.unexpectedError"));
@@ -114,6 +116,7 @@ export default function GoogleAuthButton({
       window.addEventListener('message', messageHandler);
       
     } catch (err) {
+      console.error('Google auth popup failed:', err)
       setIsLoading(false);
       onError?.(t("signin.errors.unexpectedError"));
     }
@@ -135,10 +138,13 @@ export default function GoogleAuthButton({
           </>
         ) : (
           <>
-            <img
+            <Image
               src={`${process.env.BASE_IMAGE_URL}/icon_google.png`}
               alt="Google icon"
+              width={20}
+              height={20}
               className="w-5 h-5"
+              priority
             />
             {t("common.continueWithGoogle")}
           </>

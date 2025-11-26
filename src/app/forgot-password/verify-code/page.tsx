@@ -7,11 +7,12 @@ import { ErrorDisplay } from "@/components/ui/error-display";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "@/lib/i18n";
+import { PasswordService } from "@/services/password.service";
 
 function VerifyCodeContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { t, isLoading: i18nLoading } = useTranslations();
+  const { isLoading: i18nLoading } = useTranslations();
   const [code, setCode] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -56,17 +57,9 @@ function VerifyCodeContent() {
       setError("");
       setResendSuccess(false);
       
-      const response = await fetch("/api/auth/resend-reset-code", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ email }),
-      });
+      const result = await PasswordService.resendResetCode(email);
 
-      const data = await response.json();
-
-      if (response.ok) {
+      if (result.success) {
         setResendSuccess(true);
         setTimeLeft(60);
         setIsExpired(false);
@@ -77,9 +70,10 @@ function VerifyCodeContent() {
           setResendSuccess(false);
         }, 3000);
       } else {
-        setError(data.error || "Failed to resend code. Please try again.");
+        setError(result.error || "Failed to resend code. Please try again.");
       }
     } catch (error) {
+      console.error("Failed to resend reset code:", error);
       setError("An unexpected error occurred. Please try again.");
     } finally {
       setIsResending(false);
@@ -95,7 +89,6 @@ function VerifyCodeContent() {
   };
 
   const handleSubmit = async () => {
-    // Reset error state
     setError("");
     
     // Check if code is expired
@@ -113,25 +106,18 @@ function VerifyCodeContent() {
     try {
       setIsLoading(true);
       
-      const response = await fetch("/api/auth/verify-reset-code", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ email, code }),
-      });
+      const result = await PasswordService.verifyResetCode(email, code);
       
-      const data = await response.json();
-      
-      if (!response.ok) {
-        setError(data.error || "Invalid or expired reset code");
+      if (!result.success) {
+        setError(result.error || "Invalid or expired reset code");
         return;
       }
       
       // Redirect to reset password page with token
-      router.push(`/forgot-password/reset?token=${data.tokenId}&email=${encodeURIComponent(email)}`);
+      router.push(`/forgot-password/reset?token=${result.tokenId}&email=${encodeURIComponent(email)}`);
       
     } catch (err) {
+      console.error("Failed to verify reset code:", err);
       setError("An unexpected error occurred. Please try again.");
     } finally {
       setIsLoading(false);

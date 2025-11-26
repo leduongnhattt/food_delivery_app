@@ -1,6 +1,7 @@
 'use client'
 import { useRouter } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
+import { useAccountHeader } from '@/hooks/use-account-header'
 
 type UserLike = {
   username?: string | null
@@ -16,7 +17,9 @@ export function UserMenu(props: {
   const { user, onLogout, profileHref = '/profile', settingsHref = '/settings' } = props
   const router = useRouter()
   const [isOpen, setIsOpen] = useState(false)
+  const accountHeader = useAccountHeader()
   const ref = useRef<HTMLDivElement | null>(null)
+  
 
   function handleProfile() {
     setIsOpen(false)
@@ -39,6 +42,8 @@ export function UserMenu(props: {
     return () => document.removeEventListener('mousedown', onClickOutside)
   }, [isOpen])
 
+  // No local fetch - rely on shared account header hook
+
   return (
     <div className="relative" ref={ref}>
       <button
@@ -49,9 +54,14 @@ export function UserMenu(props: {
         className={`relative flex items-center justify-center w-10 h-10 rounded-full border-2 bg-gradient-to-br from-orange-500 via-amber-400 to-yellow-400 text-white shadow-md transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-offset-2 hover:brightness-105 hover:shadow-xl ${isOpen ? 'ring-orange-500' : 'ring-transparent'}`}
       >
         <span className="sr-only">Open profile menu</span>
-        <span className="text-sm font-bold">
-          {(user?.username?.[0] || user?.email?.[0] || 'U').toUpperCase()}
-        </span>
+        {accountHeader.avatar ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={accountHeader.avatar} alt="avatar" className="w-full h-full rounded-full object-cover" />
+        ) : (
+          <span className="text-sm font-bold">
+            {(user?.username?.[0] || user?.email?.[0] || 'U').toUpperCase()}
+          </span>
+        )}
         <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-green-500 ring-1 ring-white" aria-hidden="true"></span>
       </button>
 
@@ -94,6 +104,7 @@ export function UserMenu(props: {
           </div>
         </div>
       )}
+      
     </div>
   )
 }

@@ -3,6 +3,8 @@
 import React, { createContext, useContext, ReactNode } from 'react'
 import { useAppSetup } from '@/hooks/use-app-setup'
 import { SetupStatus } from '@/lib/main'
+import { CartProvider } from '@/hooks/use-cart'
+import { ToastProvider } from '@/contexts/toast-context'
 
 interface AppContextType {
     isLoading: boolean
@@ -75,7 +77,11 @@ export function AppProvider({
     // App is ready, render children
     return (
         <AppContext.Provider value={appSetup}>
-            {children}
+            <ToastProvider>
+                <CartProvider>
+                    {children}
+                </CartProvider>
+            </ToastProvider>
         </AppContext.Provider>
     )
 }

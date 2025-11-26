@@ -1,142 +1,160 @@
 'use client'
-import Link from 'next/link'
-import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import HeroSection from '@/components/landingpage/HeroSection'
 import FoodsSlideMenu from '@/components/landingpage/FoodsSlideMenu'
 import RestaurantMenu from '@/components/landingpage/RestaurantMenu'
+import HealthChatbot from '@/components/health/HealthChatbot'
+import React from 'react'
+import { CategoryService, type CategoryDto } from '@/services/category.service'
+import { getCategoryIcon, getCategoryTone } from '@/lib/category-icons'
+import { useRouter } from 'next/navigation'
 
 export default function HomePage() {
+  const [categories, setCategories] = React.useState<CategoryDto[]>([])
+  const [loadingCategories, setLoadingCategories] = React.useState(true)
+  const router = useRouter()
+
   const handleSearch = (query: string) => {
-    console.log('Searching for:', query);
-    // Implement search logic here
+    if (query.trim()) {
+      router.push(`/search?q=${encodeURIComponent(query)}`)
+    }
   };
+  
   const handleOrderFood = (foodId: string) => {
     console.log('Ordering:', foodId);
-    // Implement order logic
   };
+
+  const handleCategoryClick = (category: string) => {
+    // Navigate to search page with category filter
+    router.push(`/search?q=${encodeURIComponent(category)}`)
+  };
+
+  React.useEffect(() => {
+    let mounted = true
+    CategoryService.getAllDebounced().then(list => {
+      if (mounted) setCategories(list)
+    }).finally(() => mounted && setLoadingCategories(false))
+    return () => { mounted = false }
+  }, [])
+
   return (
-    <div>
-      {/* Hero Section */}
+    <div className="min-h-screen bg-gray-50">
+      {/* Hero Section with Search */}
       <HeroSection 
         onSearch={handleSearch}
-        placeholder="Enter your favorite food..."
+        placeholder="Search for your favorite food..."
       />
 
-      <FoodsSlideMenu
-        title="Popular Foods"
-        onOrderFood={handleOrderFood}
-        foods={[]}
-        className='my-8 mr-4 ml-4'
-        // You can pass foods data and onOrderFood handler as props
-      />
+      {/* Food Categories - Quick Access */}
+      <section className="py-12 bg-white">
+        <div className="container mx-auto px-4">
+          <h2 className="text-2xl md:text-3xl font-bold text-center mb-8 text-gray-800">
+            🍴 Food Categories
+          </h2>
+          {loadingCategories ? (
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+              {Array.from({ length: 12 }).map((_, i) => (
+                <div key={i} className="h-20 rounded-xl bg-gray-100 animate-pulse" />
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+              {categories.map((cat) => (
+                <button
+                  key={cat.id}
+                  onClick={() => handleCategoryClick(cat.name)}
+                  className={`group w-full rounded-xl border ${getCategoryTone(cat.name)} hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-orange-400`}
+                >
+                  <div className="px-4 py-4 flex flex-col items-center justify-center">
+                    <div className="text-3xl mb-2 select-none group-hover:scale-110 transition-transform">{getCategoryIcon(cat.name)}</div>
+                    <div className="font-semibold text-sm truncate">{cat.name}</div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </section>
 
-      <RestaurantMenu
-        className='my-8 mr-4 ml-4'
-        // You can pass restaurants 
-      />
+      {/* Popular Foods Section */}
+      <section className="py-8 bg-gray-50 border-b">
+        <div className="container mx-auto px-4">
+          <FoodsSlideMenu
+            title="🍽️ Popular Foods"
+            onOrderFood={handleOrderFood}
+            useDatabase={true}
+            limit={10}
+            className="mb-0"
+          />
+        </div>
+      </section>
 
-      {/* Features Section */}
-      <section className="py-16 bg-gray-50">
-        <div className="container mx-auto">
-          <h2 className="text-3xl font-bold text-center mb-12">
-            Why Choose FoodieExpress?
+
+      {/* Restaurants Section */}
+      <section className="py-12 bg-gray-50">
+        <div className="container mx-auto px-4">
+          <RestaurantMenu
+            className="mb-0"
+            limit={8}
+            showViewAll={true}
+          />
+        </div>
+      </section>
+
+      {/* Why Choose Us Section */}
+      <section className="py-16 bg-white">
+        <div className="container mx-auto px-4">
+          <h2 className="text-2xl md:text-3xl font-bold text-center mb-12 text-gray-800">
+            ⭐ Why Choose HanalaFood?
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <Card className="text-center">
+            <Card className="text-center hover:shadow-lg transition-shadow border-0 shadow-md">
               <CardHeader>
-                <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <span className="text-2xl">🚀</span>
+                <div className="w-16 h-16 bg-gradient-to-br from-green-400 to-green-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <span className="text-2xl">⚡</span>
                 </div>
-                <CardTitle>Fast Delivery</CardTitle>
+                <CardTitle className="text-gray-800">Lightning Fast Delivery</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-muted-foreground">
-                  Get your food delivered in 30-45 minutes on average. 
-                  We prioritize speed without compromising on quality.
+                <p className="text-gray-600">
+                  Delivery in 30-45 minutes. We prioritize speed without compromising food quality.
                 </p>
               </CardContent>
             </Card>
 
-            <Card className="text-center">
+            <Card className="text-center hover:shadow-lg transition-shadow border-0 shadow-md">
               <CardHeader>
-                <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <span className="text-2xl">🍽️</span>
+                <div className="w-16 h-16 bg-gradient-to-br from-blue-400 to-blue-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <span className="text-2xl">🏆</span>
                 </div>
-                <CardTitle>Quality Restaurants</CardTitle>
+                <CardTitle className="text-gray-800">Quality Restaurants</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-muted-foreground">
-                  Partner with the best restaurants in the city. 
-                  From local favorites to international cuisine.
+                <p className="text-gray-600">
+                  Partner with the best restaurants in the city. From local favorites to international cuisine.
                 </p>
               </CardContent>
             </Card>
 
-            <Card className="text-center">
+            <Card className="text-center hover:shadow-lg transition-shadow border-0 shadow-md">
               <CardHeader>
-                <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <div className="w-16 h-16 bg-gradient-to-br from-purple-400 to-purple-500 rounded-full flex items-center justify-center mx-auto mb-4">
                   <span className="text-2xl">📱</span>
                 </div>
-                <CardTitle>Easy Ordering</CardTitle>
+                <CardTitle className="text-gray-800">Easy Ordering</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-muted-foreground">
-                  Simple and intuitive ordering process. 
-                  Track your order in real-time from kitchen to doorstep.
+                <p className="text-gray-600">
+                  Simple and intuitive ordering process. Track your order in real-time from kitchen to doorstep.
                 </p>
               </CardContent>
             </Card>
           </div>
         </div>
       </section>
-
-      {/* Popular Categories */}
-      <section className="py-16">
-        <div className="container mx-auto">
-          <h2 className="text-3xl font-bold text-center mb-12">
-            Popular Food Categories
-          </h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-            {[
-              { name: 'Pizza', icon: '🍕', color: 'bg-red-100' },
-              { name: 'Sushi', icon: '🍣', color: 'bg-blue-100' },
-              { name: 'Pho', icon: '🍜', color: 'bg-orange-100' },
-              { name: 'Burgers', icon: '🍔', color: 'bg-yellow-100' },
-              { name: 'Salads', icon: '🥗', color: 'bg-green-100' },
-              { name: 'Desserts', icon: '🍰', color: 'bg-pink-100' },
-              { name: 'Drinks', icon: '🥤', color: 'bg-purple-100' },
-              { name: 'Coffee', icon: '☕', color: 'bg-brown-100' },
-            ].map((category) => (
-              <Card key={category.name} className="text-center hover:shadow-lg transition-shadow cursor-pointer">
-                <CardContent className="pt-6">
-                  <div className={`w-16 h-16 ${category.color} rounded-full flex items-center justify-center mx-auto mb-4`}>
-                    <span className="text-2xl">{category.icon}</span>
-                  </div>
-                  <h3 className="font-semibold">{category.name}</h3>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* CTA Section */}
-      <section className="py-16 bg-orange-500 text-white">
-        <div className="container mx-auto text-center">
-          <h2 className="text-3xl font-bold mb-4">
-            Ready to Order Delicious Food?
-          </h2>
-          <p className="text-xl mb-8">
-            Join thousands of satisfied customers who choose FoodieExpress for their food delivery needs.
-          </p>
-          <Link href="/restaurants">
-            <Button size="lg" variant="secondary">
-              Start Ordering Now
-            </Button>
-          </Link>
-        </div>
-      </section>
+      
+      {/* Health Chatbot */}
+      <HealthChatbot />
     </div>
   )
 }

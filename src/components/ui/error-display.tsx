@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 interface ErrorDisplayProps {
   error: string | null;
@@ -21,6 +21,13 @@ export function ErrorDisplay({
 }: ErrorDisplayProps) {
   const [isVisible, setIsVisible] = useState(false);
 
+  const handleClose = useCallback(() => {
+    setIsVisible(false);
+    setTimeout(() => {
+      onClose?.();
+    }, 300); // Wait for animation to complete
+  }, [onClose]);
+
   useEffect(() => {
     if (error) {
       setIsVisible(true);
@@ -34,14 +41,7 @@ export function ErrorDisplay({
     } else {
       setIsVisible(false);
     }
-  }, [error, autoHide, autoHideDelay]);
-
-  const handleClose = () => {
-    setIsVisible(false);
-    setTimeout(() => {
-      onClose?.();
-    }, 300); // Wait for animation to complete
-  };
+  }, [error, autoHide, autoHideDelay, handleClose]);
 
   if (!error || !isVisible) return null;
 

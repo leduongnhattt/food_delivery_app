@@ -23,12 +23,19 @@
     "errors": {
       "registrationFailed": "Đăng ký thất bại",
       "passwordMismatch": "Mật khẩu không khớp. Vui lòng thử lại.",
-      "passwordTooShort": "Mật khẩu phải có ít nhất 8 ký tự."
+      "passwordTooShort": "Mật khẩu phải có ít nhất 8 ký tự.",
+      "usernameExists": "Tên đăng nhập này đã được sử dụng. Vui lòng chọn tên khác.",
+      "emailExists": "Email này đã được đăng ký. Vui lòng sử dụng email khác hoặc đăng nhập.",
+      "validationFailed": "Thông tin không hợp lệ. Vui lòng kiểm tra lại các trường bắt buộc.",
+      "invalidEmail": "Vui lòng nhập địa chỉ email hợp lệ",
+      "unexpectedError": "Có lỗi không mong muốn xảy ra. Vui lòng thử lại.",
+      "allFieldsRequired": "Vui lòng điền đầy đủ thông tin"
     },
     "success": {
       "title": "Đăng ký thành công!",
       "registrationComplete": "Tài khoản của bạn đã được tạo thành công. Bây giờ bạn có thể đăng nhập với thông tin của mình.",
-      "continue": "Tiếp tục đăng nhập"
+      "continue": "Tiếp tục đăng nhập",
+      "welcomeMessage": "Đăng ký thành công! Chào mừng bạn đến với HanalaFood."
     }
   },
   "signin": {
@@ -43,11 +50,20 @@
       "accessDenied": "Truy cập bị từ chối. Đăng nhập này chỉ dành cho khách hàng.",
       "popupBlocked": "Popup bị chặn. Vui lòng cho phép popup cho trang web này.",
       "timeout": "Hết thời gian xác thực. Vui lòng thử lại.",
-      "usernameExists": "Tên đăng nhập đã tồn tại. Vui lòng liên hệ hỗ trợ."
+      "usernameExists": "Tên đăng nhập đã tồn tại. Vui lòng liên hệ hỗ trợ.",
+      "usernameRequired": "Vui lòng nhập tên đăng nhập",
+      "usernameTooLong": "Tên đăng nhập không được vượt quá 30 ký tự",
+      "passwordRequired": "Vui lòng nhập mật khẩu"
     },
     "success": {
       "registrationComplete": "Đăng ký thành công! Vui lòng đăng nhập với thông tin của bạn.",
       "passwordResetSuccess": "Mật khẩu đã được đặt lại thành công. Vui lòng đăng nhập với mật khẩu mới."
+    },
+    "lockout": {
+      "title": "Tài khoản tạm thời bị khóa",
+      "message": "Bạn đã nhập sai mật khẩu hoặc tên đăng nhập quá 5 lần. Tài khoản của bạn đã bị khóa tạm thời trong 5 phút.",
+      "timeRemaining": "Thời gian còn lại",
+      "info": "Vui lòng đợi cho đến khi hết thời gian để thử lại."
     }
   },
   "forgotPassword": {
@@ -107,5 +123,14 @@
       "passwordReset": "Mật khẩu đã được đặt lại thành công. Vui lòng đăng nhập với mật khẩu mới.",
       "redirecting": "Đang chuyển hướng đến trang đăng nhập..."
     }
+  },
+  "checkout": {
+    "deliveryInfo": {
+      "missingMessage": "Vui lòng cập nhật số điện thoại và địa chỉ giao hàng trước khi tiếp tục.",
+      "profileAction": "Đến trang hồ sơ"
+    }
+  },
+  "cart": {
+    "orderLimitExceeded": "Bạn đã vượt giới hạn mỗi món {amount}. Vui lòng tạo đơn mới cho các món thêm."
   }
 }

@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { requireAdmin } from '@/lib/auth-helpers'
+import { withRateLimit, getClientIp } from '@/lib/rate-limit'
 
-export async function GET(request: NextRequest) {
+export const GET = withRateLimit(async (request: NextRequest) => {
     try {
         const { searchParams } = new URL(request.url)
         const enterpriseId = searchParams.get('enterpriseId')
@@ -13,20 +14,15 @@ export async function GET(request: NextRequest) {
                 CategoryID: true,
                 CategoryName: true,
                 Description: true,
+                CreatedAt: true,
                 _count: {
                     select: {
                         foods: {
                             where: {
                                 IsAvailable: true,
-                                // Filter by enterprise if provided
+                                // Filter by enterprise directly via Food.EnterpriseID if provided
                                 ...(enterpriseId && {
-                                    menuFoods: {
-                                        some: {
-                                            menu: {
-                                                EnterpriseID: enterpriseId
-                                            }
-                                        }
-                                    }
+                                    EnterpriseID: enterpriseId
                                 })
                             }
                         }
@@ -41,8 +37,9 @@ export async function GET(request: NextRequest) {
         const formattedCategories = categories.map(cat => ({
             id: cat.CategoryID,
             name: cat.CategoryName,
-            description: cat.Description,
-            foodCount: cat._count.foods
+            description: cat.Description || '',
+            foodCount: cat._count.foods,
+            createdAt: cat.CreatedAt ? cat.CreatedAt.toISOString() : new Date().toISOString()
         }))
 
         return NextResponse.json({
@@ -56,9 +53,9 @@ export async function GET(request: NextRequest) {
             { status: 500 }
         )
     }
-}
+}, (req) => ({ key: `categories:${getClientIp(req)}`, limit: 60, windowMs: 60 * 1000 }))
 
-export async function POST(request: NextRequest) {
+export const POST = withRateLimit(async (request: NextRequest) => {
     try {
         // Require admin authentication (only admin can create categories)
         const authResult = requireAdmin(request)
@@ -133,4 +130,4 @@ export async function POST(request: NextRequest) {
             { status: 500 }
         )
     }
-}
+}, (req) => ({ key: `categories_post:${getClientIp(req)}`, limit: 20, windowMs: 60 * 1000 }))

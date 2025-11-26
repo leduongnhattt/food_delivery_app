@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, useEffect } from 'react';
+import { useCart } from '@/hooks/use-cart'
 import { useRouter } from 'next/navigation';
 import {
-    getAuthToken,
     getCurrentUser,
     logoutUser,
     isAuthenticated,
@@ -23,6 +23,7 @@ export function useAuth() {
         isLoading: true
     });
     const router = useRouter();
+    const { resetAfterLogout } = useCart()
 
     // Check authentication status
     const checkAuth = async () => {
@@ -57,6 +58,8 @@ export function useAuth() {
     const logout = async () => {
         try {
             await logoutUser();
+            // Ensure cart state switches to guest immediately without page refresh
+            await resetAfterLogout();
             setAuthState({
                 isAuthenticated: false,
                 user: null,

@@ -1,225 +1,278 @@
-import React, { useRef } from 'react';
+import React from 'react';
+import { useRouter } from 'next/navigation';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import FoodCard from './FoodCard';
+import { useHorizontalScroll } from '@/hooks/use-horizontal-scroll';
+import { useResponsiveCardSizes } from '@/hooks/use-responsive-card-sizes';
+import { useScrollIndicators } from '@/hooks/use-scroll-indicators';
+import { usePopularFoods } from '@/hooks/use-popular-foods';
+import { SAMPLE_FOODS } from '@/data/sample-foods';
+import { Food, RestaurantModalInfo, ApiRestaurantPayload, FoodsSlideMenuProps } from '@/types/models';
+import { OrderModal } from '@/components/ui/order-modal';
+import { getRestaurantById } from '@/data/sample-restaurants';
+import { Loading } from '@/components/ui/loading';
+import { ErrorDisplay } from '@/components/ui/error-display';
 
-// Unified nested JSON structure
-interface Menu {
-  menuId: string;
-  category: string;
-}
+// moved to types/models.ts -> FoodsSlideMenuProps
 
-interface Food {
-  foodId: string;
-  dishName: string;
-  price: number;
-  stock: number;
-  description: string;
-  imageUrl: string;
-  menu: Menu;
-}
-
-interface FoodsSlideMenuProps {
-  title?: string;
-  foods?: Food[];
-  onOrderFood: (foodId: string) => void;
-  className?: string;
-}
-
-// Sample unified nested JSON data
-const sampleFoods: Food[] = [
-  {
-    foodId: 'food-1',
-    dishName: 'Hamburger',
-    price: 3.98,
-    stock: 15,
-    description: 'Juicy beef patty with fresh lettuce, tomatoes, and special sauce',
-    imageUrl: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=300&h=200&fit=crop',
-    menu: {
-      menuId: 'menu-1',
-      category: 'Main Dish'
-    },
-  },
-  {
-    foodId: 'food-2',
-    dishName: 'Toffee\'s Cake',
-    price: 4.00,
-    stock: 8,
-    description: 'Rich chocolate cake with toffee sauce and fresh blueberries',
-    imageUrl: 'https://images.unsplash.com/photo-1578985545062-69928b1d9587?w=300&h=200&fit=crop',
-    menu: {
-      menuId: 'menu-2',
-      category: 'Dessert'
-    },
-  },
-  {
-    foodId: 'food-3',
-    dishName: 'Pancake',
-    price: 1.99,
-    stock: 12,
-    description: 'Fluffy pancakes served with maple syrup and butter',
-    imageUrl: 'https://images.unsplash.com/photo-1506084868230-bb9d95c24759?w=300&h=200&fit=crop',
-    menu: {
-      menuId: 'menu-3',
-      category: 'Breakfast'
-    },
-  },
-  {
-    foodId: 'food-4',
-    dishName: 'Crispy Sandwich',
-    price: 3.00,
-    stock: 6,
-    description: 'Grilled sandwich with crispy bacon and melted cheese',
-    imageUrl: '',
-    menu: {
-      menuId: 'menu-4',
-      category: 'Sandwich'
-    },
-  },
-  {
-    foodId: 'food-5',
-    dishName: 'Thai Soup',
-    price: 2.79,
-    stock: 10,
-    description: 'Spicy and aromatic Thai soup with coconut milk and herbs',
-    imageUrl: 'https://images.unsplash.com/photo-1569718212165-3a8278d5f624?w=300&h=200&fit=crop',
-    menu: {
-      menuId: 'menu-5',
-      category: 'Soup'
-    },
-  },
-  {
-    foodId: 'food-6',
-    dishName: 'Spaghetti Carbonara',
-    price: 8.50,
-    stock: 0,
-    description: 'Classic Italian pasta with eggs, cheese, and pancetta',
-    imageUrl: '',
-    menu: {
-      menuId: 'menu-1',
-      category: 'Main Dish'
-    },
-  },
-  {
-    foodId: 'food-7',
-    dishName: 'Caesar Salad',
-    price: 5.99,
-    stock: 20,
-    description: 'Fresh romaine lettuce with parmesan cheese and croutons',
-    imageUrl: 'https://images.unsplash.com/photo-1512852939750-1305098529bf?w=300&h=200&fit=crop',
-    menu: {
-      menuId: 'menu-1',
-      category: 'Main Dish'
-    },
-  },
-  {
-    foodId: 'food-8',
-    dishName: 'Fish & Chips',
-    price: 7.25,
-    stock: 3,
-    description: 'Crispy battered fish served with golden french fries',
-    imageUrl: 'https://images.unsplash.com/photo-1544982503-9f984c14501a?w=300&h=200&fit=crop',
-    menu: {
-      menuId: 'menu-1',
-      category: 'Main Dish'
-    },
-  },
-  {
-    foodId: 'food-9',
-    dishName: 'Grilled Chicken',
-    price: 6.50,
-    stock: 8,
-    description: 'Tender grilled chicken breast with herbs and spices',
-    imageUrl: 'https://images.unsplash.com/photo-1532550907401-a500c9a57435?w=300&h=200&fit=crop',
-    menu: {
-      menuId: 'menu-1',
-      category: 'Main Dish'
-    },
-  },
-  {
-    foodId: 'food-10',
-    dishName: 'Chocolate Brownie',
-    price: 3.50,
-    stock: 15,
-    description: 'Rich and fudgy chocolate brownie with vanilla ice cream',
-    imageUrl: 'https://images.unsplash.com/photo-1606313564200-e75d5e30476c?w=300&h=200&fit=crop',
-    menu: {
-      menuId: 'menu-2',
-      category: 'Dessert'
-    },
-  }
-];
 
 const FoodsSlideMenu: React.FC<FoodsSlideMenuProps> = ({ 
   title = "Popular Dishes", 
   foods, 
   onOrderFood,
-  className = ""
+  className = "",
+  useDatabase = false,
+  restaurantId,
+  category,
+  limit = 10
 }) => {
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const router = useRouter();
+  const [selectedFood, setSelectedFood] = React.useState<Food | null>(null);
+  const [isModalOpen, setIsModalOpen] = React.useState(false);
+  
+  // Fetch foods from database if useDatabase is true
+  const { 
+    foods: databaseFoods, 
+    loading, 
+    error 
+  } = usePopularFoods({
+    restaurantId,
+    category,
+    limit
+  });
+  
+  // Use custom hooks for scroll functionality
+  const {
+    scrollContainerRef,
+    showLeftArrow,
+    showRightArrow,
+    handleMouseDown,
+    handleMouseMove,
+    handleMouseUp,
+    handleMouseLeave,
+    handleTouchStart,
+    handleTouchMove,
+    handleTouchEnd,
+    scroll
+  } = useHorizontalScroll({
+    momentumMultiplier: 300,
+    velocityThreshold: 0.5,
+    dragMultiplier: 1.5
+  });
 
-  const scroll = (direction: 'left' | 'right'): void => {
-    if (scrollContainerRef.current) {
-      const scrollAmount = 320; // Width of card + gap
-      const currentScroll = scrollContainerRef.current.scrollLeft;
-      const targetScroll = direction === 'left' 
-        ? currentScroll - scrollAmount 
-        : currentScroll + scrollAmount;
-      
-      scrollContainerRef.current.scrollTo({
-        left: targetScroll,
-        behavior: 'smooth'
-      });
+  // Use responsive card sizes hook
+  const { getCardSizeClasses } = useResponsiveCardSizes();
+
+  // Resolve restaurant info for the OrderModal from multiple possible sources
+  const resolveRestaurantInfo = (food: Food): RestaurantModalInfo => {
+    const enriched = food as Food & Partial<ApiRestaurantPayload>
+
+    // Prefer data embedded from DB responses
+    if (enriched.restaurant && (enriched.restaurant.name || enriched.restaurant.id)) {
+      return {
+        id: enriched.restaurant.id ?? food.restaurantId,
+        name: enriched.restaurant.name ?? 'Restaurant',
+        rating: enriched.restaurant.rating ?? 4.5,
+        deliveryTime: enriched.restaurant.deliveryTime ?? '30-45 min',
+        logo: enriched.restaurant.avatarUrl ?? null,
+      }
+    }
+
+    if (enriched.enterprise && (enriched.enterprise.EnterpriseName || enriched.enterprise.Avatar)) {
+      return {
+        id: food.restaurantId,
+        name: enriched.enterprise.EnterpriseName ?? 'Restaurant',
+        rating: 4.5,
+        deliveryTime: '30-45 min',
+        logo: enriched.enterprise.Avatar ?? null,
+      }
+    }
+
+    // Fallback to local sample data for non-DB items
+    const fallback = getRestaurantById(food.restaurantId)
+    if (fallback) {
+      return {
+        id: fallback.id,
+        name: fallback.name,
+        rating: fallback.rating,
+        deliveryTime: fallback.deliveryTime,
+        logo: fallback.avatarUrl,
+      }
+    }
+
+    return { id: food.restaurantId, name: 'Restaurant', rating: 4.5, deliveryTime: '30-45 min', logo: null }
+  }
+
+  // Determine which foods to display
+  const displayFoods = React.useMemo(() => {
+    if (useDatabase) {
+      return databaseFoods;
+    }
+    return foods && foods.length > 0 ? foods : SAMPLE_FOODS;
+  }, [useDatabase, databaseFoods, foods]);
+
+  // Use scroll indicators hook
+  const { generateDots, shouldShowIndicators } = useScrollIndicators({
+    totalItems: displayFoods.length,
+    itemsPerPage: 2,
+    isMobile: true
+  });
+
+  const handleOrderFood = (foodId: string): void => {
+    // Find the food item to get restaurantId
+    const foodItem = displayFoods.find(food => food.foodId === foodId);
+    
+    if (foodItem) {
+      // Open modal instead of direct navigation
+      setSelectedFood(foodItem);
+      setIsModalOpen(true);
+    } else {
+      // Fallback: call the original onOrderFood function
+      console.log('Ordering food:', foodId);
+      onOrderFood(foodId);
     }
   };
 
-  const handleOrderFood = (foodId: string): void => {
-    console.log('Ordering food:', foodId);
-    onOrderFood(foodId);
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setSelectedFood(null);
   };
 
+  // Show loading state
+  if (useDatabase && loading) {
+    return (
+      <div className={`relative w-full overflow-hidden ${className}`} style={{ minWidth: '0' }}>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 sm:mb-6 gap-3 sm:gap-4 px-2 sm:px-0">
+          <h2 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-bold text-gray-800 truncate">
+            {title}
+          </h2>
+        </div>
+        <div className="flex justify-center items-center py-8">
+          <Loading />
+        </div>
+      </div>
+    );
+  }
+
+  // Show error state
+  if (useDatabase && error) {
+    return (
+      <div className={`relative w-full overflow-hidden ${className}`} style={{ minWidth: '0' }}>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 sm:mb-6 gap-3 sm:gap-4 px-2 sm:px-0">
+          <h2 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-bold text-gray-800 truncate">
+            {title}
+          </h2>
+        </div>
+        <div className="flex justify-center items-center py-8">
+          <ErrorDisplay 
+            error={error}
+            onClose={() => window.location.reload()}
+          />
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className={`relative ${className}`}>
+    <div className={`relative w-full overflow-hidden ${className}`} style={{ minWidth: '0' }}>
       {/* Header */}
-      <div className="flex flex-1 items-center justify-between mb-6">
-        <h2 className="text-2xl md:text-3xl font-bold text-gray-800">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 sm:mb-6 gap-3 sm:gap-4 px-2 sm:px-0">
+        <h2 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-bold text-gray-800 truncate">
           {title}
         </h2>
-        
-        {/* Navigation Buttons */}
-        <div className="flex gap-2">
+
+        {/* Right actions: View full menu (if restaurantId) + navigation arrows */}
+        <div className="flex items-center gap-2 self-end sm:self-auto">
+          {restaurantId && (
+            <button
+              onClick={() => router.push(`/restaurants/${restaurantId}`)}
+              className="px-3 py-1.5 sm:px-4 sm:py-2 rounded-full bg-orange-500 hover:bg-orange-600 text-white text-xs sm:text-sm font-medium shadow-md hover:shadow-lg transition-all duration-200"
+            >
+              View full menu
+            </button>
+          )}
+          
+          {/* Navigation Buttons */}
+          <div className="flex gap-1 sm:gap-2">
           <button 
             onClick={() => scroll('left')}
-            className="p-2 rounded-full bg-white shadow-md hover:shadow-lg hover:scale-[1.2] transition-all duration-200 border border-gray-200"
+            className={`p-1.5 sm:p-2 rounded-full bg-white shadow-md hover:shadow-lg hover:scale-[1.1] sm:hover:scale-[1.2] transition-all duration-200 border border-gray-200 ${
+              !showLeftArrow ? 'opacity-50 cursor-not-allowed' : ''
+            }`}
+            disabled={!showLeftArrow}
             aria-label="Scroll left"
           >
-            <ChevronLeft className="w-5 h-5 text-gray-600" />
+            <ChevronLeft className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5 text-gray-600" />
           </button>
           <button 
             onClick={() => scroll('right')}
-            className="p-2 rounded-full bg-white shadow-md hover:shadow-lg hover:scale-[1.2] transition-all duration-200 border border-gray-200"
+            className={`p-1.5 sm:p-2 rounded-full bg-white shadow-md hover:shadow-lg hover:scale-[1.1] sm:hover:scale-[1.2] transition-all duration-200 border border-gray-200 ${
+              !showRightArrow ? 'opacity-50 cursor-not-allowed' : ''
+            }`}
+            disabled={!showRightArrow}
             aria-label="Scroll right"
           >
-            <ChevronRight className="w-5 h-5 text-gray-600" />
+            <ChevronRight className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5 text-gray-600" />
           </button>
+          </div>
         </div>
       </div>
 
-      {/* Foods Slider */}
+      {/* Foods Slider - Single Row */}
       <div 
         ref={scrollContainerRef}
-        className="flex gap-4 overflow-x-auto scrollbar-hide pb-4"
-        style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+        className="flex gap-3 sm:gap-4 md:gap-6 overflow-x-auto scrollbar-hide pb-2 sm:pb-4 cursor-grab select-none px-2 sm:px-0"
+        style={{ 
+          scrollbarWidth: 'none', 
+          msOverflowStyle: 'none',
+          WebkitOverflowScrolling: 'touch'
+        }}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseLeave}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
       >
-        {sampleFoods.map((food) => ( // sau dùng foods props
-          <FoodCard 
-            key={food.foodId} 
-            food={food} 
-            onOrderNow={handleOrderFood}
-          />
+        {displayFoods.map((food) => (
+          <div 
+            key={food.foodId}
+            className={`flex-shrink-0 ${getCardSizeClasses()}`}
+          >
+            <FoodCard 
+              food={food} 
+              onOrderNow={handleOrderFood}
+            />
+          </div>
         ))}
       </div>
 
+      {/* Scroll indicator dots for mobile */}
+      {shouldShowIndicators && (
+        <div className="flex justify-center mt-3 sm:mt-4 sm:hidden px-2">
+          <div className="flex gap-1.5 sm:gap-2">
+            {generateDots().map((dot) => (
+              <div
+                key={dot.index}
+                className={`w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full transition-colors duration-200 ${
+                  dot.isActive ? 'bg-orange-500' : 'bg-gray-300'
+                }`}
+              />
+            ))}
+          </div>
+        </div>
+      )}
 
+      {/* Order Modal */}
+      {selectedFood && (
+        <OrderModal
+          isOpen={isModalOpen}
+          onClose={handleCloseModal}
+          food={selectedFood}
+          restaurant={resolveRestaurantInfo(selectedFood)}
+        />
+      )}
     </div>
   );
 };

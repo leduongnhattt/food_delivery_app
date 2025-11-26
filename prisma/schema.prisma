@@ -30,6 +30,7 @@ model Account {
   Avatar            String?       @db.VarChar(255)
   RoleID            String        @db.VarChar(36)
   Locale            String?       @db.VarChar(10)
+  Currency          String?       @db.VarChar(3) // Currency code (e.g., USD, VND, EUR)
   Status            AccountStatus @default(Active)
   CreatedAt         DateTime      @default(now())
   UpdatedAt         DateTime?     @updatedAt
@@ -51,6 +52,7 @@ model Account {
 
   @@index([RoleID])
   @@index([Locale])
+  @@index([Currency])
   @@index([Status])
   @@index([CreatedAt])
   @@index([Provider])
@@ -92,6 +94,8 @@ model Enterprise {
   CreatedAt       DateTime @default(now())
   UpdatedAt       DateTime? @updatedAt
   DeletedAt       DateTime?
+  CommissionRate  Decimal? @db.Decimal(5, 2)
+  SettlementCycle SettlementCycle?
 
   account   Account   @relation(fields: [AccountID], references: [AccountID], onDelete: Restrict)
   vouchers  Voucher[]
@@ -99,6 +103,7 @@ model Enterprise {
   reviews   Review[]
   carts     Cart[]
   foods     Food[]
+  settlements Settlement[]
 
   @@index([AccountID])
   @@index([EnterpriseName])
@@ -110,7 +115,6 @@ model Enterprise {
 model Admin {
   AdminID           String  @id @default(uuid()) @db.VarChar(36)
   AccountID         String  @unique @db.VarChar(36)
-  Permission        Json?
   CanManageSystem   Boolean @default(false)
   CanViewReport     Boolean @default(false)
   RoleLevel         Int     @default(1)
@@ -237,11 +241,13 @@ model Order {
   DeliveryNote              String?     @db.Text
   EstimatedDeliveryTime     DateTime?
   Status                    OrderStatus @default(Pending)
+  CommissionAmount          Decimal?    @db.Decimal(18, 2)
 
   customer      Customer    @relation(fields: [CustomerID], references: [CustomerID], onDelete: Restrict)
   voucher       Voucher?    @relation(fields: [VoucherID], references: [VoucherID], onDelete: SetNull)
   orderDetails  OrderDetail[]
   payments      Payment[]
+  settlementItems SettlementItem[]
 
   @@index([VoucherID])
   @@index([Status])
@@ -271,17 +277,21 @@ model OrderDetail {
 
 model Cart {
   CartID       String   @id @default(uuid()) @db.VarChar(36)
-  CustomerID   String   @db.VarChar(36)
+  CustomerID   String?  @db.VarChar(36)
   EnterpriseID String?  @db.VarChar(36)
+  GuestToken   String?  @unique @db.VarChar(64)
+  Status       CartStatus @default(Active)
+  ExpiresAt    DateTime?
   CreatedAt    DateTime @default(now())
   UpdatedAt    DateTime? @updatedAt
 
-  customer  Customer   @relation(fields: [CustomerID], references: [CustomerID], onDelete: Cascade)
+  customer  Customer?  @relation(fields: [CustomerID], references: [CustomerID], onDelete: Cascade)
   enterprise Enterprise? @relation(fields: [EnterpriseID], references: [EnterpriseID], onDelete: SetNull)
   items      CartItem[]
 
   @@index([CustomerID])
   @@index([EnterpriseID])
+  @@index([ExpiresAt])
   @@map("CART")
 }
 
@@ -302,6 +312,12 @@ model CartItem {
   @@index([FoodID])
   @@unique([CartID, FoodID])
   @@map("CART_ITEM")
+}
+
+enum CartStatus {
+  Active
+  CheckedOut
+  Abandoned
 }
 
 model DeliveryDriver {
@@ -339,6 +355,40 @@ model Payment {
   @@index([PaymentStatus])
   @@index([PaymentDate])
   @@map("PAYMENT")
+}
+
+model Settlement {
+  SettlementID  String   @id @default(uuid()) @db.VarChar(36)
+  EnterpriseID  String   @db.VarChar(36)
+  PeriodStart   DateTime
+  PeriodEnd     DateTime
+  NetPayout     Decimal? @db.Decimal(18, 2)
+  Status        SettlementStatus @default(Pending)
+  PaidAt        DateTime?
+  TransactionID String?  @db.VarChar(255)
+  CreatedAt     DateTime @default(now())
+
+  enterprise  Enterprise @relation(fields: [EnterpriseID], references: [EnterpriseID], onDelete: Restrict)
+  items       SettlementItem[]
+
+  @@index([EnterpriseID])
+  @@index([Status])
+  @@index([PeriodStart, PeriodEnd])
+  @@map("SETTLEMENT")
+}
+
+model SettlementItem {
+  SettlementItemID String  @id @default(uuid()) @db.VarChar(36)
+  SettlementID     String  @db.VarChar(36)
+  OrderID          String  @db.VarChar(36)
+  IsCOD            Boolean @default(false)
+
+  settlement Settlement @relation(fields: [SettlementID], references: [SettlementID], onDelete: Cascade)
+  order      Order      @relation(fields: [OrderID], references: [OrderID], onDelete: Restrict)
+
+  @@index([SettlementID])
+  @@index([OrderID])
+  @@map("SETTLEMENT_ITEM")
 }
 
 model Support {
@@ -480,6 +530,19 @@ enum PaymentStatus {
   Pending
   Completed
   Failed
+}
+
+enum SettlementStatus {
+  Pending
+  Processing
+  Completed
+  Failed
+}
+
+enum SettlementCycle {
+  Weekly
+  Monthly
+  Yearly
 }
 
 enum DriverStatus {

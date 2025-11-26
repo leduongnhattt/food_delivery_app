@@ -1,59 +1,102 @@
 import Image from "next/image";
+import Link from "next/link";
 import React from "react";
-
-export interface Restaurant {
-  enterpriseId: string;
-  accountId: string;
-  enterpriseName: string;
-  address: string;
-  description: string;
-  avatar?: string;
-  status: "open" | "closed";
-}
-
+import { Star } from 'lucide-react';
+import { RestaurantCardData } from '@/types/models';
 
 interface Props {
-  restaurant: Restaurant;
+  restaurant: RestaurantCardData;
+  showRating?: boolean;
+  showDescription?: boolean;
 }
 
-const RestaurantCard: React.FC<Props> = ({ restaurant }) => {
+const RestaurantCard: React.FC<Props> = ({ 
+  restaurant, 
+  showRating = true,
+  showDescription = true 
+}) => {
   return (
-    <div className="border rounded-xl p-4 shadow hover:shadow-lg transition flex items-start">
-      {/* Avatar */}
-      <div className="w-[40%] h-full mr-4 flex-shrink-0">
-        {restaurant.avatar ? (
+    <Link href={`/restaurants/${restaurant.enterpriseId}`} className="block">
+      <div className="group bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-2 cursor-pointer">
+      {/* Restaurant Image */}
+      <div className="relative h-48 overflow-hidden">
+        {restaurant.avatarUrl ? (
           <Image
-            src={restaurant.avatar}
+            src={restaurant.avatarUrl}
             alt={restaurant.enterpriseName}
-            width={120}
-            height={120}
-            className="w-full h-full object-cover rounded-lg"
-            style={{ aspectRatio: "1 / 1" }}
+            width={400}
+            height={192}
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
           />
         ) : (
-          <div className="w-full h-full bg-gray-200 rounded-lg flex items-center justify-center text-gray-500 text-xs" style={{ aspectRatio: "1 / 1" }}>
-            No Image
+          <div className="w-full h-full bg-gradient-to-br from-orange-400 via-orange-500 to-orange-600 flex items-center justify-center">
+            <div className="text-center text-white">
+              <div className="text-4xl mb-2">🍽️</div>
+              <div className="text-2xl font-bold">{restaurant.enterpriseName.charAt(0)}</div>
+            </div>
           </div>
         )}
-      </div>
-
-      {/* Nội dung */}
-      <div className="flex flex-col flex-1 h-full">
-        <h2 className="font-bold text-lg mb-1">{restaurant.enterpriseName}</h2>
-        <p className="text-sm text-gray-600 mb-1">{restaurant.address}</p>
-        <div className="mt-auto self-end">
+        
+        {/* Status Badge */}
+        <div className="absolute top-3 right-3">
           <span
-            className={`px-3 py-1 rounded-full text-xs font-medium ${
+            className={`px-3 py-1 rounded-full text-xs font-semibold shadow-sm ${
               restaurant.status === "open"
-                ? "bg-green-100 text-green-700"
-                : "bg-red-100 text-red-700"
+                ? "bg-green-500 text-white"
+                : "bg-red-500 text-white"
             }`}
           >
-            {restaurant.status === "open" ? "Đang mở cửa" : "Đã đóng cửa"}
+            {restaurant.status === "open" ? "Open" : "Closed"}
           </span>
         </div>
       </div>
-    </div>
+
+      {/* Restaurant Info */}
+      <div className="p-5">
+        <div className="mb-3">
+          <h3 className="font-bold text-lg text-gray-900 mb-1 line-clamp-1 group-hover:text-orange-600 transition-colors">
+            {restaurant.enterpriseName}
+          </h3>
+          <p className="text-sm text-gray-600 line-clamp-1 flex items-center">
+            <span className="mr-1">📍</span>
+            {restaurant.address}
+          </p>
+        </div>
+
+        {showDescription && restaurant.description && (
+          <p className="text-sm text-gray-500 mb-3 line-clamp-2">
+            {restaurant.description}
+          </p>
+        )}
+
+        {showRating && (
+          <div className="flex items-center mb-3">
+            <div className="flex items-center">
+              <Star className="w-4 h-4 text-yellow-400 fill-current" />
+              <Star className="w-4 h-4 text-yellow-400 fill-current" />
+              <Star className="w-4 h-4 text-yellow-400 fill-current" />
+              <Star className="w-4 h-4 text-yellow-400 fill-current" />
+              <Star className="w-4 h-4 text-gray-300" />
+            </div>
+            <span className="text-sm text-gray-600 ml-2 font-medium">4.2</span>
+            <span className="text-xs text-gray-400 ml-1">(128 reviews)</span>
+          </div>
+        )}
+
+        {/* Delivery Info */}
+        <div className="flex items-center justify-between pt-3 border-t border-gray-100">
+          <div className="flex items-center text-sm text-gray-600">
+            <span className="mr-1">⏱️</span>
+            <span className="font-medium">30-45 min</span>
+          </div>
+          <div className="flex items-center text-sm text-gray-600">
+            <span className="mr-1">🚚</span>
+            <span className="font-medium">Free</span>
+          </div>
+        </div>
+      </div>
+      </div>
+    </Link>
   );
 };
 

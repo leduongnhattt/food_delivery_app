@@ -56,7 +56,8 @@ export async function POST(request: NextRequest) {
     // Issue tokens
     const { accessToken, refreshToken, expiredAt } = await issueTokens(
       user.AccountID,
-      user.role?.RoleName || 'customer'
+      user.role?.RoleName || 'customer',
+      'google' // Provider for Google OAuth login
     )
 
     // Create response

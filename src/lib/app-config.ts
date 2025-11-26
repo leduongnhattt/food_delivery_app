@@ -223,7 +223,7 @@ export class ConfigManager {
             try {
                 localStorage.setItem('app-config', JSON.stringify(this.config))
             } catch (error) {
-                // Failed to save user preferences
+                console.error('Failed to save app-config preferences:', error)
             }
         }
     }

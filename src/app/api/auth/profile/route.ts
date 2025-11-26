@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
-import { verifyToken } from '@/lib/auth'
+import { verifyTokenEdgeSync } from '@/lib/auth-edge'
 import { requireCustomer } from '@/lib/auth-helpers'
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
@@ -89,7 +89,7 @@ export async function PUT(request: NextRequest): Promise<NextResponse> {
             )
         }
 
-        const decoded = verifyToken(token)
+        const decoded = verifyTokenEdgeSync(token)
         if (!decoded) {
             return NextResponse.json(
                 { error: 'Invalid token' },

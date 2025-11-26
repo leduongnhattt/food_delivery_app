@@ -1,134 +1,137 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
-import { requireCustomer } from '@/lib/auth-helpers'
+import { verifyTokenEdgeSync } from '@/lib/auth-edge'
 
-export async function GET(request: NextRequest) {
+export async function GET(req: NextRequest) {
   try {
-    // Require customer authentication
-    const authResult = requireCustomer(request)
-    if (!authResult.success) {
-      return NextResponse.json(
-        { error: authResult.error },
-        { status: 401 }
-      )
+
+    // Get authentication token from Authorization header or cookies
+    const authHeader = req.headers.get('authorization')
+    const token = authHeader?.replace('Bearer ', '') || req.cookies.get('refresh_token')?.value
+
+
+
+    if (!token) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
     }
 
-    const user = authResult.user!
+    const decoded = verifyTokenEdgeSync(token)
 
-    // Get customer ID from account
+
+    if (!decoded?.accountId || decoded.role?.toLowerCase() !== 'customer') {
+      return NextResponse.json({ error: 'Customer access required' }, { status: 403 })
+    }
+
+    // Get query parameters
+    const { searchParams } = new URL(req.url)
+    const status = searchParams.get('status')
+    const page = parseInt(searchParams.get('page') || '1')
+    const limit = parseInt(searchParams.get('limit') || '10')
+    const startDate = searchParams.get('startDate')
+    const endDate = searchParams.get('endDate')
+
     const customer = await prisma.customer.findUnique({
-      where: { AccountID: user.id },
+      where: { AccountID: decoded.accountId },
       select: { CustomerID: true }
     })
 
     if (!customer) {
-      return NextResponse.json(
-        { error: 'Customer profile not found' },
-        { status: 404 }
-      )
+      return NextResponse.json({ error: 'Customer not found' }, { status: 404 })
     }
 
-    // Only get orders for the authenticated customer
-    const orders = await prisma.order.findMany({
-      where: {
-        CustomerID: customer.CustomerID
-      },
-      include: {
-        orderDetails: {
-          include: {
-            food: true,
+    // Build where clause
+    const where: any = {
+      CustomerID: customer.CustomerID
+    }
+
+    if (status) {
+      where.Status = status.toUpperCase()
+    }
+
+    if (startDate || endDate) {
+      where.OrderDate = {}
+      if (startDate) where.OrderDate.gte = new Date(startDate)
+      if (endDate) where.OrderDate.lte = new Date(endDate)
+    }
+
+    const [orders, total] = await Promise.all([
+      prisma.order.findMany({
+        where,
+        include: {
+          orderDetails: {
+            include: {
+              food: {
+                select: {
+                  FoodID: true,
+                  DishName: true,
+                  Price: true,
+                  EnterpriseID: true,
+                  enterprise: {
+                    select: {
+                      EnterpriseName: true
+                    }
+                  }
+                }
+              }
+            }
           },
-        },
-        customer: {
-          include: {
-            account: true
+          customer: {
+            select: {
+              FullName: true
+            }
           }
         },
-        voucher: true,
-      },
+        orderBy: {
+          OrderDate: 'desc'
+        },
+        skip: (page - 1) * limit,
+        take: limit
+      }),
+      prisma.order.count({ where })
+    ])
+
+
+    // Transform orders to match our interface
+    const transformedOrders = orders.map(order => {
+      // Get restaurant info from first order detail
+      const firstDetail = order.orderDetails[0]
+      const restaurantName = firstDetail?.food?.enterprise?.EnterpriseName || 'Unknown Restaurant'
+      const restaurantId = firstDetail?.food?.EnterpriseID || ''
+
+      return {
+        id: order.OrderID,
+        customerId: order.CustomerID,
+        restaurantId: restaurantId,
+        restaurantName: restaurantName,
+        items: order.orderDetails.map(detail => ({
+          id: detail.OrderDetailID,
+          orderId: detail.OrderID,
+          foodId: detail.FoodID,
+          foodName: detail.food.DishName,
+          quantity: detail.Quantity,
+          price: Number(detail.SubTotal),
+          specialInstructions: undefined // Add if you have this field
+        })),
+        totalAmount: Number(order.TotalAmount),
+        status: order.Status.toLowerCase(),
+        deliveryAddress: order.DeliveryAddress,
+        deliveryInstructions: order.DeliveryNote,
+        paymentMethod: 'card', // You might want to get this from Payment table
+        createdAt: order.OrderDate.toISOString(),
+        updatedAt: order.OrderDate.toISOString(),
+        estimatedDeliveryTime: order.EstimatedDeliveryTime?.toISOString()
+      }
     })
 
-    return NextResponse.json(orders)
+
+    return NextResponse.json({
+      orders: transformedOrders,
+      total,
+      page,
+      limit
+    })
   } catch (error) {
-    console.error('Error fetching orders:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch orders' },
-      { status: 500 }
-    )
-  }
-}
-
-export async function POST(request: NextRequest) {
-  try {
-    // Require customer authentication
-    const authResult = requireCustomer(request)
-    if (!authResult.success) {
-      return NextResponse.json(
-        { error: authResult.error },
-        { status: 401 }
-      )
-    }
-
-    const user = authResult.user!
-
-    // Get customer ID from account
-    const customer = await prisma.customer.findUnique({
-      where: { AccountID: user.id },
-      select: { CustomerID: true }
-    })
-
-    if (!customer) {
-      return NextResponse.json(
-        { error: 'Customer profile not found' },
-        { status: 404 }
-      )
-    }
-
-    const body = await request.json()
-    type OrderItemInput = { foodId: string; quantity: number; subTotal: number }
-    const { foodItems, totalAmount, deliveryAddress, deliveryNote } = body as {
-      foodItems: OrderItemInput[];
-      totalAmount: number;
-      deliveryAddress: string;
-      deliveryNote?: string;
-    }
-
-    const order = await prisma.order.create({
-      data: {
-        CustomerID: customer.CustomerID,
-        TotalAmount: totalAmount,
-        DeliveryAddress: deliveryAddress,
-        DeliveryNote: deliveryNote,
-        Status: 'Pending',
-        orderDetails: {
-          create: foodItems.map((item: OrderItemInput) => ({
-            FoodID: item.foodId,
-            Quantity: item.quantity,
-            SubTotal: item.subTotal,
-          })),
-        },
-      },
-      include: {
-        orderDetails: {
-          include: {
-            food: true,
-          },
-        },
-        customer: {
-          include: {
-            account: true
-          }
-        },
-        voucher: true,
-      },
-    })
-
-    return NextResponse.json(order, { status: 201 })
-  } catch (error) {
-    console.error('Error creating order:', error)
-    return NextResponse.json(
-      { error: 'Failed to create order' },
-      { status: 500 }
-    )
+    console.error('Error fetching customer orders:', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

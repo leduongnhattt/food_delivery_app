@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import type { Prisma } from '@/generated/prisma'
+import { withRateLimit, getClientIp } from '@/lib/rate-limit'
 
-export async function GET(request: NextRequest) {
+export const GET = withRateLimit(async (request: NextRequest) => {
     try {
         const { searchParams } = new URL(request.url)
         const restaurantId = searchParams.get('restaurantId')
@@ -97,9 +98,9 @@ export async function GET(request: NextRequest) {
             { status: 500 }
         )
     }
-}
+}, (req) => ({ key: `menu_items:${getClientIp(req)}`, limit: 60, windowMs: 60 * 1000 }))
 
-export async function POST(request: NextRequest) {
+export const POST = withRateLimit(async (request: NextRequest) => {
     try {
         const body = await request.json()
         const {
@@ -206,4 +207,4 @@ export async function POST(request: NextRequest) {
             { status: 500 }
         )
     }
-}
+}, (req) => ({ key: `menu_items_post:${getClientIp(req)}`, limit: 20, windowMs: 60 * 1000 }))

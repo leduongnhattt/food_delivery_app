@@ -9,23 +9,66 @@ export async function POST(request: NextRequest) {
         const parsed = registerSchema.safeParse(json)
         if (!parsed.success) {
             return NextResponse.json({
-                error: 'Validation failed',
+                error: 'signup.errors.validationFailed',
                 details: parsed.error.flatten()
             }, { status: 400 })
         }
 
         const { username, email, password } = parsed.data
 
-        // Check if username or email already exists
-        const exists = await prisma.account.findFirst({
-            where: { OR: [{ Email: email }, { Username: username }] },
-            select: { AccountID: true, Email: true, Username: true }
-        })
-        if (exists) {
-            const field = exists.Email === email ? 'email' : 'username'
+        // Validate password strength
+        if (password.length < 6) {
             return NextResponse.json({
-                error: `${field} already exists`,
-                field: field
+                error: 'Password must be at least 6 characters long.',
+                field: 'password'
+            }, { status: 400 })
+        }
+
+        // Check for at least one special character
+        if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) {
+            return NextResponse.json({
+                error: 'Password must contain at least one special character.',
+                field: 'password'
+            }, { status: 400 })
+        }
+
+        // Check for at least one number
+        if (!/\d/.test(password)) {
+            return NextResponse.json({
+                error: 'Password must contain at least one number.',
+                field: 'password'
+            }, { status: 400 })
+        }
+
+        // Check for at least one letter
+        if (!/[a-zA-Z]/.test(password)) {
+            return NextResponse.json({
+                error: 'Password must contain at least one letter.',
+                field: 'password'
+            }, { status: 400 })
+        }
+
+        // Check if username already exists
+        const existingUsername = await prisma.account.findFirst({
+            where: { Username: username },
+            select: { Username: true }
+        })
+        if (existingUsername) {
+            return NextResponse.json({
+                error: 'signup.errors.usernameExists',
+                field: 'username'
+            }, { status: 400 })
+        }
+
+        // Check if email already exists
+        const existingEmail = await prisma.account.findFirst({
+            where: { Email: email },
+            select: { Email: true }
+        })
+        if (existingEmail) {
+            return NextResponse.json({
+                error: 'signup.errors.emailExists',
+                field: 'email'
             }, { status: 400 })
         }
 
@@ -35,7 +78,7 @@ export async function POST(request: NextRequest) {
 
         return NextResponse.json({
             success: true,
-            message: 'Registration successful',
+            message: 'signup.success.welcomeMessage',
             account: {
                 id: account.AccountID,
                 username: account.Username,
@@ -48,8 +91,8 @@ export async function POST(request: NextRequest) {
     } catch (error) {
         console.error('Registration error:', error)
         return NextResponse.json({
-            error: 'Registration failed',
-            message: error instanceof Error ? error.message : 'Unknown error'
+            error: 'signup.errors.unexpectedError',
+            message: error instanceof Error ? error.message : 'signup.errors.unexpectedError'
         }, { status: 500 })
     }
 }

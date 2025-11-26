@@ -53,7 +53,6 @@ export async function PUT(
             description,
             price,
             image,
-            category,
             isAvailable
         } = body
 

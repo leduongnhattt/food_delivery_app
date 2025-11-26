@@ -2,8 +2,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { requireEnterprise } from '@/lib/auth-helpers'
 import { Prisma } from '@/generated/prisma'
+import { retryDatabaseOperation } from '@/lib/retry-utils'
+import { withRateLimit, getClientIp } from '@/lib/rate-limit'
 
-export async function GET(request: NextRequest) {
+export const GET = withRateLimit(async (request: NextRequest) => {
     try {
         const { searchParams } = new URL(request.url)
         const page = parseInt(searchParams.get('page') || '1')
@@ -13,7 +15,24 @@ export async function GET(request: NextRequest) {
         const isOpen = searchParams.get('isOpen')
         const minRating = searchParams.get('minRating')
 
-        const where: Prisma.EnterpriseWhereInput = {}
+        // Validate parameters
+        if (limit < 1 || limit > 100) {
+            return NextResponse.json(
+                { error: 'Limit must be between 1 and 100' },
+                { status: 400 }
+            )
+        }
+
+        if (page < 1) {
+            return NextResponse.json(
+                { error: 'Page must be greater than 0' },
+                { status: 400 }
+            )
+        }
+
+        const where: Prisma.EnterpriseWhereInput = {
+            IsActive: true, // Only show active restaurants
+        }
 
         if (search) {
             where.OR = [
@@ -23,17 +42,12 @@ export async function GET(request: NextRequest) {
         }
 
         if (category) {
-            where.menus = {
+            where.foods = {
                 some: {
-                    menuFoods: {
-                        some: {
-                            food: {
-                                foodCategory: {
-                                    CategoryName: category
-                                }
-                            }
-                        }
-                    }
+                    foodCategory: {
+                        CategoryName: category
+                    },
+                    IsAvailable: true
                 }
             }
         }
@@ -55,37 +69,44 @@ export async function GET(request: NextRequest) {
         const skip = (page - 1) * limit
 
         const [restaurants, total] = await Promise.all([
-            prisma.enterprise.findMany({
+            retryDatabaseOperation(() => prisma.enterprise.findMany({
                 where,
                 include: {
-                    menus: {
-                        include: {
-                            menuFoods: {
-                                where: {
-                                    food: {
-                                        IsAvailable: true
-                                    }
-                                },
-                                include: {
-                                    food: {
-                                        select: {
-                                            FoodID: true,
-                                            DishName: true,
-                                            Price: true,
-                                            foodCategory: {
-                                                select: {
-                                                    CategoryName: true
-                                                }
-                                            }
-                                        }
-                                    }
+                    account: {
+                        select: {
+                            Avatar: true
+                        }
+                    },
+                    foods: {
+                        where: {
+                            IsAvailable: true
+                        },
+                        select: {
+                            FoodID: true,
+                            DishName: true,
+                            Price: true,
+                            ImageURL: true,
+                            foodCategory: {
+                                select: {
+                                    CategoryName: true
                                 }
                             }
+                        },
+                        take: 5 // Limit to 5 foods per restaurant for performance
+                    },
+                    reviews: {
+                        select: {
+                            Rating: true
                         }
                     },
                     _count: {
                         select: {
-                            menus: true,
+                            foods: {
+                                where: {
+                                    IsAvailable: true
+                                }
+                            },
+                            reviews: true
                         }
                     }
                 },
@@ -94,12 +115,50 @@ export async function GET(request: NextRequest) {
                 },
                 skip,
                 take: limit,
-            }),
-            prisma.enterprise.count({ where })
+            })),
+            retryDatabaseOperation(() => prisma.enterprise.count({ where }))
         ])
 
+        // Transform the data to match the expected interface
+        const transformedRestaurants = restaurants.map(restaurant => {
+            // Calculate average rating
+            const ratings = restaurant.reviews.map(r => r.Rating).filter(r => r !== null) as number[]
+            const averageRating = ratings.length > 0
+                ? ratings.reduce((sum, rating) => sum + rating, 0) / ratings.length
+                : 0
+
+            // Get popular foods (first 5)
+            const popularFoods = restaurant.foods.slice(0, 5).map(food => ({
+                foodId: food.FoodID,
+                dishName: food.DishName,
+                price: Number(food.Price),
+                imageUrl: food.ImageURL || '',
+                category: food.foodCategory.CategoryName
+            }))
+
+            return {
+                id: restaurant.EnterpriseID,
+                name: restaurant.EnterpriseName,
+                description: restaurant.Description || '',
+                address: restaurant.Address,
+                phone: restaurant.PhoneNumber,
+                avatarUrl: restaurant.account.Avatar || '', // Use avatar from account
+                rating: Math.round(averageRating * 10) / 10, // Round to 1 decimal place
+                deliveryTime: '30-45 min', // Default delivery time
+                minimumOrder: 0, // Default minimum order
+                isOpen: restaurant.IsActive,
+                openHours: restaurant.OpenHours,
+                closeHours: restaurant.CloseHours,
+                createdAt: restaurant.CreatedAt,
+                updatedAt: restaurant.UpdatedAt,
+                popularFoods,
+                totalFoods: restaurant._count.foods,
+                totalReviews: restaurant._count.reviews
+            }
+        })
+
         return NextResponse.json({
-            restaurants,
+            restaurants: transformedRestaurants,
             pagination: {
                 page,
                 limit,
@@ -114,7 +173,7 @@ export async function GET(request: NextRequest) {
             { status: 500 }
         )
     }
-}
+}, (req) => ({ key: `restaurants:${getClientIp(req)}`, limit: 60, windowMs: 60 * 1000 }))
 
 export async function POST(request: NextRequest) {
     try {

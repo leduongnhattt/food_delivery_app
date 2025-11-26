@@ -1,4 +1,4 @@
-import { initializeTranslations, resetToDefaultLocale } from './i18n'
+import { initializeTranslations } from './i18n'
 
 /**
  * Main Application Setup
@@ -134,11 +134,24 @@ export class AppSetup {
     // Setup step handlers
     private async initializeLocale(): Promise<void> {
         try {
-            // Force English locale for now
-            resetToDefaultLocale()
+            // Initialize translations system
             await initializeTranslations()
+
+            // Initialize Gemini Health AI locale
+            await this.initializeGeminiHealthLocale()
         } catch (error) {
             throw error
+        }
+    }
+
+    private async initializeGeminiHealthLocale(): Promise<void> {
+        try {
+            // Import and initialize Gemini Health AI service locale
+            await import('@/services/gemini-health-ai.service')
+            console.log('Gemini Health AI locale initialized with current system locale')
+        } catch (error) {
+            console.warn('Failed to initialize Gemini Health AI locale:', error)
+            // Don't throw - this is not critical for app startup
         }
     }
 
@@ -147,7 +160,7 @@ export class AppSetup {
             // Initialize theme system
             const savedTheme = localStorage.getItem('theme') || 'light'
             document.documentElement.setAttribute('data-theme', savedTheme)
-        } catch (error) {
+        } catch {
             // Don't throw - theme is not critical
         }
     }
@@ -163,7 +176,7 @@ export class AppSetup {
                 // Validate token if needed
                 // await validateToken(token)
             }
-        } catch (error) {
+        } catch {
             // Don't throw - auth can be handled later
         }
     }
@@ -173,9 +186,9 @@ export class AppSetup {
             // Initialize cart state
             const cartData = localStorage.getItem('cart')
             if (cartData) {
-                const cart = JSON.parse(cartData)
+                JSON.parse(cartData)
             }
-        } catch (error) {
+        } catch {
             // Don't throw - cart can be handled later
         }
     }
@@ -184,7 +197,7 @@ export class AppSetup {
         try {
             // Initialize analytics (Google Analytics, etc.)
             // Implementation for analytics
-        } catch (error) {
+        } catch {
             // Analytics initialization failed
         }
     }
@@ -192,10 +205,12 @@ export class AppSetup {
     private async initializeNotifications(): Promise<void> {
         try {
             // Initialize push notifications
-            if ('Notification' in window) {
-                const permission = Notification.permission
+            if (typeof window !== 'undefined' && 'Notification' in window) {
+                if (Notification.permission === 'default') {
+                    await Notification.requestPermission().catch(() => undefined)
+                }
             }
-        } catch (error) {
+        } catch {
             // Notifications initialization failed
         }
     }

@@ -10,6 +10,7 @@ export interface AuthUser {
     role: string;
     username?: string;
     email?: string;
+    provider?: string; // 'email' | 'google' | 'facebook' etc.
 }
 
 /**
@@ -50,17 +51,56 @@ export function isAuthenticated(): boolean {
 /**
  * Get user profile from stored token (client-side)
  */
+function safeDecodeJwt(token: string): any | null {
+    try {
+        return JSON.parse(atob(token.split('.')[1]));
+    } catch {
+        return null;
+    }
+}
+
+/**
+ * Attempt to refresh the access token using the refresh cookie
+ * Returns the new token on success, otherwise null
+ */
+export async function refreshAccessToken(): Promise<string | null> {
+    if (typeof window === 'undefined') return null;
+    const existing = getAuthToken();
+    // We can still decode expired token to get accountId
+    const payload = existing ? safeDecodeJwt(existing) : null;
+    const accountId = payload?.accountId || payload?.userId || localStorage.getItem('user_id') || '';
+    if (!accountId) return null;
+
+    try {
+        const res = await fetch('/api/auth/refresh', {
+            method: 'POST',
+            headers: { 'x-account-id': accountId },
+            credentials: 'include'
+        });
+        if (!res.ok) return null;
+        const data = await res.json();
+        if (data?.accessToken) {
+            setAuthToken(data.accessToken);
+            return data.accessToken as string;
+        }
+        return null;
+    } catch {
+        return null;
+    }
+}
+
 export function getCurrentUserFromToken(): AuthUser | null {
     const token = getAuthToken();
     if (!token) return null;
 
     try {
-        // Decode JWT token to get user info
-        const payload = JSON.parse(atob(token.split('.')[1]));
+        const payload = safeDecodeJwt(token);
+        if (!payload) throw new Error('Invalid token');
 
-        // Check if token is expired
-        if (payload.exp && payload.exp < Date.now() / 1000) {
-            removeAuthToken();
+        // If expired, try to refresh once synchronously by clearing token and letting caller retry via getCurrentUser()
+        const isExpired = payload.exp && payload.exp < Date.now() / 1000;
+        if (isExpired) {
+            // We will not remove immediately; caller may trigger refresh path
             return null;
         }
 
@@ -68,7 +108,8 @@ export function getCurrentUserFromToken(): AuthUser | null {
             id: payload.accountId || payload.userId || '',
             role: payload.role,
             username: payload.username,
-            email: payload.email
+            email: payload.email,
+            provider: payload.provider || 'email'
         };
     } catch (error) {
         console.error('Failed to decode token:', error);
@@ -81,13 +122,26 @@ export function getCurrentUserFromToken(): AuthUser | null {
  * Get user profile from server using stored token (fallback)
  */
 export async function getCurrentUser(): Promise<AuthUser | null> {
-    // First try to get user info from token
+    // First try to get user info from token (non-expired)
     const userFromToken = getCurrentUserFromToken();
-    if (userFromToken) {
-        return userFromToken;
+    if (userFromToken) return userFromToken;
+
+    // If token was expired or invalid, try to refresh once
+    const maybeNew = await refreshAccessToken();
+    if (maybeNew) {
+        const refreshedPayload = safeDecodeJwt(maybeNew);
+        if (refreshedPayload) {
+            return {
+                id: refreshedPayload.accountId || refreshedPayload.userId || '',
+                role: refreshedPayload.role,
+                username: refreshedPayload.username,
+                email: refreshedPayload.email,
+                provider: refreshedPayload.provider || 'email'
+            };
+        }
     }
 
-    // Fallback to API call if token decode fails
+    // Fallback: if we still have a token, try hitting profile
     const token = getAuthToken();
     if (!token) return null;
 
@@ -104,7 +158,8 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
                 id: userData.id,
                 role: userData.role,
                 username: userData.username,
-                email: userData.email
+                email: userData.email,
+                provider: userData.provider || 'email'
             };
         } else {
             // Token is invalid, remove it
@@ -151,7 +206,7 @@ export function clearAuthData(): void {
 
 // Server-side authentication helpers
 import { NextRequest } from 'next/server';
-import { verifyToken } from '@/lib/auth';
+import { verifyTokenEdgeSync } from '@/lib/auth-edge';
 
 export interface AuthResult {
     success: boolean;
@@ -160,6 +215,7 @@ export interface AuthResult {
         role: string;
         username?: string;
         email?: string;
+        provider?: string;
     };
     error?: string;
 }
@@ -182,7 +238,7 @@ export function getAuthenticatedUser(request: NextRequest): AuthResult {
         }
 
         // Verify token
-        const decoded = verifyToken(token);
+        const decoded = verifyTokenEdgeSync(token);
         if (!decoded) {
             return {
                 success: false,
@@ -196,10 +252,11 @@ export function getAuthenticatedUser(request: NextRequest): AuthResult {
                 id: decoded.accountId || decoded.userId || '',
                 role: decoded.role,
                 username: decoded.username,
-                email: decoded.email
+                email: decoded.email,
+                provider: decoded.provider || 'email'
             }
         };
-    } catch (error) {
+    } catch {
         return {
             success: false,
             error: 'Authentication failed'
@@ -217,7 +274,8 @@ export function requireCustomer(request: NextRequest): AuthResult {
         return authResult;
     }
 
-    if (authResult.user?.role !== 'customer') {
+    const userRole = (authResult.user?.role || '').toLowerCase()
+    if (userRole !== 'customer') {
         return {
             success: false,
             error: 'Customer access required'
@@ -237,7 +295,8 @@ export function requireAdmin(request: NextRequest): AuthResult {
         return authResult;
     }
 
-    if (authResult.user?.role !== 'admin') {
+    const userRole = (authResult.user?.role || '').toLowerCase()
+    if (userRole !== 'admin') {
         return {
             success: false,
             error: 'Admin access required'
@@ -257,7 +316,8 @@ export function requireEnterprise(request: NextRequest): AuthResult {
         return authResult;
     }
 
-    if (authResult.user?.role !== 'enterprise') {
+    const userRole = (authResult.user?.role || '').toLowerCase()
+    if (userRole !== 'enterprise') {
         return {
             success: false,
             error: 'Enterprise access required'
@@ -275,4 +335,48 @@ export function createUnauthorizedResponse(message: string = 'Unauthorized') {
         success: false,
         error: message
     };
+}
+
+/**
+ * Build authorization header
+ */
+export function buildAuthHeader(): Record<string, string> {
+    const token = getAuthToken()
+    return token ? { Authorization: `Bearer ${token}` } : {}
+}
+
+/**
+ * Common API response types
+ */
+export interface AuthResponse {
+    success: boolean
+    accessToken?: string
+    refreshToken?: string
+    user?: any
+    error?: string
+}
+
+export interface LoginCredentials {
+    username: string
+    password: string
+}
+
+export interface RegisterCredentials {
+    username: string
+    email: string
+    password: string
+}
+
+export interface PasswordResetRequest {
+    email: string
+}
+
+export interface PasswordResetConfirm {
+    tokenId: string
+    newPassword: string
+}
+
+export interface VerifyCodeRequest {
+    email: string
+    code: string
 }

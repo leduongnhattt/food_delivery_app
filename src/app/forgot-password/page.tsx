@@ -7,6 +7,8 @@ import { ErrorDisplay } from "@/components/ui/error-display";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "@/lib/i18n";
+import { PasswordService } from "@/services/password.service";
+import { useEmailField } from "@/hooks/use-email-field";
 
 export default function ForgotPasswordPage() {
   const router = useRouter();
@@ -15,46 +17,45 @@ export default function ForgotPasswordPage() {
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
-  // Clear error when user starts typing
-  const handleFieldFocus = () => {
-    if (error) {
-      setError("");
-    }
-  };
+  const {
+    handleChange: handleEmailChange,
+    handleInvalid: handleEmailInvalid,
+    validateEmailValue,
+  } = useEmailField({
+    setValue: (value) => {
+      setEmail(value);
+      if (error) setError("");
+    },
+    onInvalid: () => {
+      setError(t("forgotPassword.errors.invalidEmail"));
+    },
+  });
 
   const handleSubmit = async () => {
-    // Reset states
     setError("");
     
-    // Validate email
-    if (!email || !email.includes("@")) {
-      setError("Please enter a valid email address");
+    const { sanitized, isValid } = validateEmailValue(email);
+    if (!isValid) {
+      setError(t("forgotPassword.errors.invalidEmail"));
       return;
     }
     
     try {
       setIsLoading(true);
       
-      const response = await fetch("/api/auth/forgot-password", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ email }),
-      });
+      const result = await PasswordService.sendResetCode(sanitized);
       
-      const data = await response.json();
-      
-      if (!response.ok) {
-        setError(data.error || "Failed to send reset code");
+      if (!result.success) {
+        setError(result.error || t("forgotPassword.errors.sendCodeFailed"));
         return;
       }
       
       // Redirect to verify code page immediately
-      router.push(`/forgot-password/verify-code?email=${encodeURIComponent(email)}`);
+      router.push(`/forgot-password/verify-code?email=${encodeURIComponent(sanitized)}`);
       
     } catch (err) {
-      setError("An unexpected error occurred. Please try again.");
+      console.error("Failed to send reset code:", err);
+      setError(t("forgotPassword.errors.unexpectedError"));
     } finally {
       setIsLoading(false);
     }
@@ -96,8 +97,8 @@ export default function ForgotPasswordPage() {
                 type="email"
                 placeholder="Enter your email address"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                onFocus={handleFieldFocus}
+                onChange={handleEmailChange}
+                onInvalid={handleEmailInvalid}
                 className="w-full px-3 sm:px-4 py-2 sm:py-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-red-500 transition-all text-sm sm:text-base shadow-sm"
                 required
               />

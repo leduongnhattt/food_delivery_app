@@ -1,5 +1,5 @@
 import { RestaurantCard } from '@/components/restaurant/restaurant-card'
-import { Restaurant } from '@/types'
+import { Restaurant } from '@/types/models'
 
 // Mock data - replace with actual API call
 const mockRestaurants: Restaurant[] = [
@@ -9,7 +9,7 @@ const mockRestaurants: Restaurant[] = [
     description: 'Authentic Italian pizza with fresh ingredients and traditional recipes.',
     address: '123 Main St, Ho Chi Minh City',
     phone: '+84 123 456 789',
-    image: '/api/placeholder/400/300',
+    avatarUrl: '/api/placeholder/400/300',
     rating: 4.5,
     deliveryTime: '30-45 min',
     minimumOrder: 50000,
@@ -23,7 +23,7 @@ const mockRestaurants: Restaurant[] = [
     description: 'Fresh sushi and Japanese cuisine prepared by expert chefs.',
     address: '456 Nguyen Hue, Ho Chi Minh City',
     phone: '+84 987 654 321',
-    image: '/api/placeholder/400/300',
+    avatarUrl: '/api/placeholder/400/300',
     rating: 4.8,
     deliveryTime: '25-40 min',
     minimumOrder: 80000,
@@ -37,7 +37,7 @@ const mockRestaurants: Restaurant[] = [
     description: 'Traditional Vietnamese pho with rich broth and tender meat.',
     address: '789 Le Loi, Ho Chi Minh City',
     phone: '+84 555 123 456',
-    image: '/api/placeholder/400/300',
+    avatarUrl: '/api/placeholder/400/300',
     rating: 4.3,
     deliveryTime: '20-35 min',
     minimumOrder: 40000,

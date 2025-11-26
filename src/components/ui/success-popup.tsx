@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useTranslations } from "@/lib/i18n";
 
 interface SuccessPopupProps {
@@ -23,6 +23,13 @@ export function SuccessPopup({
   const { t } = useTranslations();
   const [isVisible, setIsVisible] = useState(false);
 
+  const handleClose = useCallback(() => {
+    setIsVisible(false);
+    setTimeout(() => {
+      onClose();
+    }, 300); // Wait for animation to complete
+  }, [onClose]);
+
   useEffect(() => {
     if (isOpen) {
       setIsVisible(true);
@@ -33,14 +40,7 @@ export function SuccessPopup({
         return () => clearTimeout(timer);
       }
     }
-  }, [isOpen, autoClose, autoCloseDelay]);
-
-  const handleClose = () => {
-    setIsVisible(false);
-    setTimeout(() => {
-      onClose();
-    }, 300); // Wait for animation to complete
-  };
+  }, [isOpen, autoClose, autoCloseDelay, handleClose]);
 
   if (!isOpen) return null;
 

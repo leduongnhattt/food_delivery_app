@@ -8,11 +8,13 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { usePasswordToggle } from "@/hooks/use-password-toggle";
 import { useTranslations } from "@/lib/i18n";
+import { PasswordService } from "@/services/password.service";
+import { validatePasswordStrength, validatePasswordConfirmation } from "@/lib/auth-validation";
 
 function ResetPasswordContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { t, isLoading: i18nLoading } = useTranslations();
+  const { isLoading: i18nLoading } = useTranslations();
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
@@ -45,45 +47,43 @@ function ResetPasswordContent() {
   };
 
   const handleSubmit = async () => {
-    // Reset states
     setError("");
     
-    // Validate passwords
-    if (!newPassword || newPassword.length < 6) {
-      setError("Password must be at least 6 characters long");
+    // Validate password strength using shared auth logic (inline message)
+    const strengthResult = validatePasswordStrength(newPassword);
+    if (!strengthResult.isValid) {
+      setError(strengthResult.errorMessage || "Password must meet the requirements.");
+      if (strengthResult.fieldToClear === "password") {
+        setNewPassword("");
+      }
       return;
     }
-    
-    if (newPassword !== confirmPassword) {
-      setError("Passwords do not match");
+
+    const matchResult = validatePasswordConfirmation(newPassword, confirmPassword);
+    if (!matchResult.isValid) {
+      setError(matchResult.errorMessage || "Passwords do not match.");
+      if (matchResult.fieldToClear === "both") {
+        setNewPassword("");
+        setConfirmPassword("");
+      }
       return;
     }
     
     try {
       setIsLoading(true);
       
-      const response = await fetch("/api/auth/reset-password", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ 
-          tokenId: token, 
-          newPassword 
-        }),
-      });
+      const result = await PasswordService.resetPassword(token, newPassword);
       
-      const data = await response.json();
-      
-      if (!response.ok) {
-        setError(data.error || "Failed to reset password");
+      if (!result.success) {
+        setError(result.error || "Failed to reset password");
         return;
       }
       
-        // Redirect to signin page immediately
-        router.push("/signin");
+      // Redirect to signin page immediately
+      router.push("/signin");
       
     } catch (err) {
+      console.error("Failed to reset password:", err);
       setError("An unexpected error occurred. Please try again.");
     } finally {
       setIsLoading(false);
