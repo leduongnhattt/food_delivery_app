@@ -2,6 +2,7 @@
 import React, { useState, ChangeEvent, KeyboardEvent } from 'react';
 import { Search, MapPin } from 'lucide-react';
 import Image from 'next/image';
+import { useRouter } from 'next/navigation';
 
 interface HeroSectionProps {
   onSearch?: (query: string) => void;
@@ -15,14 +16,20 @@ const HeroSection: React.FC<HeroSectionProps> = ({
   className = ""
 }) => {
   const [location, setLocation] = useState<string>('');
+  const router = useRouter();
 
   const handleInputChange = (e: ChangeEvent<HTMLInputElement>): void => {
     setLocation(e.target.value);
   };
 
   const handleButtonClick = (): void => {
-    if (onSearch) {
-      onSearch(location);
+    if (location.trim()) {
+      if (onSearch) {
+        onSearch(location);
+      } else {
+        // Navigate to search page
+        router.push(`/search?q=${encodeURIComponent(location)}`);
+      }
     }
   };
 
@@ -79,7 +86,7 @@ const HeroSection: React.FC<HeroSectionProps> = ({
           </div>
           
           {/* Right Content - Food Image */}
-          <div className=" hidden lg:block relative flex justify-center lg:justify-end">
+          <div className="hidden lg:flex relative justify-center lg:justify-end">
             <Image
               src="/images/hero-image.png"
               alt="Delicious food"

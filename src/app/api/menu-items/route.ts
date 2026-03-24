@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
+import type { Prisma } from '@/generated/prisma'
+import { withRateLimit, getClientIp } from '@/lib/rate-limit'
 
-export async function GET(request: NextRequest) {
+export const GET = withRateLimit(async (request: NextRequest) => {
     try {
         const { searchParams } = new URL(request.url)
         const restaurantId = searchParams.get('restaurantId')
@@ -11,49 +13,73 @@ export async function GET(request: NextRequest) {
         const page = parseInt(searchParams.get('page') || '1')
         const limit = parseInt(searchParams.get('limit') || '20')
 
-        const where: any = {}
+        const where: Prisma.FoodWhereInput = {}
 
         if (restaurantId) {
-            where.restaurantId = restaurantId
+            // Filter foods that belong to menus of the specified enterprise
+            where.menuFoods = {
+                some: {
+                    menu: {
+                        EnterpriseID: restaurantId
+                    }
+                }
+            }
         }
 
         if (category) {
-            where.category = category
+            // Filter by food category name
+            where.foodCategory = {
+                CategoryName: category
+            }
         }
 
         if (search) {
             where.OR = [
-                { name: { contains: search, mode: 'insensitive' } },
-                { description: { contains: search, mode: 'insensitive' } },
+                { DishName: { contains: search } },
+                { Description: { contains: search } },
             ]
         }
 
         if (isAvailable !== null) {
-            where.isAvailable = isAvailable === 'true'
+            where.IsAvailable = isAvailable === 'true'
         }
 
         const skip = (page - 1) * limit
 
         const [menuItems, total] = await Promise.all([
-            prisma.menuItem.findMany({
+            prisma.food.findMany({
                 where,
                 include: {
-                    restaurant: {
+                    foodCategory: {
                         select: {
-                            id: true,
-                            name: true,
-                            address: true,
+                            CategoryID: true,
+                            CategoryName: true,
+                        }
+                    },
+                    menuFoods: {
+                        include: {
+                            menu: {
+                                include: {
+                                    enterprise: {
+                                        select: {
+                                            EnterpriseID: true,
+                                            EnterpriseName: true,
+                                            Address: true,
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                 },
-                orderBy: {
-                    category: 'asc',
-                    name: 'asc'
-                },
+                orderBy: [
+                    { foodCategory: { CategoryName: 'asc' } },
+                    { DishName: 'asc' }
+                ],
                 skip,
                 take: limit,
             }),
-            prisma.menuItem.count({ where })
+            prisma.food.count({ where })
         ])
 
         return NextResponse.json({
@@ -72,9 +98,9 @@ export async function GET(request: NextRequest) {
             { status: 500 }
         )
     }
-}
+}, (req) => ({ key: `menu_items:${getClientIp(req)}`, limit: 60, windowMs: 60 * 1000 }))
 
-export async function POST(request: NextRequest) {
+export const POST = withRateLimit(async (request: NextRequest) => {
     try {
         const body = await request.json()
         const {
@@ -95,8 +121,8 @@ export async function POST(request: NextRequest) {
         }
 
         // Verify restaurant exists
-        const restaurant = await prisma.restaurant.findUnique({
-            where: { id: restaurantId }
+        const restaurant = await prisma.enterprise.findUnique({
+            where: { EnterpriseID: restaurantId }
         })
 
         if (!restaurant) {
@@ -106,28 +132,74 @@ export async function POST(request: NextRequest) {
             )
         }
 
-        const menuItem = await prisma.menuItem.create({
+        // Resolve category by name to get CategoryID
+        const existingCategory = await prisma.foodCategory.findFirst({
+            where: { CategoryName: category }
+        })
+
+        if (!existingCategory) {
+            return NextResponse.json(
+                { error: 'Food category not found' },
+                { status: 400 }
+            )
+        }
+
+        const createdFood = await prisma.food.create({
             data: {
-                name,
-                description,
-                price: parseInt(price),
-                image: image || '',
-                category,
-                isAvailable,
-                restaurantId,
+                DishName: name,
+                Description: description,
+                Price: parseFloat(price),
+                ImageURL: image || null,
+                FoodCategoryID: existingCategory.CategoryID,
+                EnterpriseID: restaurantId,
+                IsAvailable: Boolean(isAvailable),
             },
             include: {
-                restaurant: {
+                foodCategory: {
                     select: {
-                        id: true,
-                        name: true,
-                        address: true,
+                        CategoryID: true,
+                        CategoryName: true,
+                    }
+                },
+                menuFoods: {
+                    include: {
+                        menu: {
+                            include: {
+                                enterprise: {
+                                    select: {
+                                        EnterpriseID: true,
+                                        EnterpriseName: true,
+                                        Address: true,
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
         })
 
-        return NextResponse.json(menuItem, { status: 201 })
+        // Optionally attach the created food to the enterprise's first menu if exists
+        const firstMenu = await prisma.menu.findFirst({
+            where: { EnterpriseID: restaurantId },
+            orderBy: { CreatedAt: 'asc' }
+        })
+
+        if (firstMenu) {
+            try {
+                await prisma.menuFood.create({
+                    data: {
+                        FoodID: createdFood.FoodID,
+                        MenuID: firstMenu.MenuID,
+                    }
+                })
+            } catch (err) {
+                // Silently continue if linking already exists or fails
+                console.warn('Failed to link food to menu:', err)
+            }
+        }
+
+        return NextResponse.json(createdFood, { status: 201 })
     } catch (error) {
         console.error('Error creating menu item:', error)
         return NextResponse.json(
@@ -135,4 +207,4 @@ export async function POST(request: NextRequest) {
             { status: 500 }
         )
     }
-}
+}, (req) => ({ key: `menu_items_post:${getClientIp(req)}`, limit: 20, windowMs: 60 * 1000 }))

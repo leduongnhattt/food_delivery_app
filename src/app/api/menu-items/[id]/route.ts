@@ -3,24 +3,22 @@ import { prisma } from '@/lib/db'
 
 export async function GET(
     request: NextRequest,
-    { params }: { params: { id: string } }
+    context: { params: Promise<{ id: string }> }
 ) {
     try {
-        const { id } = params
+        const { id } = await context.params
 
-        const menuItem = await prisma.menuItem.findUnique({
-            where: { id },
+        const menuItem = await prisma.food.findUnique({
+            where: { FoodID: id },
             include: {
-                restaurant: {
-                    select: {
-                        id: true,
-                        name: true,
-                        address: true,
-                        phone: true,
-                        rating: true,
-                        deliveryTime: true,
-                        minimumOrder: true,
-                        isOpen: true,
+                foodCategory: true,
+                menuFoods: {
+                    include: {
+                        menu: {
+                            include: {
+                                enterprise: true,
+                            }
+                        }
                     }
                 }
             }
@@ -45,38 +43,31 @@ export async function GET(
 
 export async function PUT(
     request: NextRequest,
-    { params }: { params: { id: string } }
+    context: { params: Promise<{ id: string }> }
 ) {
     try {
-        const { id } = params
+        const { id } = await context.params
         const body = await request.json()
         const {
             name,
             description,
             price,
             image,
-            category,
             isAvailable
         } = body
 
-        const menuItem = await prisma.menuItem.update({
-            where: { id },
+        const menuItem = await prisma.food.update({
+            where: { FoodID: id },
             data: {
-                name,
-                description,
-                price: price ? parseInt(price) : undefined,
-                image,
-                category,
-                isAvailable,
+                DishName: name ?? undefined,
+                Description: description ?? undefined,
+                Price: price ? parseFloat(price) : undefined,
+                ImageURL: image ?? undefined,
+                IsAvailable: typeof isAvailable === 'boolean' ? isAvailable : undefined,
             },
             include: {
-                restaurant: {
-                    select: {
-                        id: true,
-                        name: true,
-                        address: true,
-                    }
-                }
+                foodCategory: true,
+                menuFoods: true,
             }
         })
 
@@ -92,13 +83,13 @@ export async function PUT(
 
 export async function DELETE(
     request: NextRequest,
-    { params }: { params: { id: string } }
+    context: { params: Promise<{ id: string }> }
 ) {
     try {
-        const { id } = params
+        const { id } = await context.params
 
-        await prisma.menuItem.delete({
-            where: { id }
+        await prisma.food.delete({
+            where: { FoodID: id }
         })
 
         return NextResponse.json(

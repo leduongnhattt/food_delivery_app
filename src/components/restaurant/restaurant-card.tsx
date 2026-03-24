@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { formatPrice } from '@/lib/utils'
-import { Restaurant } from '@/types'
+import { Restaurant } from '@/types/models'
 
 interface RestaurantCardProps {
   restaurant: Restaurant
@@ -14,7 +14,7 @@ export function RestaurantCard({ restaurant }: RestaurantCardProps) {
     <Card className="overflow-hidden hover:shadow-lg transition-shadow">
       <div className="relative h-48 w-full">
         <Image
-          src={restaurant.image}
+          src={restaurant.avatarUrl}
           alt={restaurant.name}
           fill
           className="object-cover"

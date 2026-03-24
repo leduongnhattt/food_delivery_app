@@ -1,4 +1,5 @@
-import { PrismaClient } from '@prisma/client'
+// Import Prisma Client từ thư mục đã generate
+import { PrismaClient } from '@/generated/prisma/client'
 
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined

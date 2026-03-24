@@ -1,71 +1,98 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { registerSchema } from '@/schemas/auth'
+import { createAccount, hashPassword } from '@/services/auth.service'
 import { prisma } from '@/lib/db'
-import bcrypt from 'bcryptjs'
-import jwt from 'jsonwebtoken'
 
 export async function POST(request: NextRequest) {
     try {
-        const body = await request.json()
-        const { email, password, name, phone, address } = body
-
-        // Validate required fields
-        if (!email || !password || !name) {
-            return NextResponse.json(
-                { error: 'Email, password, and name are required' },
-                { status: 400 }
-            )
+        const json = await request.json()
+        const parsed = registerSchema.safeParse(json)
+        if (!parsed.success) {
+            return NextResponse.json({
+                error: 'signup.errors.validationFailed',
+                details: parsed.error.flatten()
+            }, { status: 400 })
         }
 
-        // Check if user already exists
-        const existingUser = await prisma.user.findUnique({
-            where: { email }
-        })
+        const { username, email, password } = parsed.data
 
-        if (existingUser) {
-            return NextResponse.json(
-                { error: 'User already exists with this email' },
-                { status: 400 }
-            )
+        // Validate password strength
+        if (password.length < 6) {
+            return NextResponse.json({
+                error: 'Password must be at least 6 characters long.',
+                field: 'password'
+            }, { status: 400 })
         }
 
-        // Hash password
-        const hashedPassword = await bcrypt.hash(password, 12)
+        // Check for at least one special character
+        if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) {
+            return NextResponse.json({
+                error: 'Password must contain at least one special character.',
+                field: 'password'
+            }, { status: 400 })
+        }
 
-        // Create new user
-        const user = await prisma.user.create({
-            data: {
-                email,
-                name,
-                phone,
-                address,
-                password: hashedPassword,
-            },
-            select: {
-                id: true,
-                email: true,
-                name: true,
-                phone: true,
-                address: true,
-                createdAt: true,
-            }
+        // Check for at least one number
+        if (!/\d/.test(password)) {
+            return NextResponse.json({
+                error: 'Password must contain at least one number.',
+                field: 'password'
+            }, { status: 400 })
+        }
+
+        // Check for at least one letter
+        if (!/[a-zA-Z]/.test(password)) {
+            return NextResponse.json({
+                error: 'Password must contain at least one letter.',
+                field: 'password'
+            }, { status: 400 })
+        }
+
+        // Check if username already exists
+        const existingUsername = await prisma.account.findFirst({
+            where: { Username: username },
+            select: { Username: true }
         })
+        if (existingUsername) {
+            return NextResponse.json({
+                error: 'signup.errors.usernameExists',
+                field: 'username'
+            }, { status: 400 })
+        }
 
-        // Generate JWT token
-        const token = jwt.sign(
-            { userId: user.id, email: user.email },
-            process.env.JWT_SECRET || 'your-secret-key',
-            { expiresIn: '7d' }
-        )
+        // Check if email already exists
+        const existingEmail = await prisma.account.findFirst({
+            where: { Email: email },
+            select: { Email: true }
+        })
+        if (existingEmail) {
+            return NextResponse.json({
+                error: 'signup.errors.emailExists',
+                field: 'email'
+            }, { status: 400 })
+        }
+
+        // Hash password and create account with customer record
+        const passwordHash = await hashPassword(password)
+        const account = await createAccount({ username, email, passwordHash })
 
         return NextResponse.json({
-            user,
-            token
+            success: true,
+            message: 'signup.success.welcomeMessage',
+            account: {
+                id: account.AccountID,
+                username: account.Username,
+                email: account.Email,
+                role: account.role?.RoleName,
+                status: account.Status,
+                customer: account.customer
+            }
         }, { status: 201 })
     } catch (error) {
         console.error('Registration error:', error)
-        return NextResponse.json(
-            { error: 'Registration failed' },
-            { status: 500 }
-        )
+        return NextResponse.json({
+            error: 'signup.errors.unexpectedError',
+            message: error instanceof Error ? error.message : 'signup.errors.unexpectedError'
+        }, { status: 500 })
     }
 }

@@ -1,0 +1,141 @@
+{
+  "common": {
+    "username": "Tên đăng nhập",
+    "usernamePlaceholder": "Nhập tên đăng nhập của bạn",
+    "password": "Mật khẩu",
+    "passwordPlaceholder": "Nhập mật khẩu của bạn",
+    "signIn": "Đăng nhập!",
+    "signUp": "Đăng ký!",
+    "continueWithGoogle": "Tiếp tục với Google",
+    "errors": {
+      "unexpectedError": "Đã xảy ra lỗi không mong muốn"
+    }
+  },
+  "signup": {
+    "title": "ĐĂNG KÝ",
+    "email": "Email",
+    "emailPlaceholder": "Nhập email của bạn",
+    "confirmPassword": "Xác nhận mật khẩu",
+    "confirmPasswordPlaceholder": "Nhập lại mật khẩu của bạn",
+    "signUpButton": "ĐĂNG KÝ",
+    "signingUp": "Đang đăng ký...",
+    "alreadyHaveAccount": "Đã có tài khoản?",
+    "errors": {
+      "registrationFailed": "Đăng ký thất bại",
+      "passwordMismatch": "Mật khẩu không khớp. Vui lòng thử lại.",
+      "passwordTooShort": "Mật khẩu phải có ít nhất 8 ký tự.",
+      "usernameExists": "Tên đăng nhập này đã được sử dụng. Vui lòng chọn tên khác.",
+      "emailExists": "Email này đã được đăng ký. Vui lòng sử dụng email khác hoặc đăng nhập.",
+      "validationFailed": "Thông tin không hợp lệ. Vui lòng kiểm tra lại các trường bắt buộc.",
+      "invalidEmail": "Vui lòng nhập địa chỉ email hợp lệ",
+      "unexpectedError": "Có lỗi không mong muốn xảy ra. Vui lòng thử lại.",
+      "allFieldsRequired": "Vui lòng điền đầy đủ thông tin"
+    },
+    "success": {
+      "title": "Đăng ký thành công!",
+      "registrationComplete": "Tài khoản của bạn đã được tạo thành công. Bây giờ bạn có thể đăng nhập với thông tin của mình.",
+      "continue": "Tiếp tục đăng nhập",
+      "welcomeMessage": "Đăng ký thành công! Chào mừng bạn đến với HanalaFood."
+    }
+  },
+  "signin": {
+    "title": "CHÀO MỪNG TRỞ LẠI",
+    "forgotPassword": "Quên mật khẩu?",
+    "signInButton": "ĐĂNG NHẬP",
+    "signingIn": "Đang đăng nhập...",
+    "dontHaveAccount": "Chưa có tài khoản?",
+    "errors": {
+      "loginFailed": "Đăng nhập thất bại",
+      "googleAuthFailed": "Xác thực Google thất bại",
+      "accessDenied": "Truy cập bị từ chối. Đăng nhập này chỉ dành cho khách hàng.",
+      "popupBlocked": "Popup bị chặn. Vui lòng cho phép popup cho trang web này.",
+      "timeout": "Hết thời gian xác thực. Vui lòng thử lại.",
+      "usernameExists": "Tên đăng nhập đã tồn tại. Vui lòng liên hệ hỗ trợ.",
+      "usernameRequired": "Vui lòng nhập tên đăng nhập",
+      "usernameTooLong": "Tên đăng nhập không được vượt quá 30 ký tự",
+      "passwordRequired": "Vui lòng nhập mật khẩu"
+    },
+    "success": {
+      "registrationComplete": "Đăng ký thành công! Vui lòng đăng nhập với thông tin của bạn.",
+      "passwordResetSuccess": "Mật khẩu đã được đặt lại thành công. Vui lòng đăng nhập với mật khẩu mới."
+    },
+    "lockout": {
+      "title": "Tài khoản tạm thời bị khóa",
+      "message": "Bạn đã nhập sai mật khẩu hoặc tên đăng nhập quá 5 lần. Tài khoản của bạn đã bị khóa tạm thời trong 5 phút.",
+      "timeRemaining": "Thời gian còn lại",
+      "info": "Vui lòng đợi cho đến khi hết thời gian để thử lại."
+    }
+  },
+  "forgotPassword": {
+    "title": "Đặt lại mật khẩu",
+    "subtitle": "Nhập địa chỉ email của bạn và chúng tôi sẽ gửi mã đặt lại",
+    "emailLabel": "Địa chỉ Email",
+    "emailPlaceholder": "Nhập địa chỉ email của bạn",
+    "sendCodeButton": "Gửi mã đặt lại",
+    "sendingCode": "Đang gửi mã đặt lại...",
+    "rememberPassword": "Nhớ mật khẩu?",
+    "signInLink": "Đăng nhập",
+    "errors": {
+      "invalidEmail": "Vui lòng nhập địa chỉ email hợp lệ",
+      "sendCodeFailed": "Gửi mã đặt lại thất bại",
+      "unexpectedError": "Đã xảy ra lỗi không mong muốn. Vui lòng thử lại."
+    },
+    "success": {
+      "codeSent": "Nếu tài khoản với email này tồn tại, mã đặt lại đã được gửi."
+    }
+  },
+  "verifyCode": {
+    "title": "Xác thực danh tính",
+    "subtitle": "Chúng tôi đã gửi mã 6 chữ số đến",
+    "codeLabel": "Mã đặt lại",
+    "codePlaceholder": "000000",
+    "codeHint": "Nhập mã 6 chữ số được gửi đến email của bạn",
+    "verifyButton": "Xác thực mã",
+    "verifying": "Đang xác thực mã...",
+    "didntReceive": "Không nhận được mã?",
+    "resendCode": "Gửi lại mã",
+    "rememberPassword": "Nhớ mật khẩu?",
+    "signInLink": "Đăng nhập",
+    "errors": {
+      "invalidCode": "Vui lòng nhập mã 6 chữ số",
+      "invalidOrExpired": "Mã đặt lại không hợp lệ hoặc đã hết hạn",
+      "unexpectedError": "Đã xảy ra lỗi không mong muốn. Vui lòng thử lại."
+    }
+  },
+  "resetPassword": {
+    "title": "Tạo mật khẩu mới",
+    "subtitle": "Tạo mật khẩu mới cho",
+    "newPasswordLabel": "Mật khẩu mới",
+    "newPasswordPlaceholder": "Nhập mật khẩu mới",
+    "confirmPasswordLabel": "Xác nhận mật khẩu mới",
+    "confirmPasswordPlaceholder": "Xác nhận mật khẩu mới",
+    "resetButton": "Đặt lại mật khẩu",
+    "resetting": "Đang đặt lại mật khẩu...",
+    "rememberPassword": "Nhớ mật khẩu?",
+    "signInLink": "Đăng nhập",
+    "errors": {
+      "passwordTooShort": "Mật khẩu phải có ít nhất 6 ký tự",
+      "passwordsMismatch": "Mật khẩu không khớp",
+      "resetFailed": "Đặt lại mật khẩu thất bại",
+      "unexpectedError": "Đã xảy ra lỗi không mong muốn. Vui lòng thử lại."
+    },
+    "success": {
+      "passwordReset": "Mật khẩu đã được đặt lại thành công. Vui lòng đăng nhập với mật khẩu mới.",
+      "redirecting": "Đang chuyển hướng đến trang đăng nhập..."
+    }
+  },
+  "checkout": {
+    "deliveryInfo": {
+      "missingMessage": "Vui lòng cập nhật số điện thoại và địa chỉ giao hàng trước khi tiếp tục.",
+      "profileAction": "Đến trang hồ sơ"
+    }
+  },
+  "cart": {
+    "orderLimitExceeded": "Bạn đã vượt giới hạn mỗi món {amount}. Vui lòng tạo đơn mới cho các món thêm."
+  },
+  "reviews": {
+    "outOf5": "trên 5 sao",
+    "review": "đánh giá",
+    "reviews": "đánh giá"
+  }
+}

@@ -14,15 +14,15 @@ export function Loading({ size = 'md', className }: LoadingProps) {
   }
   
   return (
-    <div className={cn('flex items-center justify-center', className)}>
+    <div className={cn("flex items-center justify-center", className)}>
       <div
         className={cn(
-          'animate-spin rounded-full border-2 border-gray-300 border-t-primary',
+          "animate-spin rounded-full border-2 border-gray-300 border-t-transparent",
           sizes[size]
         )}
       />
     </div>
-  )
+  );
 }
 
 export function LoadingPage() {
