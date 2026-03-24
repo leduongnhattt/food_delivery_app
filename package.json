@@ -19,7 +19,7 @@
   "dependencies": {
     "@auth/prisma-adapter": "^2.10.0",
     "@google/generative-ai": "^0.24.1",
-    "@prisma/client": "^6.14.0",
+    "@prisma/client": "^6.19.2",
     "@radix-ui/react-avatar": "^1.1.10",
     "@radix-ui/react-label": "^2.1.7",
     "@radix-ui/react-select": "^2.2.6",
@@ -41,7 +41,6 @@
     "next": "15.5.0",
     "next-auth": "^4.24.11",
     "nodemailer": "^6.10.1",
-    "prisma": "^6.14.0",
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "stripe": "^18.5.0",
@@ -56,6 +55,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "15.5.0",
+    "prisma": "^6.19.2",
     "tailwindcss": "^4",
     "tsx": "^4.19.2",
     "typescript": "^5"
