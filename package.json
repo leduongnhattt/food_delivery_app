@@ -36,6 +36,7 @@
     "ioredis": "^5.8.0",
     "jose": "^6.1.0",
     "jsonwebtoken": "^9.0.2",
+    "leaflet": "^1.9.4",
     "lucide-react": "^0.541.0",
     "mysql2": "^3.11.4",
     "next": "15.5.0",

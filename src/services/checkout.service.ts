@@ -98,6 +98,44 @@ export class CheckoutService {
         }
     }
 
+    static async getStripeSessionStatus(sessionId: string): Promise<{
+        success: boolean
+        orderId?: string
+        orderStatus?: string
+        paymentId?: string
+        paymentStatus?: string
+        stripePaymentStatus?: string
+        error?: string
+    }> {
+        try {
+            const base = getServerApiBase()
+            const response = await fetch(
+                `${base}/payments/stripe/session-status?sessionId=${encodeURIComponent(sessionId)}`,
+                {
+                    method: 'GET',
+                    headers: buildHeaders(),
+                }
+            )
+            const result = await response.json()
+
+            if (!response.ok) {
+                return { success: false, error: result.error || 'Failed to fetch session status' }
+            }
+
+            return {
+                success: true,
+                orderId: result.orderId,
+                orderStatus: result.orderStatus,
+                paymentId: result.paymentId,
+                paymentStatus: result.paymentStatus,
+                stripePaymentStatus: result.stripePaymentStatus,
+            }
+        } catch (error) {
+            console.error('Error fetching stripe session status:', error)
+            return { success: false, error: 'Network error occurred' }
+        }
+    }
+
     /**
      * Verify cart state after payment
      */

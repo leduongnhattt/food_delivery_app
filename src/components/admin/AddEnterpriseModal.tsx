@@ -2,11 +2,12 @@
 
 import { useEffect, useMemo, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { User, Mail, Lock, Building2, Phone, MapPin, Clock, Eye, EyeOff } from 'lucide-react'
+import { User, Mail, Lock, Building2, Phone, Clock, Eye, EyeOff } from 'lucide-react'
 import { validateEnterpriseForm, canProceedStep0 as canStep0, canProceedStep1 as canStep1 } from '@/lib/admin-enterprises-validation'
 import { useToast } from '@/contexts/toast-context'
 import { useTimeHhmm } from '@/hooks/use-time-hhmm'
 import { createEnterprise as createEnterpriseApi } from '@/services/admin.service'
+import EnterpriseLocationPicker from '@/components/admin/EnterpriseLocationPicker'
 
 export default function AddEnterpriseModal({
   triggerClassName = '',
@@ -27,6 +28,8 @@ export default function AddEnterpriseModal({
     enterpriseName: '',
     phoneNumber: '',
     address: '',
+    latitude: null as number | null,
+    longitude: null as number | null,
     openHours: '00:00',
     closeHours: '00:00',
     description: ''
@@ -37,7 +40,8 @@ export default function AddEnterpriseModal({
   const [step, setStep] = useState<0 | 1>(0)
   const [showPassword, setShowPassword] = useState(false)
 
-  const onChange = (k: keyof typeof form, v: string) => setForm(prev => ({ ...prev, [k]: v }))
+  const onChange = (k: keyof typeof form, v: string | number | null) =>
+    setForm(prev => ({ ...prev, [k]: v }))
 
   const [touched, setTouched] = useState<Partial<Record<keyof typeof form, boolean>>>({})
   const [submitAttempted, setSubmitAttempted] = useState(false)
@@ -71,9 +75,22 @@ export default function AddEnterpriseModal({
     onChange('openHours', openTime.value)
     onChange('closeHours', closeTime.value)
     if (!canProceedStep0() || !canProceedStep1()) return
+    if (form.latitude === null || form.longitude === null) return
     startTransition(async () => {
       try {
-        await createEnterpriseApi(form)
+        await createEnterpriseApi({
+          username: form.username,
+          email: form.email,
+          password: form.password,
+          enterpriseName: form.enterpriseName,
+          phoneNumber: form.phoneNumber,
+          address: form.address,
+          latitude: form.latitude,
+          longitude: form.longitude,
+          openHours: form.openHours,
+          closeHours: form.closeHours,
+          description: form.description,
+        })
         setOpen(false)
         showToast('Enterprise created successfully', 'success', 3000)
         router.replace('/admin/enterprises?status=active')
@@ -93,9 +110,9 @@ export default function AddEnterpriseModal({
       {open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setOpen(false)} />
-          <div className="relative bg-white rounded-3xl shadow-2xl w-full max-w-3xl overflow-hidden ring-1 ring-slate-900/5">
+          <div className="relative flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl ring-1 ring-slate-900/5">
             {/* Header */}
-            <div className="bg-gradient-to-r from-sky-600 via-cyan-500 to-teal-600 px-6 py-5">
+            <div className="shrink-0 bg-gradient-to-r from-sky-600 via-cyan-500 to-teal-600 px-6 py-5">
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-xl font-semibold text-white flex items-center gap-2"><Building2 className="w-5 h-5" /> Add Enterprise</h3>
@@ -116,7 +133,8 @@ export default function AddEnterpriseModal({
             </div>
 
             {/* Body */}
-            <form onSubmit={onSubmit} className="p-6">
+            <form onSubmit={onSubmit} className="flex min-h-0 flex-1 flex-col">
+              <div className="min-h-0 flex-1 overflow-y-auto p-6">
               {step === 0 ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
@@ -165,13 +183,29 @@ export default function AddEnterpriseModal({
                     </div>
                     {showError('phoneNumber') && <p className="text-xs text-rose-600 mt-1">{errors.phoneNumber}</p>}
                   </div>
-                  <div>
-                    <label className="block text-xs font-medium text-slate-600 mb-1">Address</label>
-                    <div className={`relative ${showError('address') ? 'text-rose-600' : ''}`}>
-                      <MapPin className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                      <input className={`border rounded-md h-10 pl-9 pr-3 w-full ${showError('address') ? 'border-rose-300' : 'border-slate-200'} focus:ring-2 focus:ring-cyan-200`} placeholder="Street, City" value={form.address} onChange={e=>onChange('address', e.target.value)} onBlur={()=>setTouched(t=>({...t, address:true}))} />
-                    </div>
-                    {showError('address') && <p className="text-xs text-rose-600 mt-1">{errors.address}</p>}
+                  <div className="sm:col-span-2">
+                    <EnterpriseLocationPicker
+                      address={form.address}
+                      onAddressChange={(nextAddress) => {
+                        onChange('address', nextAddress)
+                        setTouched((prev) => ({ ...prev, address: true }))
+                      }}
+                      latitude={form.latitude}
+                      longitude={form.longitude}
+                      onLocationChange={({ latitude, longitude }) => {
+                        onChange('latitude', latitude)
+                        onChange('longitude', longitude)
+                        setTouched((prev) => ({ ...prev, latitude: true, longitude: true }))
+                      }}
+                      addressError={showError('address') || undefined}
+                      locationError={
+                        showError('latitude')
+                          ? errors.latitude
+                          : showError('longitude')
+                            ? errors.longitude
+                            : undefined
+                      }
+                    />
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-slate-600 mb-1">Open (HH:mm)</label>
@@ -195,9 +229,10 @@ export default function AddEnterpriseModal({
                   </div>
                 </div>
               )}
+              </div>
 
               {/* Footer actions */}
-              <div className="mt-6 flex items-center justify-between">
+              <div className="shrink-0 border-t border-slate-100 px-6 py-4 flex items-center justify-between bg-white">
                 <button type="button" onClick={()=>setOpen(false)} className="h-10 px-4 rounded-md border border-slate-200 text-slate-700 hover:bg-slate-50">Cancel</button>
                 <div className="flex items-center gap-2">
                   {step === 1 && (

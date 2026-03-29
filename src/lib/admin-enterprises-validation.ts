@@ -7,6 +7,8 @@ export type EnterpriseForm = {
     enterpriseName: string
     phoneNumber: string
     address: string
+    latitude: number | null
+    longitude: number | null
     openHours: string
     closeHours: string
     description?: string
@@ -34,6 +36,13 @@ export function validateEnterpriseForm(form: EnterpriseForm): EnterpriseFormErro
     const ad = validateAddress(form.address)
     if (!ad.isValid) e.address = ad.errors[0] || 'Address is invalid'
 
+    if (form.latitude === null || form.longitude === null) {
+        e.latitude = 'Please select a precise location on map'
+    } else {
+        if (form.latitude < -90 || form.latitude > 90) e.latitude = 'Latitude is out of range'
+        if (form.longitude < -180 || form.longitude > 180) e.longitude = 'Longitude is out of range'
+    }
+
     if (!/^\d{2}:\d{2}$/.test(form.openHours)) e.openHours = 'Use HH:mm'
     if (!/^\d{2}:\d{2}$/.test(form.closeHours)) e.closeHours = 'Use HH:mm'
 
@@ -45,7 +54,7 @@ export function canProceedStep0(errors: EnterpriseFormErrors) {
 }
 
 export function canProceedStep1(errors: EnterpriseFormErrors) {
-    return ['enterpriseName', 'phoneNumber', 'address', 'openHours', 'closeHours'].every(f => !errors[f as keyof EnterpriseForm])
+    return ['enterpriseName', 'phoneNumber', 'address', 'latitude', 'longitude', 'openHours', 'closeHours'].every(f => !errors[f as keyof EnterpriseForm])
 }
 
 

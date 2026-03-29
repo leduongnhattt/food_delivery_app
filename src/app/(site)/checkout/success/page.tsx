@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { CheckCircle, ArrowLeft, Clock, MapPin } from 'lucide-react'
 import { PaymentService } from '@/services/payment.service'
 import { useCart } from '@/hooks/use-cart'
+import { CheckoutService } from '@/services/checkout.service'
 
 export default function PaymentSuccessPage() {
   const router = useRouter()
@@ -17,6 +18,7 @@ export default function PaymentSuccessPage() {
   const processedOnceRef = useRef(false)
   
   const sessionId = searchParams.get('session_id')
+  const sessionIdRef = useRef<string | null>(null)
 
   const processPaymentSuccess = useCallback(async (sessionId: string) => {
     if (isProcessing) return // Prevent duplicate calls
@@ -59,10 +61,47 @@ export default function PaymentSuccessPage() {
     if (processedOnceRef.current) return
 
     processedOnceRef.current = true
+    sessionIdRef.current = sessionId
     processPaymentSuccess(sessionId)
     // Remove query param to avoid re-trigger on state changes/navigation
     router.replace('/checkout/success')
   }, [sessionId, router, processPaymentSuccess])
+
+  // Fallback: even if process-checkout-success fails (token expired, user closed tab),
+  // still show accurate status by polling the server for the Stripe session.
+  useEffect(() => {
+    if (orderDetails?.orderId) return
+    const sid = sessionIdRef.current
+    if (!sid) return
+
+    let cancelled = false
+    let attempt = 0
+
+    const poll = async () => {
+      attempt += 1
+      const res = await CheckoutService.getStripeSessionStatus(sid)
+      if (cancelled) return
+
+      if (res.success && res.orderId) {
+        setOrderDetails({
+          orderId: res.orderId,
+          sessionId: sid,
+          orderStatus: res.orderStatus,
+          paymentStatus: res.paymentStatus,
+        })
+        return
+      }
+
+      if (attempt < 8) {
+        setTimeout(poll, 1500)
+      }
+    }
+
+    poll()
+    return () => {
+      cancelled = true
+    }
+  }, [orderDetails?.orderId])
 
   const handleBackToApp = () => {
     // Cart is already cleared above, just redirect to home

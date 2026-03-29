@@ -28,6 +28,8 @@ export type CreateEnterprisePayload = {
   enterpriseName: string
   phoneNumber: string
   address: string
+  latitude: number
+  longitude: number
   openHours: string
   closeHours: string
   description?: string
