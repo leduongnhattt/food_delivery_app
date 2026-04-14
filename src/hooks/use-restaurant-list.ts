@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { RestaurantService, RestaurantFilters } from '@/services/restaurant.service'
 import { Restaurant } from '@/types/models'
 import { CATALOG_REFETCH_INTERVAL_MS } from '@/hooks/catalog-refetch'
+import { useDeliveryDestination } from '@/contexts/delivery-destination-context'
 
 export interface UseRestaurantListOptions {
   /** Background refetch; keeps list in sync when admin toggles shop visibility. */
@@ -53,6 +54,8 @@ export function useRestaurantList(
         totalPages: 0
     })
 
+    const { destination } = useDeliveryDestination()
+
     const filtersRef = useRef(filters)
     filtersRef.current = filters
 
@@ -67,7 +70,14 @@ export function useRestaurantList(
             }
             setError(null)
 
-            const response = await RestaurantService.getRestaurantsDebounced(currentFilters)
+            const response = await RestaurantService.getRestaurantsDebounced(currentFilters, {
+                ...(destination?.lat != null && destination?.lng != null
+                    ? { destLat: destination.lat, destLng: destination.lng }
+                    : {}),
+                ...(destination?.lat == null || destination?.lng == null
+                    ? (destination?.address ? { destAddress: destination.address } : {})
+                    : {}),
+            })
 
             setRestaurants(response.restaurants)
             setPagination(response.pagination)
@@ -84,7 +94,7 @@ export function useRestaurantList(
                 setLoading(false)
             }
         }
-    }, [])
+    }, [destination?.lat, destination?.lng, destination?.address])
 
     useEffect(() => {
         void fetchRestaurants()

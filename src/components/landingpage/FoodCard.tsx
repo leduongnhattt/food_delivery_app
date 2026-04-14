@@ -20,6 +20,26 @@ const FoodCard: React.FC<FoodCardProps> = ({ food, onOrderNow, searchQuery = '' 
   const available = (availableFlag !== undefined) ? Boolean(availableFlag) : true
   const description = (food.description ?? '').trim()
   const [descOpen, setDescOpen] = React.useState(false)
+  const descRef = React.useRef<HTMLParagraphElement | null>(null)
+  const [descOverflow, setDescOverflow] = React.useState(false)
+
+  React.useLayoutEffect(() => {
+    const el = descRef.current
+    if (!el || !description) {
+      setDescOverflow(false)
+      return
+    }
+
+    const check = () => {
+      // If clamped, scrollHeight will exceed clientHeight.
+      setDescOverflow(el.scrollHeight - el.clientHeight > 1)
+    }
+
+    check()
+    const ro = new ResizeObserver(() => check())
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [description])
 
   React.useEffect(() => {
     if (!descOpen) return
@@ -31,7 +51,7 @@ const FoodCard: React.FC<FoodCardProps> = ({ food, onOrderNow, searchQuery = '' 
   }, [descOpen])
 
   return (
-    <div className="group bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden w-full transform-gpu transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg hover:border-orange-200">
+    <div className="group bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden w-full h-full flex flex-col transform-gpu transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg hover:border-orange-200">
       {/* Food Image */}
       <div className="relative h-48 overflow-hidden bg-gray-100">
         {food.imageUrl ? (
@@ -55,7 +75,7 @@ const FoodCard: React.FC<FoodCardProps> = ({ food, onOrderNow, searchQuery = '' 
       </div>
 
       {/* Card Content */}
-      <div className="p-4">
+      <div className="p-4 flex flex-1 flex-col">
         {/* Food Name */}
         <h3 className="font-semibold text-base text-gray-900 mb-0.5 line-clamp-1">
           <HighlightText 
@@ -74,6 +94,7 @@ const FoodCard: React.FC<FoodCardProps> = ({ food, onOrderNow, searchQuery = '' 
         {/* Description */}
         <div className="relative mb-3">
           <p
+            ref={descRef}
             className="text-gray-600 text-xs line-clamp-3 min-h-[54px]"
             title={description || undefined}
             aria-label={description || undefined}
@@ -81,12 +102,8 @@ const FoodCard: React.FC<FoodCardProps> = ({ food, onOrderNow, searchQuery = '' 
             {description}
           </p>
 
-          {description ? (
-            <div
-              className={[
-                'mt-1 flex items-center justify-end',
-              ].join(' ')}
-            >
+          <div className="mt-1 min-h-[16px] flex items-center justify-end">
+            {descOverflow ? (
               <button
                 type="button"
                 onClick={() => setDescOpen(true)}
@@ -96,12 +113,12 @@ const FoodCard: React.FC<FoodCardProps> = ({ food, onOrderNow, searchQuery = '' 
               >
                 Read more
               </button>
-            </div>
-          ) : null}
+            ) : null}
+          </div>
         </div>
 
         {/* Price and Order Button */}
-        <div className="flex items-center justify-between">
+        <div className="mt-auto flex items-center justify-between">
           <span className="text-lg font-bold text-gray-900">
             {formatPrice(food.price)}
           </span>
