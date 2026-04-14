@@ -1,3 +1,5 @@
+'use client'
+
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { RestaurantService, RestaurantFilters } from '@/services/restaurant.service'
 import { Restaurant } from '@/types/models'
@@ -5,10 +7,8 @@ import { CATALOG_REFETCH_INTERVAL_MS } from '@/hooks/catalog-refetch'
 import { useDeliveryDestination } from '@/contexts/delivery-destination-context'
 
 export interface UseRestaurantListOptions {
-  /** Background refetch; keeps list in sync when admin toggles shop visibility. */
-  refetchIntervalMs?: number
-  /** Refetch when user returns to this browser tab (Page Visibility API). */
-  refetchOnVisibility?: boolean
+    refetchIntervalMs?: number
+    refetchOnVisibility?: boolean
 }
 
 interface UseRestaurantsReturn {
