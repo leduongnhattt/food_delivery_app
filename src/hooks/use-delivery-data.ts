@@ -5,13 +5,17 @@ import { useAuth } from './use-auth'
 export interface DeliveryData {
     phone: string
     address: string
+    lat?: number | null
+    lng?: number | null
 }
 
 export function useDeliveryData() {
     const { user, isAuthenticated } = useAuth()
     const [deliveryData, setDeliveryData] = useState<DeliveryData>({
         phone: '',
-        address: ''
+        address: '',
+        lat: null,
+        lng: null,
     })
     const [isLoading, setIsLoading] = useState(true)
 
@@ -24,11 +28,13 @@ export function useDeliveryData() {
             }
 
             try {
-                const customer = await CustomerService.getByAccount(user.id)
-                if (customer) {
+                const me = await CustomerService.getMe()
+                if (me) {
                     setDeliveryData({
-                        phone: normalizePhone(customer.PhoneNumber),
-                        address: normalizeAddress(customer.Address)
+                        phone: normalizePhone(me.phone),
+                        address: normalizeAddress(me.address),
+                        lat: me.lat,
+                        lng: me.lng,
                     })
                 }
             } catch (error) {

@@ -25,7 +25,7 @@ function extractOrderIdFromOrderInfo(orderInfo?: string | null): string | undefi
 export default function VnPayReturnPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { clearCart } = useCart()
+  const { cartItems, removeFromCart } = useCart()
 
   const responseCode = searchParams.get('vnp_ResponseCode')
   const transactionStatus = searchParams.get('vnp_TransactionStatus')
@@ -87,7 +87,18 @@ export default function VnPayReturnPage() {
           status: 'success',
           message: 'Payment received. Your order is being confirmed.',
         }))
-        clearCart()
+        let selectedRestaurantId: string | null = null
+        try {
+          selectedRestaurantId = localStorage.getItem('cartSelectedRestaurantId')
+        } catch {}
+
+        const itemsToClear = selectedRestaurantId
+          ? cartItems.filter((ci) => ci.menuItem.restaurantId === selectedRestaurantId)
+          : cartItems
+
+        for (const item of itemsToClear) {
+          removeFromCart(item.menuItem.id)
+        }
         const oid = pending?.orderId || extractOrderIdFromOrderInfo(orderInfo)
         if (oid) {
           const params = new URLSearchParams({
@@ -114,7 +125,7 @@ export default function VnPayReturnPage() {
     return () => {
       cancelled = true
     }
-  }, [searchParams, responseCode, transactionStatus, orderInfo, pending, router, clearCart])
+  }, [searchParams, responseCode, transactionStatus, orderInfo, pending, router, cartItems, removeFromCart])
 
   const title =
     state.status === 'processing'

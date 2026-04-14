@@ -9,7 +9,7 @@ import { useRouter } from 'next/navigation'
 import { PaymentService } from '@/services/payment.service'
 import { useSearchParams } from 'next/navigation'
 import { ArrowLeft, CheckCircle, Circle } from 'lucide-react'
-import { Fragment, useEffect, useRef, useState } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { RestaurantService } from '@/services/restaurant.service'
 import { VoucherService } from '@/services/voucher.service'
 import { RestaurantHeader } from '@/components/checkout/RestaurantHeader'
@@ -37,32 +37,92 @@ interface CheckoutData {
   deliveryInfo: {
     phone: string
     address: string
+    lat?: number
+    lng?: number
   }
   voucherCode?: string
   total: number
 }
 
+function safeLocalStorageGet(key: string): string | null {
+  try {
+    return localStorage.getItem(key)
+  } catch {
+    return null
+  }
+}
+
+function safeLocalStorageSet(key: string, value: string) {
+  try {
+    localStorage.setItem(key, value)
+  } catch {}
+}
+
+function pickSelectedRestaurantId(
+  cartItems: CartItem[],
+  storedRestaurantId: string | null
+): string | null {
+  if (cartItems.length === 0) return null
+  const storedExists =
+    storedRestaurantId && cartItems.some((ci) => ci.menuItem.restaurantId === storedRestaurantId)
+  return storedExists ? storedRestaurantId : cartItems[0].menuItem.restaurantId
+}
+
 export default function CheckoutPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { cartItems, updateQuantity, removeFromCart, clearCart } = useCart()
+  const { cartItems, updateQuantity, removeFromCart } = useCart()
   const { deliveryData, isLoading: isDeliveryLoading } = useDeliveryData()
   const { isAuthenticated, isLoading: isAuthLoading } = useAuth()
   const { showToast } = useToast()
   const { t, locale } = useTranslations()
   
   // State management
+  const [selectedRestaurantId, setSelectedRestaurantId] = useState<string | null>(null)
   const [appliedVoucher, setAppliedVoucher] = useState<AppliedVoucher>(null)
   const [isOffersModalOpen, setIsOffersModalOpen] = useState(false)
   const [paymentMethod, setPaymentMethod] = useState<CheckoutPaymentMethod>(
     CHECKOUT_PAYMENT_METHOD.Cash,
   )
+  const [hasConfirmedPaymentMethod, setHasConfirmedPaymentMethod] = useState(false)
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false)
   const [restaurantLogo, setRestaurantLogo] = useState<string | null>(null)
+  const [restaurantInfo, setRestaurantInfo] = useState<{
+    name: string
+    rating: number
+    deliveryTime: string
+    address: string
+  } | null>(null)
   const [availableVouchers, setAvailableVouchers] = useState<{ code: string, amount?: number, percent?: number, minOrder?: number }[]>([])
   const [commissionFee, setCommissionFee] = useState<number>(DEFAULT_COMMISSION_FEE)
   const [isPlacingOrder, setIsPlacingOrder] = useState(false)
   const hasLoadedVouchersRef = useRef(false)
+
+  useEffect(() => {
+    const stored = safeLocalStorageGet('cartSelectedRestaurantId')
+    const next = pickSelectedRestaurantId(cartItems, stored)
+    if (!next) return
+
+    // If we don't have a selection yet, or the current selection is no longer valid, refresh it.
+    if (!selectedRestaurantId || !cartItems.some((ci) => ci.menuItem.restaurantId === selectedRestaurantId)) {
+      setSelectedRestaurantId(next)
+      safeLocalStorageSet('cartSelectedRestaurantId', next)
+      return
+    }
+
+    safeLocalStorageSet('cartSelectedRestaurantId', selectedRestaurantId)
+  }, [cartItems, selectedRestaurantId])
+
+  const selectedCartItems = useMemo(() => {
+    if (!selectedRestaurantId) return cartItems
+    return cartItems.filter((ci) => ci.menuItem.restaurantId === selectedRestaurantId)
+  }, [cartItems, selectedRestaurantId])
+
+  const clearSelectedFromCart = useCallback(() => {
+    for (const item of selectedCartItems) {
+      removeFromCart(item.menuItem.id)
+    }
+  }, [removeFromCart, selectedCartItems])
 
   // Auto-apply promo from query (?promo=CODE) using API validation
   useEffect(() => {
@@ -76,50 +136,67 @@ export default function CheckoutPage() {
   }, [searchParams, router])
 
   // Calculate totals
-  const totalItems = cartItems.reduce((sum, item) => sum + item.quantity, 0)
-  const subtotal = cartItems.reduce(
+  const totalItems = selectedCartItems.reduce((sum, item) => sum + item.quantity, 0)
+  const subtotal = selectedCartItems.reduce(
     (sum, item) => sum + calculatePrice(item.menuItem.price, item.quantity),
     0
   )
   const voucherDiscount = appliedVoucher?.discount || 0
   const total = Math.max(0, subtotal + commissionFee - voucherDiscount)
 
-  // Get restaurant info from first cart item
-  const restaurantInfo = cartItems[0]?.menuItem ? {
-    name: cartItems[0].menuItem.restaurantName || 'Restaurant Name',
-    rating: 4.5,
-    deliveryTime: '25-35 min',
-    address: '123 Main Street, City'
-  } : null
-
-  const hasDeliveryInfo = Boolean(deliveryData.phone?.trim() && deliveryData.address?.trim())
-
-  // Debounced restaurant logo fetch
+  // Get restaurant info from API (includes deliveryTime/address). Fallback to cart item name.
   useEffect(() => {
-    const first = cartItems[0]?.menuItem
-    if (!first) return
-    
+    const first = selectedCartItems[0]?.menuItem
+    if (!first?.restaurantId) {
+      setRestaurantInfo(null)
+      return
+    }
+
+    const destLat = deliveryData.lat ?? undefined
+    const destLng = deliveryData.lng ?? undefined
+    const destAddress = deliveryData.address?.trim()
+
     const timeoutId = setTimeout(() => {
-      RestaurantService.getRestaurantById(first.restaurantId)
-        .then((restaurant) => {
+      RestaurantService.getRestaurantById(first.restaurantId, {
+        ...(destLat != null && destLng != null ? { destLat, destLng } : {}),
+        ...(destLat == null || destLng == null ? { destAddress } : {}),
+      })
+        .then((restaurant: any) => {
+          setRestaurantInfo({
+            name: restaurant?.name || first.restaurantName || 'Restaurant Name',
+            rating: Number(restaurant?.rating ?? 0),
+            deliveryTime: restaurant?.deliveryTime || '—',
+            address: restaurant?.address || '—',
+          })
           if (restaurant?.avatarUrl) setRestaurantLogo(restaurant.avatarUrl)
         })
-        .catch(() => {}) // Silent fail for better UX
+        .catch(() => {
+          setRestaurantInfo({
+            name: first.restaurantName || 'Restaurant Name',
+            rating: 0,
+            deliveryTime: '—',
+            address: '—',
+          })
+        })
     }, RESTAURANT_LOGO_DEBOUNCE_MS)
 
     return () => clearTimeout(timeoutId)
-  }, [cartItems])
+  }, [selectedCartItems, deliveryData.lat, deliveryData.lng, deliveryData.address])
+
+  const hasDeliveryInfo = Boolean(deliveryData.phone?.trim() && deliveryData.address?.trim())
+
+  // restaurantLogo is handled by restaurantInfo fetch above
 
   // Load commission fee from API based on restaurant
   useEffect(() => {
-    const first = cartItems[0]?.menuItem
+    const first = selectedCartItems[0]?.menuItem
     if (!first?.restaurantId) return
     RestaurantService.getCommission(first.restaurantId)
       .then((res) => {
         if (res?.success) setCommissionFee(Number(res.commissionFee) || 0)
       })
       .catch(() => {})
-  }, [cartItems])
+  }, [selectedCartItems])
 
   // Load vouchers exactly once per mount – avoids StrictMode double fetch & polling noise
   useEffect(() => {
@@ -199,7 +276,7 @@ export default function CheckoutPage() {
   }
 
   // Redirect if cart is empty - AFTER all hooks (skip during place order to avoid "cart is empty" flash)
-  if (cartItems.length === 0) {
+  if (cartItems.length === 0 || selectedCartItems.length === 0) {
     if (isPlacingOrder) {
       return (
         <div className="container py-8 flex items-center justify-center min-h-[50vh]">
@@ -250,7 +327,7 @@ export default function CheckoutPage() {
 
   const handlePlaceOrder = async () => {
     try {
-      const violatingItem = cartItems.find((item) =>
+      const violatingItem = selectedCartItems.find((item) =>
         exceedsItemValueLimit(item.menuItem.price, item.quantity)
       )
       if (violatingItem) {
@@ -279,25 +356,34 @@ export default function CheckoutPage() {
       }
 
       const checkoutData: CheckoutData = {
-        cartItems,
+        cartItems: selectedCartItems,
         deliveryInfo: {
           phone: trimmedPhone,
-          address: trimmedAddress
+          address: trimmedAddress,
+          ...(Number.isFinite(deliveryData.lat) && Number.isFinite(deliveryData.lng)
+            ? { lat: deliveryData.lat as number, lng: deliveryData.lng as number }
+            : {}),
         },
         voucherCode: appliedVoucher?.code,
         total: total
       }
 
+      // User is confirming the order, treat payment choice as confirmed (even if default Cash).
+      setHasConfirmedPaymentMethod(true)
       setIsPlacingOrder(true)
-      if (paymentMethod === CHECKOUT_PAYMENT_METHOD.Stripe) {
-        await handleStripePayment(checkoutData)
-      } else if (paymentMethod === CHECKOUT_PAYMENT_METHOD.VnPay) {
-        await handleVnPayPayment(checkoutData)
-      } else if (paymentMethod === CHECKOUT_PAYMENT_METHOD.Cash) {
-        await handleCashPayment(checkoutData)
-      } else {
-        setIsPlacingOrder(false)
-        showToast('This payment method is not supported yet.', 'warning', 6000)
+      switch (paymentMethod) {
+        case CHECKOUT_PAYMENT_METHOD.Stripe:
+          await handleStripePayment(checkoutData)
+          break
+        case CHECKOUT_PAYMENT_METHOD.VnPay:
+          await handleVnPayPayment(checkoutData)
+          break
+        case CHECKOUT_PAYMENT_METHOD.Cash:
+          await handleCashPayment(checkoutData)
+          break
+        default:
+          setIsPlacingOrder(false)
+          showToast('This payment method is not supported yet.', 'warning', 6000)
       }
     } catch (error) {
       console.error('Error processing order:', error)
@@ -351,7 +437,7 @@ export default function CheckoutPage() {
 
     const result = await PaymentService.processCashOnDelivery(
       checkoutData,
-      clearCart,
+      clearSelectedFromCart,
       paymentNotification
     )
 
@@ -401,14 +487,22 @@ export default function CheckoutPage() {
                 const steps = [
                   { key: 'cart', label: 'Cart', done: cartItems.length > 0 },
                   { key: 'delivery', label: 'Delivery', done: hasDeliveryInfo },
-                  { key: 'payment', label: 'Payment', done: Boolean(paymentMethod) },
+                  {
+                    key: 'payment',
+                    label: 'Payment',
+                    // paymentMethod always has a default; only mark done when user confirmed/changed it
+                    done: hasConfirmedPaymentMethod,
+                  },
+                  // We navigate away on success; this step is typically "active" while placing.
                   { key: 'confirm', label: 'Confirm', done: false },
                 ]
 
-                const currentIdx = Math.min(
-                  steps.findIndex(s => !s.done),
-                  steps.length - 1
-                )
+                const currentIdx = isPlacingOrder
+                  ? steps.length - 1
+                  : Math.min(
+                      steps.findIndex(s => !s.done),
+                      steps.length - 1
+                    )
 
                 return (
                   <div className="flex items-center">
@@ -465,7 +559,7 @@ export default function CheckoutPage() {
                 />
               )}
 
-              <CartItems items={cartItems} totalItems={totalItems} onChangeQuantity={handleQuantityChange} onRemove={(id) => removeFromCart(id)} />
+              <CartItems items={selectedCartItems} totalItems={totalItems} onChangeQuantity={handleQuantityChange} onRemove={(id) => removeFromCart(id)} />
             </div>
 
             {/* Right - Checkout Form */}
@@ -493,7 +587,10 @@ export default function CheckoutPage() {
                 isModalOpen={isPaymentModalOpen}
                 onOpen={() => setIsPaymentModalOpen(true)}
                 onClose={() => setIsPaymentModalOpen(false)}
-                onChange={(m) => setPaymentMethod(m)}
+                onChange={(m) => {
+                  setPaymentMethod(m)
+                  setHasConfirmedPaymentMethod(true)
+                }}
               />
 
               <OrderSummary

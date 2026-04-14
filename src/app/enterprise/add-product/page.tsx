@@ -37,7 +37,8 @@ export default function FoodUploadForm() {
 
 
   return (
-    <div className="space-y-6">
+    <>
+      <div className="space-y-6">
       <div className={`${ENTERPRISE_PANEL_CLASS} p-4`}>
         <EnterprisePageHeader
           title="Create a Stunning Dish"
@@ -282,6 +283,8 @@ export default function FoodUploadForm() {
       </div>
 
       {/* Close dropdown on outside click */}
+      </div>
+
       {showDropdown && (
         <div className="fixed inset-0 z-0" onClick={() => setShowDropdown(false)} />
       )}
@@ -300,6 +303,6 @@ export default function FoodUploadForm() {
           />
         </div>
       )}
-    </div>
+    </>
   );
 }
