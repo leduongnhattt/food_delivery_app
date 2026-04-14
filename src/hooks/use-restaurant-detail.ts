@@ -5,6 +5,7 @@ import { RestaurantService } from '@/services/restaurant.service'
 import { FoodService } from '@/services/food.service'
 import { mapRestaurantToVM, mapFoodToMenuItem } from '@/lib/mappers/restaurant'
 import { CATALOG_REFETCH_INTERVAL_MS } from '@/hooks/catalog-refetch'
+import { useDeliveryDestination } from '@/contexts/delivery-destination-context'
 
 interface UseRestaurantResult {
     restaurant: Restaurant | null
@@ -19,6 +20,7 @@ export function useRestaurantDetail(id: string): UseRestaurantResult {
     const [items, setItems] = React.useState<MenuItem[]>([])
     const [loading, setLoading] = React.useState(true)
     const [error, setError] = React.useState<string | null>(null)
+    const { destination } = useDeliveryDestination()
 
     // Memoize the ID to prevent unnecessary re-renders
     const memoizedId = React.useMemo(() => id, [id])
@@ -39,7 +41,14 @@ export function useRestaurantDetail(id: string): UseRestaurantResult {
         setError(null)
         try {
             const [r, foodsResp] = await Promise.all([
-                RestaurantService.getRestaurantById(memoizedId),
+                RestaurantService.getRestaurantById(memoizedId, {
+                    ...(destination?.lat != null && destination?.lng != null
+                        ? { destLat: destination.lat, destLng: destination.lng }
+                        : {}),
+                    ...(destination?.lat == null || destination?.lng == null
+                        ? (destination?.address ? { destAddress: destination.address } : {})
+                        : {}),
+                }),
                 FoodService.getAllFoods({ restaurantId: memoizedId, limit: 100 })
             ])
 
@@ -57,7 +66,7 @@ export function useRestaurantDetail(id: string): UseRestaurantResult {
                 setLoading(false)
             }
         }
-    }, [memoizedId])
+    }, [memoizedId, destination?.lat, destination?.lng, destination?.address])
 
     React.useEffect(() => {
         // Simple debounce to prevent double calls

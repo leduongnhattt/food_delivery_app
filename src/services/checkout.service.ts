@@ -6,6 +6,8 @@ export interface CheckoutData {
     deliveryInfo: {
         phone: string
         address: string
+        lat?: number
+        lng?: number
     }
     voucherCode?: string
     total: number

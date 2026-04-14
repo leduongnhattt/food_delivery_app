@@ -19,6 +19,8 @@ export interface RestaurantFilters {
   limit?: number
 }
 
+export type DestinationParams = { destLat?: number; destLng?: number; destAddress?: string }
+
 interface RestaurantSearchParams {
   q?: string
   category?: string
@@ -61,9 +63,10 @@ export class RestaurantService extends BaseService {
 
   static async getRestaurants(
     filters: RestaurantFilters = {},
+    destination?: DestinationParams,
   ): Promise<PaginatedResponse<Restaurant>> {
     try {
-      const queryString = buildQueryString(filters)
+      const queryString = buildQueryString({ ...filters, ...(destination ?? {}) })
       const url = `${getRestaurantsBase()}${queryString ? `?${queryString}` : ''}`
       const response = await requestJson<{
         restaurants: Restaurant[]
@@ -82,8 +85,13 @@ export class RestaurantService extends BaseService {
     }
   }
 
-  static async getRestaurantById(id: string): Promise<Restaurant> {
-    const response = await requestJson<Restaurant>(`${getRestaurantsBase()}/${id}`, GET_OPTIONS)
+  static async getRestaurantById(
+    id: string,
+    params?: { destLat?: number; destLng?: number; destAddress?: string },
+  ): Promise<Restaurant> {
+    const queryString = buildQueryString(params ?? {})
+    const url = `${getRestaurantsBase()}/${id}${queryString ? `?${queryString}` : ''}`
+    const response = await requestJson<Restaurant>(url, GET_OPTIONS)
     return response
   }
 

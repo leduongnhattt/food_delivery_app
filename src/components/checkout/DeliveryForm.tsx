@@ -1,6 +1,7 @@
 'use client'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Truck } from 'lucide-react'
+import React from 'react'
 
 interface DeliveryFormProps {
   phone: string
@@ -8,7 +9,11 @@ interface DeliveryFormProps {
   isLoading?: boolean
 }
 
-export function DeliveryForm({ phone, address, isLoading = false }: DeliveryFormProps) {
+export function DeliveryForm({
+  phone,
+  address,
+  isLoading = false,
+}: DeliveryFormProps) {
   return (
     <Card className="shadow-xl border-0 bg-white/80 backdrop-blur-sm">
       <CardHeader>

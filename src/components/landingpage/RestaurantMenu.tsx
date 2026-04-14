@@ -16,7 +16,8 @@ const transformRestaurantForCard = (restaurant: ApiRestaurant): RestaurantCardDa
   avatarUrl: restaurant.avatarUrl,
   status: restaurant.isOpen ? "open" : "closed" as "open" | "closed",
   rating: restaurant.rating,
-  totalReviews: restaurant.totalReviews
+  totalReviews: restaurant.totalReviews,
+  deliveryTime: restaurant.deliveryTime,
 });
 
 interface Props {

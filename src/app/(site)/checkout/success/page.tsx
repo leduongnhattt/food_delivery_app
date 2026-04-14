@@ -11,7 +11,7 @@ import { CheckoutService } from '@/services/checkout.service'
 export default function PaymentSuccessPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { clearCart } = useCart()
+  const { cartItems, removeFromCart } = useCart()
   const [orderDetails, setOrderDetails] = useState<any>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isProcessing, setIsProcessing] = useState(false)
@@ -26,6 +26,21 @@ export default function PaymentSuccessPage() {
     try {
       setIsProcessing(true)
       setIsLoading(true)
+
+      const clearSelectedFromCart = () => {
+        let selectedRestaurantId: string | null = null
+        try {
+          selectedRestaurantId = localStorage.getItem('cartSelectedRestaurantId')
+        } catch {}
+
+        const itemsToClear = selectedRestaurantId
+          ? cartItems.filter((ci) => ci.menuItem.restaurantId === selectedRestaurantId)
+          : cartItems
+
+        for (const item of itemsToClear) {
+          removeFromCart(item.menuItem.id)
+        }
+      }
       
       // Create payment notification utilities
       const notification = PaymentService.createPaymentNotification()
@@ -33,7 +48,7 @@ export default function PaymentSuccessPage() {
       // Process payment success using service
       const result = await PaymentService.handlePaymentSuccess(
         sessionId,
-        clearCart,
+        clearSelectedFromCart,
         notification
       )
       
@@ -54,7 +69,7 @@ export default function PaymentSuccessPage() {
       setIsLoading(false)
       setIsProcessing(false)
     }
-  }, [clearCart, isProcessing])
+  }, [cartItems, isProcessing, removeFromCart])
 
   useEffect(() => {
     if (!sessionId) return
