@@ -70,7 +70,7 @@ export class CheckoutService {
                 return { error: result.error || 'Failed to create VNPay payment URL' }
             }
 
-            return { url: result.url, orderId: result.orderId, paymentId: result.paymentId }
+            return { url: result.url, paymentId: result.paymentId }
         } catch (error) {
             console.error('Error creating VNPay payment URL:', error)
             return { error: 'Network error occurred' }
@@ -158,6 +158,18 @@ export class CheckoutService {
             console.error('verifyVnPayReturnQuery', error)
             return { valid: false, error: 'Network error' }
         }
+    }
+
+    static async resolveVnPayAttempt(txnRef: string): Promise<{
+        found: boolean
+        status?: 'created' | 'paid' | 'failed'
+        orderId?: string | null
+    }> {
+        const base = getServerApiBase()
+        return fetch(`${base}/payments/vnpay/resolve?txnRef=${encodeURIComponent(txnRef)}`, {
+            method: 'GET',
+            cache: 'no-store',
+        }).then((r) => r.json())
     }
 
     static async getStripeSessionStatus(sessionId: string): Promise<{

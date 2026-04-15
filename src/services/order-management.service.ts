@@ -82,7 +82,7 @@ class OrderManagementServiceImpl implements OrderManagementService {
     try {
       const base = getServerApiBase();
       const response = await requestJson<{ orders: Order[] }>(
-        `${base}/enterprise/orders`,
+        `${base}/enterprise/orders?force=1`,
         {
           method: "GET",
           cache: "no-store",

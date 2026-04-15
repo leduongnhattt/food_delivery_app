@@ -415,11 +415,10 @@ export default function CheckoutPage() {
       return
     }
 
-    if (result.orderId && typeof window !== 'undefined') {
+    if (result.paymentId && typeof window !== 'undefined') {
       sessionStorage.setItem(
         'vnpay_pending',
         JSON.stringify({
-          orderId: result.orderId,
           paymentId: result.paymentId,
           phone: checkoutData.deliveryInfo.phone,
           address: checkoutData.deliveryInfo.address,
