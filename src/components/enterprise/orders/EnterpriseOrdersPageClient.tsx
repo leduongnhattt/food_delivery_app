@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useToast } from "@/contexts/toast-context";
 import {
@@ -90,10 +90,21 @@ const SORT_OPTIONS: EnterpriseMenuSelectOption[] = [
   { value: "amount_low", label: "Order Total (Low to High)" },
 ];
 
+const PAGE_SIZE_OPTIONS: EnterpriseMenuSelectOption[] = [
+  { value: "12", label: "12 / page" },
+  { value: "24", label: "24 / page" },
+  { value: "48", label: "48 / page" },
+];
+
 export function EnterpriseOrdersPageClient() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [sortBy, setSortBy] = useState("newest");
+  const [pageSize, setPageSize] = useState<12 | 24 | 48>(12);
+  const [page, setPage] = useState(1);
+  const pagerRef = useRef<HTMLDivElement | null>(null);
+  const scrollAfterUpdateRef = useRef(false);
+  const isFetchingRef = useRef(false);
   const [showDeletePopup, setShowDeletePopup] = useState(false);
   const [orderToDelete, setOrderToDelete] = useState<string | null>(null);
   const [confirmingOrderId, setConfirmingOrderId] = useState<string | null>(null);
@@ -188,22 +199,51 @@ export function EnterpriseOrdersPageClient() {
     setCommittedByTab((prev) => ({ ...prev, [tab]: def }));
   }, [tab]);
 
-  const fetchOrders = useCallback(async () => {
+  const fetchOrders = useCallback(async (opts?: { silent?: boolean }) => {
     try {
-      setLoading(true);
+      if (isFetchingRef.current) return;
+      isFetchingRef.current = true;
+      if (!opts?.silent) setLoading(true);
       const data = await orderManagementService.fetchOrders();
       setOrders(data);
     } catch (error) {
       console.error("Error fetching orders:", error);
-      showToast("Failed to load orders", "error");
+      if (!opts?.silent) showToast("Failed to load orders", "error");
     } finally {
-      setLoading(false);
+      if (!opts?.silent) setLoading(false);
+      isFetchingRef.current = false;
     }
   }, [showToast]);
 
   useEffect(() => {
     fetchOrders();
   }, [fetchOrders]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const tick = async () => {
+      if (cancelled) return;
+      if (confirmingOrderId || actionLoadingOrderId || arrangeSaving) return;
+      await fetchOrders({ silent: true });
+    };
+
+    const onFocus = () => void tick();
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") void tick();
+    };
+
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVisibility);
+
+    const id = window.setInterval(() => void tick(), 5000);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.clearInterval(id);
+    };
+  }, [fetchOrders, confirmingOrderId, actionLoadingOrderId, arrangeSaving]);
 
   const bucketFiltered = useMemo(() => {
     return orders.filter((o) => matchesEnterpriseTab(o, tab, toShipSub));
@@ -217,6 +257,41 @@ export function EnterpriseOrdersPageClient() {
   const sortedOrders = useMemo(() => {
     return orderManagementService.sortOrders(searched, sortBy);
   }, [searched, sortBy]);
+
+  // Reset paging when the result set changes (tab, search, sort, etc.)
+  useEffect(() => {
+    setPage(1);
+  }, [tab, toShipSub, committedByTab, sortBy, pageSize]);
+
+  const totalPages = useMemo(() => {
+    return Math.max(1, Math.ceil(sortedOrders.length / pageSize));
+  }, [sortedOrders.length, pageSize]);
+
+  useEffect(() => {
+    // Clamp page if data shrinks (e.g. after actions)
+    setPage((p) => Math.min(Math.max(1, p), totalPages));
+  }, [totalPages]);
+
+  const pagedOrders = useMemo(() => {
+    const start = (page - 1) * pageSize;
+    return sortedOrders.slice(start, start + pageSize);
+  }, [sortedOrders, page, pageSize]);
+
+  const scrollPagerIntoView = useCallback(() => {
+    // Keep the pagination controls visible after changing page/size,
+    // even when the list height changes (prevents "jump to middle" feel).
+    if (typeof window === "undefined") return;
+    window.requestAnimationFrame(() => {
+      pagerRef.current?.scrollIntoView({ block: "end", behavior: "smooth" });
+    });
+  }, []);
+
+  // Only scroll after explicit user paging action (next/prev/page size).
+  useEffect(() => {
+    if (!scrollAfterUpdateRef.current) return;
+    scrollAfterUpdateRef.current = false;
+    scrollPagerIntoView();
+  }, [page, pageSize, scrollPagerIntoView]);
 
   const handleDeleteOrder = (orderId: string) => {
     setOrderToDelete(orderId);
@@ -528,7 +603,7 @@ export function EnterpriseOrdersPageClient() {
         </div>
 
         <EnterpriseOrdersTable
-          orders={sortedOrders}
+          orders={pagedOrders}
           onDelete={handleDeleteOrder}
           onConfirm={handleConfirmOrder}
           onArrangeShipment={openArrangeShipment}
@@ -537,6 +612,65 @@ export function EnterpriseOrdersPageClient() {
           confirmingOrderId={confirmingOrderId}
           actionLoadingOrderId={actionLoadingOrderId}
         />
+
+        <div
+          ref={pagerRef}
+          className="flex items-center justify-end gap-2 bg-white px-4 py-2"
+        >
+          <button
+            type="button"
+            onClick={() => {
+              scrollAfterUpdateRef.current = true;
+              setPage((p) => Math.max(1, p - 1));
+            }}
+            disabled={page <= 1}
+            className={`inline-flex h-7 w-7 items-center justify-center rounded border text-sm ${
+              page <= 1
+                ? "border-gray-200 text-gray-300 cursor-not-allowed"
+                : "border-gray-300 text-gray-700 hover:bg-gray-50"
+            }`}
+            aria-label="Previous page"
+          >
+            ‹
+          </button>
+
+          <div className="text-xs tabular-nums text-gray-700">
+            {page} / {totalPages}
+          </div>
+
+          <button
+            type="button"
+            onClick={() => {
+              scrollAfterUpdateRef.current = true;
+              setPage((p) => Math.min(totalPages, p + 1));
+            }}
+            disabled={page >= totalPages}
+            className={`inline-flex h-7 w-7 items-center justify-center rounded border text-sm ${
+              page >= totalPages
+                ? "border-gray-200 text-gray-300 cursor-not-allowed"
+                : "border-gray-300 text-gray-700 hover:bg-gray-50"
+            }`}
+            aria-label="Next page"
+          >
+            ›
+          </button>
+
+          <div className="w-[110px]">
+            <EnterpriseMenuSelect
+              value={String(pageSize)}
+              onChange={(v) => {
+                scrollAfterUpdateRef.current = true;
+                setPageSize(Number(v) as 12 | 24 | 48);
+              }}
+              options={PAGE_SIZE_OPTIONS}
+              className="w-full"
+              alignMenu="right"
+              side="top"
+              usePortal
+              aria-label="Rows per page"
+            />
+          </div>
+        </div>
       </div>
 
       <DeleteOrderPopup

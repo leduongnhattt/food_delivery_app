@@ -22,12 +22,16 @@ export interface Order {
     items: OrderItem[]
     totalAmount: number
     status: 'pending' | 'confirmed' | 'preparing' | 'out_for_delivery' | 'delivered' | 'completed' | 'cancelled' | 'refunded'
+    cancelReason?: string | null
+    refundPending?: boolean
     deliveryAddress: string
     deliveryInstructions?: string
     paymentMethod: string
+    paymentStatus?: string | null
     createdAt: string
     updatedAt: string
     estimatedDeliveryTime?: string
+    expiresAt?: string | null
 }
 
 export interface OrderListResponse {
@@ -43,6 +47,35 @@ export interface OrderFilters {
     limit?: number
     startDate?: string
     endDate?: string
+}
+
+function normalizeOrderStatus(input: unknown): Order['status'] {
+    const raw = String(input ?? '').trim()
+    const s = raw.toLowerCase()
+
+    // Accept a few common variants coming from older/back-end naming.
+    if (s === 'outfordelivery' || s === 'out_for_delivery' || s === 'out-for-delivery') return 'out_for_delivery'
+    if (s === 'inprogress') return 'preparing'
+
+    // Canonical statuses already used in the app.
+    if (s === 'pending') return 'pending'
+    if (s === 'confirmed') return 'confirmed'
+    if (s === 'preparing') return 'preparing'
+    if (s === 'delivered') return 'delivered'
+    if (s === 'completed') return 'completed'
+    if (s === 'cancelled' || s === 'canceled') return 'cancelled'
+    if (s === 'refunded') return 'refunded'
+
+    return 'pending'
+}
+
+function normalizeOrder(raw: any): Order {
+    return {
+        ...raw,
+        status: normalizeOrderStatus(raw?.status),
+        paymentStatus: raw?.paymentStatus ? String(raw.paymentStatus).toLowerCase() : raw?.paymentStatus ?? null,
+        paymentMethod: raw?.paymentMethod ? String(raw.paymentMethod).toLowerCase() : raw?.paymentMethod,
+    } as Order
 }
 
 export class OrderService {
@@ -62,9 +95,13 @@ export class OrderService {
         const base = getServerApiBase()
         const url = `${base}/orders${queryString ? `?${queryString}` : ''}`
 
-        return requestJson<OrderListResponse>(url, {
+        const res = await requestJson<OrderListResponse>(url, {
             headers: buildHeaders(),
         })
+        return {
+            ...res,
+            orders: Array.isArray(res?.orders) ? res.orders.map(normalizeOrder) : [],
+        }
     }
 
     /**
@@ -72,9 +109,10 @@ export class OrderService {
      */
     static async getOrderById(orderId: string): Promise<Order> {
         const base = getServerApiBase()
-        return requestJson<Order>(`${base}/orders/${orderId}`, {
+        const res = await requestJson<Order>(`${base}/orders/${orderId}`, {
             headers: buildHeaders(),
         })
+        return normalizeOrder(res)
     }
 
     /**

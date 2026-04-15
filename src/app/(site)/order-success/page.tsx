@@ -3,14 +3,15 @@ import { useSearchParams, useRouter } from 'next/navigation'
 import { useCallback, useEffect, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { CheckCircle, Clock, MapPin, Phone, Home } from 'lucide-react'
-import { buildHeaders } from '@/lib/http-client'
+import { CheckCircle, Clock, MapPin, Phone, Home, AlertTriangle } from 'lucide-react'
 import { CHECKOUT_PAYMENT_METHOD } from '@/lib/payment-method'
+import { OrderService } from '@/services/order.service'
+import type { Order } from '@/services/order.service'
 
 export default function OrderSuccessPage() {
   const searchParams = useSearchParams()
   const router = useRouter()
-  const [orderDetails, setOrderDetails] = useState<any>(null)
+  const [orderDetails, setOrderDetails] = useState<Order | null>(null)
   
   const orderId = searchParams.get('orderId')
   const paymentMethod = searchParams.get('paymentMethod')
@@ -18,44 +19,26 @@ export default function OrderSuccessPage() {
   const address = searchParams.get('address')
 
   // Function to fetch order details from API
-  const fetchOrderDetails = useCallback(async (orderId: string) => {
+  const fetchOrderDetails = useCallback(async (oid: string) => {
     try {
-      const response = await fetch(`/api/orders/track?orderId=${orderId}`, {
-        headers: buildHeaders(),
-      })
-      
-      if (response.ok) {
-        const data = await response.json()
-        return {
-          id: orderId,
-          status: data.currentStatus || 'Confirmed',
-          estimatedDelivery: data.estimatedDeliveryTime ? 
-            new Date(data.estimatedDeliveryTime).toLocaleString() : '25-35 minutes',
-          paymentMethod: paymentMethod || CHECKOUT_PAYMENT_METHOD.Cash,
-          deliveryAddress: data.order?.DeliveryAddress || address,
-          phone: phone
-        }
-      }
+      return await OrderService.getOrderById(oid)
     } catch (error) {
       console.error('Error fetching order details:', error)
+      return null
     }
-    
-    // Fallback to basic details
-    return {
-      id: orderId,
-      status: 'Confirmed',
-      estimatedDelivery: '25-35 minutes',
-      paymentMethod: paymentMethod || CHECKOUT_PAYMENT_METHOD.Cash,
-      deliveryAddress: address,
-      phone: phone
-    }
-  }, [address, paymentMethod, phone])
+  }, [])
 
   useEffect(() => {
     if (orderId) {
       fetchOrderDetails(orderId).then(setOrderDetails)
     }
   }, [fetchOrderDetails, orderId])
+
+  const expiresAt = orderDetails?.expiresAt ? new Date(orderDetails.expiresAt) : null
+  const minutesLeft =
+    expiresAt && orderDetails?.status === 'pending'
+      ? Math.max(0, Math.ceil((expiresAt.getTime() - Date.now()) / 60000))
+      : null
 
   if (!orderId) {
     return (
@@ -82,9 +65,9 @@ export default function OrderSuccessPage() {
             <div className="w-20 h-20 mx-auto mb-4 bg-green-100 rounded-full flex items-center justify-center">
               <CheckCircle className="w-12 h-12 text-green-600" />
             </div>
-            <h1 className="text-3xl font-bold text-gray-800 mb-2">Order Confirmed!</h1>
+            <h1 className="text-3xl font-bold text-gray-800 mb-2">Order placed</h1>
             <p className="text-gray-600">
-              Your order has been placed successfully and is being prepared.
+              Your order is waiting for the shop to confirm.
             </p>
           </div>
 
@@ -103,8 +86,19 @@ export default function OrderSuccessPage() {
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600">Status:</span>
-                <span className="font-medium text-green-600 capitalize">{orderDetails?.status}</span>
+                <span className="font-medium text-gray-900 capitalize">{orderDetails?.status || 'pending'}</span>
               </div>
+              {orderDetails?.status === 'pending' && minutesLeft != null && (
+                <div className="flex items-start gap-2 rounded-lg border border-yellow-200 bg-yellow-50 p-3 text-sm text-yellow-900">
+                  <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                  <div className="min-w-0">
+                    <div className="font-medium">Waiting for shop confirmation</div>
+                    <div className="text-yellow-800">
+                      Auto-cancel in {minutesLeft} minute{minutesLeft === 1 ? '' : 's'} if not confirmed.
+                    </div>
+                  </div>
+                </div>
+              )}
               <div className="flex justify-between">
                 <span className="text-gray-600">Payment Method:</span>
                 <span className="font-medium capitalize">
@@ -115,7 +109,11 @@ export default function OrderSuccessPage() {
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600">Estimated Delivery:</span>
-                <span className="font-medium">{orderDetails?.estimatedDelivery}</span>
+                <span className="font-medium">
+                  {orderDetails?.estimatedDeliveryTime
+                    ? new Date(orderDetails.estimatedDeliveryTime).toLocaleString()
+                    : '—'}
+                </span>
               </div>
             </CardContent>
           </Card>
@@ -143,7 +141,7 @@ export default function OrderSuccessPage() {
                   <span className="text-gray-600">Contact:</span>
                 </div>
                 <p className="ml-6 text-gray-800">
-                  {orderDetails?.phone || phone || 'Your phone number will be shown here'}
+                  {orderDetails?.recipientPhone || phone || 'Your phone number will be shown here'}
                 </p>
               </div>
             </CardContent>

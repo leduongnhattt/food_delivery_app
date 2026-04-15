@@ -15,13 +15,6 @@ type ReturnState = {
   message?: string
 }
 
-function extractOrderIdFromOrderInfo(orderInfo?: string | null): string | undefined {
-  if (!orderInfo) return undefined
-  // We send `vnp_OrderInfo: "Order <orderId>"` from the server.
-  const m = orderInfo.match(/Order\s+([A-Za-z0-9\-_]+)/)
-  return m?.[1]
-}
-
 export default function VnPayReturnPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -30,13 +23,14 @@ export default function VnPayReturnPage() {
   const responseCode = searchParams.get('vnp_ResponseCode')
   const transactionStatus = searchParams.get('vnp_TransactionStatus')
   const orderInfo = searchParams.get('vnp_OrderInfo')
+  const txnRef = searchParams.get('vnp_TxnRef')
 
   const pending = useMemo(() => {
     if (typeof window === 'undefined') return null
     const raw = sessionStorage.getItem('vnpay_pending')
     if (!raw) return null
     try {
-      return JSON.parse(raw) as { orderId?: string; paymentId?: string; phone?: string; address?: string }
+      return JSON.parse(raw) as { paymentId?: string; phone?: string; address?: string }
     } catch {
       return null
     }
@@ -44,7 +38,7 @@ export default function VnPayReturnPage() {
 
   const [state, setState] = useState<ReturnState>(() => ({
     status: 'processing',
-    orderId: pending?.orderId || extractOrderIdFromOrderInfo(orderInfo),
+    orderId: undefined,
   }))
 
   useEffect(() => {
@@ -69,7 +63,7 @@ export default function VnPayReturnPage() {
       if (!verify.valid) {
         setState({
           status: 'invalid_signature',
-          orderId: pending?.orderId || extractOrderIdFromOrderInfo(orderInfo),
+          orderId: undefined,
           message:
             verify.error ||
             'Invalid secure hash (vnp_SecureHash). Do not trust this return URL; check secret and signing rules on the server.',
@@ -84,31 +78,65 @@ export default function VnPayReturnPage() {
       if (success) {
         setState((s) => ({
           ...s,
-          status: 'success',
-          message: 'Payment received. Your order is being confirmed.',
+          status: 'processing',
+          message: 'Payment received. Finalizing your order...',
         }))
-        let selectedRestaurantId: string | null = null
-        try {
-          selectedRestaurantId = localStorage.getItem('cartSelectedRestaurantId')
-        } catch {}
 
-        const itemsToClear = selectedRestaurantId
-          ? cartItems.filter((ci) => ci.menuItem.restaurantId === selectedRestaurantId)
-          : cartItems
+        const ref = txnRef || pending?.paymentId
+        if (!ref) {
+          setState((s) => ({
+            ...s,
+            status: 'failed',
+            message: 'Missing transaction reference. Please contact support.',
+          }))
+          return
+        }
 
-        for (const item of itemsToClear) {
-          removeFromCart(item.menuItem.id)
+        const startedAt = Date.now()
+        while (!cancelled && Date.now() - startedAt < 30000) {
+          const resolved = await CheckoutService.resolveVnPayAttempt(ref).catch(() => null as any)
+
+          const oid = resolved?.orderId as string | null | undefined
+          if (oid) {
+            setState((s) => ({
+              ...s,
+              status: 'success',
+              orderId: oid,
+              message: "Order created. Waiting for the shop to confirm (auto-cancel after 30 minutes if not confirmed).",
+            }))
+
+            let selectedRestaurantId: string | null = null
+            try {
+              selectedRestaurantId = localStorage.getItem('cartSelectedRestaurantId')
+            } catch {}
+
+            const itemsToClear = selectedRestaurantId
+              ? cartItems.filter((ci) => ci.menuItem.restaurantId === selectedRestaurantId)
+              : cartItems
+
+            for (const item of itemsToClear) {
+              removeFromCart(item.menuItem.id)
+            }
+
+            const params = new URLSearchParams({
+              orderId: oid,
+              paymentMethod: CHECKOUT_PAYMENT_METHOD.VnPay,
+              phone: pending?.phone || '',
+              address: pending?.address || '',
+            })
+            router.replace(`/order-success?${params.toString()}`)
+            return
+          }
+
+          // wait 1s then retry
+          await new Promise((r) => setTimeout(r, 1000))
         }
-        const oid = pending?.orderId || extractOrderIdFromOrderInfo(orderInfo)
-        if (oid) {
-          const params = new URLSearchParams({
-            orderId: oid,
-            paymentMethod: CHECKOUT_PAYMENT_METHOD.VnPay,
-            phone: pending?.phone || '',
-            address: pending?.address || '',
-          })
-          router.replace(`/order-success?${params.toString()}`)
-        }
+
+        setState((s) => ({
+          ...s,
+          status: 'failed',
+          message: 'Payment received but order is still being created. Please refresh in a moment.',
+        }))
         return
       }
 
@@ -125,7 +153,7 @@ export default function VnPayReturnPage() {
     return () => {
       cancelled = true
     }
-  }, [searchParams, responseCode, transactionStatus, orderInfo, pending, router, cartItems, removeFromCart])
+  }, [searchParams, responseCode, transactionStatus, orderInfo, txnRef, pending, router, cartItems, removeFromCart])
 
   const title =
     state.status === 'processing'

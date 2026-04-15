@@ -149,7 +149,7 @@ export default function PaymentSuccessPage() {
             Payment Successful!
           </CardTitle>
           <p className="text-gray-600 mt-2">
-            Your order has been confirmed and payment processed successfully.
+            Payment processed successfully. Your order is now waiting for the shop to confirm.
           </p>
         </CardHeader>
         
@@ -176,9 +176,9 @@ export default function PaymentSuccessPage() {
               What's Next?
             </h4>
             <ul className="text-sm text-blue-700 space-y-1">
-              <li>• Your order is being prepared</li>
-              <li>• You'll receive updates via SMS/email</li>
-              <li>• Estimated delivery time: 30-45 minutes</li>
+              <li>• The shop will review and confirm your order</li>
+              <li>• If the shop doesn't confirm within 30 minutes, the order will be cancelled automatically</li>
+              <li>• You'll be able to track updates in your Orders</li>
             </ul>
           </div>
 
