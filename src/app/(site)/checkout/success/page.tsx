@@ -11,7 +11,7 @@ import { CheckoutService } from '@/services/checkout.service'
 export default function PaymentSuccessPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { clearCart } = useCart()
+  const { cartItems, removeFromCart } = useCart()
   const [orderDetails, setOrderDetails] = useState<any>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isProcessing, setIsProcessing] = useState(false)
@@ -26,6 +26,21 @@ export default function PaymentSuccessPage() {
     try {
       setIsProcessing(true)
       setIsLoading(true)
+
+      const clearSelectedFromCart = () => {
+        let selectedRestaurantId: string | null = null
+        try {
+          selectedRestaurantId = localStorage.getItem('cartSelectedRestaurantId')
+        } catch {}
+
+        const itemsToClear = selectedRestaurantId
+          ? cartItems.filter((ci) => ci.menuItem.restaurantId === selectedRestaurantId)
+          : cartItems
+
+        for (const item of itemsToClear) {
+          removeFromCart(item.menuItem.id)
+        }
+      }
       
       // Create payment notification utilities
       const notification = PaymentService.createPaymentNotification()
@@ -33,7 +48,7 @@ export default function PaymentSuccessPage() {
       // Process payment success using service
       const result = await PaymentService.handlePaymentSuccess(
         sessionId,
-        clearCart,
+        clearSelectedFromCart,
         notification
       )
       
@@ -54,7 +69,7 @@ export default function PaymentSuccessPage() {
       setIsLoading(false)
       setIsProcessing(false)
     }
-  }, [clearCart, isProcessing])
+  }, [cartItems, isProcessing, removeFromCart])
 
   useEffect(() => {
     if (!sessionId) return
@@ -134,7 +149,7 @@ export default function PaymentSuccessPage() {
             Payment Successful!
           </CardTitle>
           <p className="text-gray-600 mt-2">
-            Your order has been confirmed and payment processed successfully.
+            Payment processed successfully. Your order is now waiting for the shop to confirm.
           </p>
         </CardHeader>
         
@@ -161,9 +176,9 @@ export default function PaymentSuccessPage() {
               What's Next?
             </h4>
             <ul className="text-sm text-blue-700 space-y-1">
-              <li>• Your order is being prepared</li>
-              <li>• You'll receive updates via SMS/email</li>
-              <li>• Estimated delivery time: 30-45 minutes</li>
+              <li>• The shop will review and confirm your order</li>
+              <li>• If the shop doesn't confirm within 30 minutes, the order will be cancelled automatically</li>
+              <li>• You'll be able to track updates in your Orders</li>
             </ul>
           </div>
 

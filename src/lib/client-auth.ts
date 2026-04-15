@@ -147,15 +147,22 @@ export async function loginUser(data: LoginData): Promise<AuthResponse> {
         const result = await response.json();
 
         if (!response.ok) {
-            // Map locked account to a friendly popup message (vi)
             if (response.status === 403) {
+                const msg =
+                    typeof result.error === 'string'
+                        ? result.error
+                        : 'Your account has been locked. Please contact support.';
+                const code =
+                    typeof result.code === 'string'
+                        ? result.code
+                        : 'FORBIDDEN';
                 return {
                     success: false,
                     error: {
-                        message: "Your account has been locked. Please contact support.",
-                        code: 'ACCOUNT_LOCKED',
-                        status: 403
-                    }
+                        message: msg,
+                        code,
+                        status: 403,
+                    },
                 };
             }
             return {

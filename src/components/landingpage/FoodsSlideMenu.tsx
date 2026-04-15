@@ -1,11 +1,8 @@
 import React from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
 import FoodCard from './FoodCard';
-import { useHorizontalScroll } from '@/hooks/use-horizontal-scroll';
-import { useResponsiveCardSizes } from '@/hooks/use-responsive-card-sizes';
-import { useScrollIndicators } from '@/hooks/use-scroll-indicators';
 import { usePopularFoods } from '@/hooks/use-popular-foods';
+import { CATALOG_REFETCH_INTERVAL_MS } from '@/hooks/catalog-refetch';
 import { SAMPLE_FOODS } from '@/data/sample-foods';
 import { Food, RestaurantModalInfo, ApiRestaurantPayload, FoodsSlideMenuProps } from '@/types/models';
 import { OrderModal } from '@/components/ui/order-modal';
@@ -29,40 +26,22 @@ const FoodsSlideMenu: React.FC<FoodsSlideMenuProps> = ({
   const router = useRouter();
   const [selectedFood, setSelectedFood] = React.useState<Food | null>(null);
   const [isModalOpen, setIsModalOpen] = React.useState(false);
+  const [expanded, setExpanded] = React.useState(false);
   
   // Fetch foods from database if useDatabase is true
   const { 
     foods: databaseFoods, 
     loading, 
     error 
-  } = usePopularFoods({
-    restaurantId,
-    category,
-    limit
-  });
+  } = usePopularFoods(
+    { restaurantId, category, limit },
+    {
+      enabled: useDatabase,
+      refetchIntervalMs: useDatabase ? CATALOG_REFETCH_INTERVAL_MS : 0,
+      refetchOnVisibility: useDatabase,
+    },
+  );
   
-  // Use custom hooks for scroll functionality
-  const {
-    scrollContainerRef,
-    showLeftArrow,
-    showRightArrow,
-    handleMouseDown,
-    handleMouseMove,
-    handleMouseUp,
-    handleMouseLeave,
-    handleTouchStart,
-    handleTouchMove,
-    handleTouchEnd,
-    scroll
-  } = useHorizontalScroll({
-    momentumMultiplier: 300,
-    velocityThreshold: 0.5,
-    dragMultiplier: 1.5
-  });
-
-  // Use responsive card sizes hook
-  const { getCardSizeClasses } = useResponsiveCardSizes();
-
   // Resolve restaurant info for the OrderModal from multiple possible sources
   const resolveRestaurantInfo = (food: Food): RestaurantModalInfo => {
     const enriched = food as Food & Partial<ApiRestaurantPayload>
@@ -111,12 +90,11 @@ const FoodsSlideMenu: React.FC<FoodsSlideMenuProps> = ({
     return foods && foods.length > 0 ? foods : SAMPLE_FOODS;
   }, [useDatabase, databaseFoods, foods]);
 
-  // Use scroll indicators hook
-  const { generateDots, shouldShowIndicators } = useScrollIndicators({
-    totalItems: displayFoods.length,
-    itemsPerPage: 2,
-    isMobile: true
-  });
+  const visibleFoods = React.useMemo(() => {
+    if (expanded) return displayFoods;
+    // Default: show 8 items (4x2 on desktop).
+    return displayFoods.slice(0, 8);
+  }, [displayFoods, expanded]);
 
   const handleOrderFood = (foodId: string): void => {
     // Find the food item to get restaurantId
@@ -138,12 +116,17 @@ const FoodsSlideMenu: React.FC<FoodsSlideMenuProps> = ({
     setSelectedFood(null);
   };
 
+  React.useEffect(() => {
+    // Reset view-more when filtering changes
+    setExpanded(false);
+  }, [category, restaurantId, useDatabase]);
+
   // Show loading state
   if (useDatabase && loading) {
     return (
       <div className={`relative w-full overflow-hidden ${className}`} style={{ minWidth: '0' }}>
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 sm:mb-6 gap-3 sm:gap-4 px-2 sm:px-0">
-          <h2 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-bold text-gray-800 truncate">
+          <h2 className="text-xl md:text-2xl font-bold text-gray-800 truncate">
             {title}
           </h2>
         </div>
@@ -159,7 +142,7 @@ const FoodsSlideMenu: React.FC<FoodsSlideMenuProps> = ({
     return (
       <div className={`relative w-full overflow-hidden ${className}`} style={{ minWidth: '0' }}>
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 sm:mb-6 gap-3 sm:gap-4 px-2 sm:px-0">
-          <h2 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-bold text-gray-800 truncate">
+          <h2 className="text-xl md:text-2xl font-bold text-gray-800 truncate">
             {title}
           </h2>
         </div>
@@ -177,11 +160,11 @@ const FoodsSlideMenu: React.FC<FoodsSlideMenuProps> = ({
     <div className={`relative w-full overflow-hidden ${className}`} style={{ minWidth: '0' }}>
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 sm:mb-6 gap-3 sm:gap-4 px-2 sm:px-0">
-        <h2 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-bold text-gray-800 truncate">
+        <h2 className="text-xl md:text-2xl font-bold text-gray-800 truncate">
           {title}
         </h2>
 
-        {/* Right actions: View full menu (if restaurantId) + navigation arrows */}
+        {/* Right action: View full menu (if restaurantId) */}
         <div className="flex items-center gap-2 self-end sm:self-auto">
           {restaurantId && (
             <button
@@ -191,78 +174,46 @@ const FoodsSlideMenu: React.FC<FoodsSlideMenuProps> = ({
               View full menu
             </button>
           )}
-          
-          {/* Navigation Buttons */}
-          <div className="flex gap-1 sm:gap-2">
-          <button 
-            onClick={() => scroll('left')}
-            className={`p-1.5 sm:p-2 rounded-full bg-white shadow-md hover:shadow-lg hover:scale-[1.1] sm:hover:scale-[1.2] transition-all duration-200 border border-gray-200 ${
-              !showLeftArrow ? 'opacity-50 cursor-not-allowed' : ''
-            }`}
-            disabled={!showLeftArrow}
-            aria-label="Scroll left"
-          >
-            <ChevronLeft className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5 text-gray-600" />
-          </button>
-          <button 
-            onClick={() => scroll('right')}
-            className={`p-1.5 sm:p-2 rounded-full bg-white shadow-md hover:shadow-lg hover:scale-[1.1] sm:hover:scale-[1.2] transition-all duration-200 border border-gray-200 ${
-              !showRightArrow ? 'opacity-50 cursor-not-allowed' : ''
-            }`}
-            disabled={!showRightArrow}
-            aria-label="Scroll right"
-          >
-            <ChevronRight className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5 text-gray-600" />
-          </button>
-          </div>
         </div>
       </div>
 
-      {/* Foods Slider - Single Row */}
-      <div 
-        ref={scrollContainerRef}
-        className="flex gap-3 sm:gap-4 md:gap-6 overflow-x-auto scrollbar-hide pb-2 sm:pb-4 cursor-grab select-none px-2 sm:px-0"
-        style={{ 
-          scrollbarWidth: 'none', 
-          msOverflowStyle: 'none',
-          WebkitOverflowScrolling: 'touch'
-        }}
-        onMouseDown={handleMouseDown}
-        onMouseMove={handleMouseMove}
-        onMouseUp={handleMouseUp}
-        onMouseLeave={handleMouseLeave}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
-      >
-        {displayFoods.map((food) => (
-          <div 
-            key={food.foodId}
-            className={`flex-shrink-0 ${getCardSizeClasses()}`}
-          >
-            <FoodCard 
-              food={food} 
-              onOrderNow={handleOrderFood}
-            />
-          </div>
-        ))}
-      </div>
-
-      {/* Scroll indicator dots for mobile */}
-      {shouldShowIndicators && (
-        <div className="flex justify-center mt-3 sm:mt-4 sm:hidden px-2">
-          <div className="flex gap-1.5 sm:gap-2">
-            {generateDots().map((dot) => (
-              <div
-                key={dot.index}
-                className={`w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full transition-colors duration-200 ${
-                  dot.isActive ? 'bg-orange-500' : 'bg-gray-300'
-                }`}
-              />
-            ))}
-          </div>
+      {/* Foods Grid */}
+      <div className="px-2 sm:px-0">
+        <div className="max-w-6xl mx-auto">
+          {visibleFoods.length === 0 ? (
+            <div className="py-6 text-center">
+              <div className="text-sm font-semibold text-gray-900">
+                No dishes found{category ? ` in “${category}”` : ''}
+              </div>
+              <div className="mt-1 text-xs text-gray-500">
+                Try another category to see more dishes.
+              </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+              {visibleFoods.map((food) => (
+                <FoodCard
+                  key={food.foodId}
+                  food={food}
+                  onOrderNow={handleOrderFood}
+                />
+              ))}
+            </div>
+          )}
         </div>
-      )}
+
+        {displayFoods.length > 8 && visibleFoods.length > 0 ? (
+          <div className="flex justify-center mt-6">
+            <button
+              type="button"
+              onClick={() => setExpanded(v => !v)}
+              className="px-6 py-2 rounded-full border border-gray-200 bg-white text-sm font-semibold text-gray-800 hover:bg-gray-50 hover:shadow-sm transition"
+            >
+              {expanded ? 'View less' : 'View more'}
+            </button>
+          </div>
+        ) : null}
+      </div>
 
       {/* Order Modal */}
       {selectedFood && (

@@ -8,6 +8,7 @@ import { useRouter } from 'next/navigation'
 export function useOrders() {
     const [orders, setOrders] = useState<Order[]>([])
     const [allOrders, setAllOrders] = useState<Order[]>([]) // Cache all orders
+    const [activeFilters, setActiveFilters] = useState<OrderFilters>({})
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
     const [total, setTotal] = useState(0)
@@ -16,6 +17,45 @@ export function useOrders() {
     const router = useRouter()
     const isFetchingRef = useRef(false)
     const lastFetchTimeRef = useRef(0)
+
+    const applyFilters = useCallback((inputOrders: Order[], filters: OrderFilters) => {
+        let filteredOrders = [...inputOrders]
+
+        if (filters.status) {
+            const bucket = filters.status
+            if (bucket === 'bucket_to_ship') {
+                filteredOrders = filteredOrders.filter(order =>
+                    ['pending', 'confirmed', 'preparing'].includes(order.status)
+                )
+            } else if (bucket === 'bucket_to_receive') {
+                filteredOrders = filteredOrders.filter(order =>
+                    order.status === 'out_for_delivery'
+                )
+            } else if (bucket === 'bucket_completed') {
+                filteredOrders = filteredOrders.filter(order =>
+                    order.status === 'delivered' || order.status === 'completed'
+                )
+            } else if (bucket === 'bucket_return_refund') {
+                filteredOrders = filteredOrders.filter(order => order.status === 'refunded')
+            } else if (bucket === 'bucket_cancel') {
+                filteredOrders = filteredOrders.filter(order => order.status === 'cancelled')
+            } else {
+                // fallback to raw status match
+                filteredOrders = filteredOrders.filter(order => order.status === filters.status)
+            }
+        }
+
+        if (filters.startDate || filters.endDate) {
+            filteredOrders = filteredOrders.filter(order => {
+                const orderDate = new Date(order.createdAt)
+                if (filters.startDate && orderDate < new Date(filters.startDate)) return false
+                if (filters.endDate && orderDate > new Date(filters.endDate)) return false
+                return true
+            })
+        }
+
+        return filteredOrders
+    }, [])
 
     // localStorage functions
     const getCachedOrders = useCallback(() => {
@@ -72,12 +112,13 @@ export function useOrders() {
             setLoading(true)
             setError(null)
 
-            // Check cache first
+            // Check cache first (skip when forcing a fresh fetch)
             const cachedOrders = getCachedOrders()
-            if (cachedOrders && !filters) {
+            if (cachedOrders && !filters && !options?.force) {
                 setAllOrders(cachedOrders)
-                setOrders(cachedOrders)
-                setTotal(cachedOrders.length)
+                const next = applyFilters(cachedOrders, activeFilters)
+                setOrders(next)
+                setTotal(next.length)
                 setLoading(false)
                 return
             }
@@ -90,8 +131,9 @@ export function useOrders() {
 
             setCachedOrders(response.orders)
             setAllOrders(response.orders)
-            setOrders(response.orders)
-            setTotal(response.orders.length)
+            const next = applyFilters(response.orders, activeFilters)
+            setOrders(next)
+            setTotal(next.length)
         } catch (err: any) {
             if (err?.status === 401 || err?.message?.includes('Unauthorized') || err?.message?.includes('Authentication required')) {
                 setError('Your session has expired. Please sign in again.')
@@ -114,7 +156,7 @@ export function useOrders() {
             setLoading(false)
             isFetchingRef.current = false
         }
-    }, [isAuthenticated, getCachedOrders, setCachedOrders, router])
+    }, [isAuthenticated, getCachedOrders, setCachedOrders, router, applyFilters, activeFilters])
 
     const loadMore = useCallback(() => {
         // All orders loaded at once, no pagination needed
@@ -134,24 +176,11 @@ export function useOrders() {
     const filterOrders = useCallback((filters: OrderFilters) => {
         if (!isAuthenticated || allOrders.length === 0) return
 
-        let filteredOrders = [...allOrders]
-
-        if (filters.status) {
-            filteredOrders = filteredOrders.filter(order => order.status === filters.status)
-        }
-
-        if (filters.startDate || filters.endDate) {
-            filteredOrders = filteredOrders.filter(order => {
-                const orderDate = new Date(order.createdAt)
-                if (filters.startDate && orderDate < new Date(filters.startDate)) return false
-                if (filters.endDate && orderDate > new Date(filters.endDate)) return false
-                return true
-            })
-        }
-
-        setOrders(filteredOrders)
-        setTotal(filteredOrders.length)
-    }, [isAuthenticated, allOrders])
+        setActiveFilters(filters)
+        const next = applyFilters(allOrders, filters)
+        setOrders(next)
+        setTotal(next.length)
+    }, [isAuthenticated, allOrders, applyFilters])
 
     useEffect(() => {
         // Only fetch orders if user is authenticated

@@ -2,7 +2,7 @@
  * HTTP helpers for the admin UI.
  *
  * Most calls target the Nest API base from {@link getServerApiBase} (`NEXT_PUBLIC_API_URL`).
- * Food categories still use the Next.js route `/api/categories` on the same origin.
+ * Food categories now call the Nest API directly.
  */
 
 import { buildAuthHeader, refreshAccessToken } from '@/lib/auth-helpers'
@@ -14,10 +14,14 @@ import {
 import type {
   AdminCustomersListResponse,
   AdminEnterprisesListResponse,
+  AdminEnterpriseDetailResponse,
+  AdminEnterpriseInvitationDetailResponse,
+  AdminDashboardSummaryResponse,
   AdminProfileResponse,
   CreateAdminVoucherPayload,
   CreateAdminVoucherResponse,
   CreateEnterpriseApiResponse,
+  AdminVouchersListResponse,
 } from '@/types/admin-api.types'
 
 /** Body for `POST` enterprise onboarding on Nest. */
@@ -53,6 +57,35 @@ export type ListAdminEnterprisesParams = {
   search?: string
 }
 
+export type InviteEnterprisePayload = {
+  email: string
+  phoneNumber: string
+  enterpriseNameDraft?: string
+}
+
+export type AdminEnterpriseInvitationListItem = {
+  InvitationID: string
+  AccountID: string
+  Email: string
+  PhoneNumber: string
+  EnterpriseNameDraft: string | null
+  ExpiresAt: string
+  Status: 'Pending' | 'Accepted' | 'Expired' | 'Revoked'
+  AcceptedAt: string | null
+  CreatedAt: string
+  hasActivationLinkClick?: boolean
+}
+
+export type AdminEnterpriseInvitationsListResponse = {
+  items: AdminEnterpriseInvitationListItem[]
+}
+
+export type AdminInvitationTemplateValue = {
+  subject: string
+  html: string
+  text?: string
+}
+
 type LockSuccessResponse = { success: boolean }
 
 function nestApiBase(): string {
@@ -65,6 +98,18 @@ function urlAdminCustomers(): string {
 
 function urlAdminEnterprises(): string {
   return `${nestApiBase()}/admin/enterprises`
+}
+
+function urlAdminEnterpriseInvitations(): string {
+  return `${nestApiBase()}/admin/enterprise-invitations`
+}
+
+function urlAdminVouchers(): string {
+  return `${nestApiBase()}/admin/vouchers`
+}
+
+function urlAdminDashboardSummary(): string {
+  return `${nestApiBase()}/admin/dashboard/summary`
 }
 
 /** Normalizes `HeadersInit` so `buildAuthHeader` can merge Bearer tokens. */
@@ -84,30 +129,8 @@ function toHeaderRecord(h: HeadersInit | undefined): Record<string, string> {
   return { ...out, ...h }
 }
 
-/**
- * Same-origin fetch to `/api/categories`. On `401`, retries once after `refreshAccessToken`.
- */
-async function fetchNextCategoriesApi(
-  init: RequestInit = {},
-): Promise<Response> {
-  const path = '/api/categories'
-  const build = (): RequestInit => {
-    const headers = toHeaderRecord(init.headers)
-    return {
-      ...init,
-      headers: { ...headers, ...buildAuthHeader() },
-      credentials: 'include',
-    }
-  }
-
-  let res = await fetch(path, build())
-  if (res.status === 401) {
-    const newToken = await refreshAccessToken()
-    if (newToken) {
-      res = await fetch(path, build())
-    }
-  }
-  return res
+function urlCategories(): string {
+  return `${nestApiBase()}/categories`
 }
 
 /**
@@ -160,6 +183,34 @@ export async function listAdminEnterprises(
   return requestJson<AdminEnterprisesListResponse>(url, { method: 'GET' })
 }
 
+export async function getAdminEnterpriseDetail(
+  enterpriseId: string,
+): Promise<AdminEnterpriseDetailResponse> {
+  return requestJson<AdminEnterpriseDetailResponse>(
+    `${urlAdminEnterprises()}/${encodeURIComponent(enterpriseId)}`,
+    { method: 'GET' },
+  )
+}
+
+/** PATCH `/admin/enterprises/:enterpriseId` — basic profile fields admin may edit. */
+export type UpdateAdminEnterprisePayload = {
+  enterpriseName: string
+  phoneNumber: string
+  address: string
+  contactEmail: string
+  accountStatus: 'Active' | 'Inactive'
+}
+
+export async function updateAdminEnterprise(
+  enterpriseId: string,
+  payload: UpdateAdminEnterprisePayload,
+): Promise<{ success: boolean }> {
+  return requestJson<{ success: boolean }>(
+    `${urlAdminEnterprises()}/${encodeURIComponent(enterpriseId)}`,
+    { method: 'PATCH', body: JSON.stringify(payload) },
+  )
+}
+
 export async function createEnterprise(
   payload: CreateEnterprisePayload,
 ): Promise<CreateEnterpriseApiResponse> {
@@ -193,6 +244,79 @@ export async function unlockAdminEnterpriseAccount(
   )
 }
 
+/** DELETE `/admin/enterprises/:enterpriseId` — soft delete (`DeletedAt`, deactivate account). */
+export async function softDeleteAdminEnterprise(
+  enterpriseId: string,
+): Promise<{ success: boolean }> {
+  return requestJson<{ success: boolean }>(
+    `${urlAdminEnterprises()}/${encodeURIComponent(enterpriseId)}`,
+    { method: 'DELETE' },
+  )
+}
+
+export async function listAdminEnterpriseInvitations(params: {
+  status?: string
+  search?: string
+}): Promise<AdminEnterpriseInvitationsListResponse> {
+  const qs = buildQueryString({ status: params.status, search: params.search })
+  const url = qs
+    ? `${urlAdminEnterpriseInvitations()}?${qs}`
+    : urlAdminEnterpriseInvitations()
+  return requestJson<AdminEnterpriseInvitationsListResponse>(url, { method: 'GET' })
+}
+
+export async function getAdminEnterpriseInvitationDetail(
+  invitationId: string,
+): Promise<AdminEnterpriseInvitationDetailResponse> {
+  return requestJson<AdminEnterpriseInvitationDetailResponse>(
+    `${urlAdminEnterpriseInvitations()}/${encodeURIComponent(invitationId)}`,
+    { method: 'GET' },
+  )
+}
+
+export async function inviteEnterprise(
+  payload: InviteEnterprisePayload,
+): Promise<{ success: boolean }> {
+  return requestJson<{ success: boolean }>(urlAdminEnterpriseInvitations(), {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+
+export async function resendEnterpriseInvitation(
+  invitationId: string,
+): Promise<{ success: boolean }> {
+  return requestJson<{ success: boolean }>(
+    `${urlAdminEnterpriseInvitations()}/${encodeURIComponent(invitationId)}/resend`,
+    { method: 'POST' },
+  )
+}
+
+export async function revokeEnterpriseInvitation(
+  invitationId: string,
+): Promise<{ success: boolean }> {
+  return requestJson<{ success: boolean }>(
+    `${urlAdminEnterpriseInvitations()}/${encodeURIComponent(invitationId)}/revoke`,
+    { method: 'POST' },
+  )
+}
+
+export async function getEnterpriseInvitationTemplate(): Promise<{ template: AdminInvitationTemplateValue }> {
+  return requestJson<{ template: AdminInvitationTemplateValue }>(
+    `${urlAdminEnterpriseInvitations()}/template`,
+    { method: 'GET' },
+  )
+}
+
+export async function updateEnterpriseInvitationTemplate(
+  template: AdminInvitationTemplateValue,
+): Promise<{ success: boolean }> {
+  return requestJson<{ success: boolean }>(
+    `${urlAdminEnterpriseInvitations()}/template`,
+    { method: 'PUT', body: JSON.stringify(template) },
+  )
+}
+
 /** Current admin’s profile (requires JWT with Admin role). */
 export async function fetchAdminProfile(): Promise<AdminProfileResponse> {
   return requestJson<AdminProfileResponse>(
@@ -213,21 +337,69 @@ export async function createAdminVoucher(
   )
 }
 
+export async function listAdminVouchers(params: {
+  status?: 'all' | 'pending' | 'approved'
+  q?: string
+  limit?: number
+}): Promise<AdminVouchersListResponse> {
+  const qs = buildQueryString({
+    status: params.status,
+    q: params.q,
+    limit: params.limit,
+  })
+  const url = qs ? `${urlAdminVouchers()}?${qs}` : urlAdminVouchers()
+  return requestJson<AdminVouchersListResponse>(url, { method: 'GET' })
+}
+
+export async function approveAdminVoucher(voucherId: string): Promise<{ success: boolean }> {
+  return requestJson<{ success: boolean }>(
+    `${urlAdminVouchers()}/${encodeURIComponent(voucherId)}/approve`,
+    { method: 'PATCH' },
+  )
+}
+
+export async function fetchAdminDashboardSummary(params: {
+  range?: string
+}): Promise<AdminDashboardSummaryResponse> {
+  const qs = buildQueryString({ range: params.range })
+  const url = qs ? `${urlAdminDashboardSummary()}?${qs}` : urlAdminDashboardSummary()
+  return requestJson<AdminDashboardSummaryResponse>(url, { method: 'GET' })
+}
+
 /**
  * @returns Raw `Response`; caller should check `ok` and parse JSON.
  */
 export async function createCategory(
   payload: CreateCategoryPayload,
 ): Promise<Response> {
-  return fetchNextCategoriesApi({
-    method: 'POST',
-    body: JSON.stringify(payload),
-  })
+  const build = (): RequestInit => {
+    const headers = toHeaderRecord(undefined)
+    return {
+      method: 'POST',
+      headers: { ...headers, ...buildAuthHeader() },
+      credentials: 'include',
+      body: JSON.stringify(payload),
+    }
+  }
+
+  let res = await fetch(urlCategories(), build())
+  if (res.status === 401) {
+    const newToken = await refreshAccessToken()
+    if (newToken) {
+      res = await fetch(urlCategories(), build())
+    }
+  }
+  return res
 }
 
 /**
  * @returns Raw `Response`; caller should check `ok` and parse JSON.
  */
 export async function getAllCategories(): Promise<Response> {
-  return fetchNextCategoriesApi({ method: 'GET' })
+  const headers = { ...toHeaderRecord(undefined), ...buildAuthHeader() }
+  return fetch(urlCategories(), {
+    method: 'GET',
+    headers,
+    credentials: 'include',
+  })
 }

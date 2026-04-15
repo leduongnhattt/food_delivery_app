@@ -91,6 +91,13 @@ export async function requestJson<T>(
     url: string,
     options: RequestInit = {}
 ): Promise<T> {
+    const method = (options.method || 'GET').toUpperCase()
+    const dedupeKey = `${method}:${url}`
+    const globalAny = globalThis as any
+    const inflight: Map<string, Promise<any>> =
+        globalAny.__httpClientInflight ||
+        (globalAny.__httpClientInflight = new Map<string, Promise<any>>())
+
     const performFetch = () =>
         fetch(url, {
             cache: 'no-store',
@@ -100,46 +107,66 @@ export async function requestJson<T>(
             headers: buildHeaders(options.headers as Record<string, string>),
         })
 
+    if (typeof window !== 'undefined' && method === 'GET') {
+        const existing = inflight.get(dedupeKey)
+        if (existing) {
+            return existing as Promise<T>
+        }
+    }
+
     let response: Response
-    try {
-        response = await performFetch()
-    } catch (err) {
-        const message = err instanceof Error ? err.message : String(err)
-        const hint =
-            url.startsWith('http') && typeof window !== 'undefined'
-                ? ' (Check CORS on the server or ensure the server is running with the correct URL/port)'
-                : ''
-        const error = new Error(`Failed to fetch${hint}: ${message}`) as Error & { url?: string; cause?: unknown }
-        error.url = url
-        error.cause = err
-        throw error
-    }
-
-    if (response.status === 401) {
-        const refreshed = await refreshAccessToken()
-        if (refreshed) {
-            response = await performFetch()
-        }
-    }
-
-    if (!response.ok) {
-        let errorMessage = `Request failed with status ${response.status}`
-
+    const task = (async () => {
         try {
-            const errorData = await response.json()
-            errorMessage = errorData.error || errorData.message || errorMessage
-        } catch {
-            // If response is not JSON, use status text or default message
-            errorMessage = response.statusText || errorMessage
+            response = await performFetch()
+        } catch (err) {
+            const message = err instanceof Error ? err.message : String(err)
+            const hint =
+                url.startsWith('http') && typeof window !== 'undefined'
+                    ? ' (Check CORS on the server or ensure the server is running with the correct URL/port)'
+                    : ''
+            const error = new Error(`Failed to fetch${hint}: ${message}`) as Error & { url?: string; cause?: unknown }
+            error.url = url
+            error.cause = err
+            throw error
         }
 
-        const error = new Error(errorMessage) as Error & { status: number; url: string }
-        error.status = response.status
-        error.url = url
-        throw error
+        if (response.status === 401) {
+            const refreshed = await refreshAccessToken()
+            if (refreshed) {
+                response = await performFetch()
+            }
+        }
+
+        if (!response.ok) {
+            let errorMessage = `Request failed with status ${response.status}`
+
+            try {
+                const errorData = await response.json()
+                errorMessage = errorData.error || errorData.message || errorMessage
+            } catch {
+                // If response is not JSON, use status text or default message
+                errorMessage = response.statusText || errorMessage
+            }
+
+            const error = new Error(errorMessage) as Error & { status: number; url: string }
+            error.status = response.status
+            error.url = url
+            throw error
+        }
+
+        return response.json()
+    })()
+
+    if (typeof window !== 'undefined' && method === 'GET') {
+        inflight.set(dedupeKey, task)
+        try {
+            return (await task) as T
+        } finally {
+            inflight.delete(dedupeKey)
+        }
     }
 
-    return response.json()
+    return (await task) as T
 }
 
 /**

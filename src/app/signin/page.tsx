@@ -91,8 +91,12 @@ function SigninContent() {
       });
       
       if (!result.success) {
-        if (result.error?.status === 403 || result.error?.code === 'ACCOUNT_LOCKED') {
-          showToast(result.error.message, "error");
+        if (result.error?.status === 403) {
+          showToast(
+            result.error.message ||
+              t("signin.errors.loginFailed"),
+            "error",
+          );
           return;
         }
         

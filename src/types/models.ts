@@ -81,6 +81,7 @@ export interface RestaurantCardData {
     status: "open" | "closed";
     rating?: number;
     totalReviews?: number;
+    deliveryTime?: string;
 }
 
 // Food interfaces

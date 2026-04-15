@@ -9,7 +9,7 @@ import { useRouter } from 'next/navigation'
 import { PaymentService } from '@/services/payment.service'
 import { useSearchParams } from 'next/navigation'
 import { ArrowLeft, CheckCircle, Circle } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { RestaurantService } from '@/services/restaurant.service'
 import { VoucherService } from '@/services/voucher.service'
 import { RestaurantHeader } from '@/components/checkout/RestaurantHeader'
@@ -21,6 +21,7 @@ import { OrderSummary } from '@/components/checkout/OrderSummary'
 import { useToast } from '@/contexts/toast-context'
 import { useTranslations } from '@/lib/i18n'
 import { exceedsItemValueLimit, getOrderLimitLabel } from '@/lib/order-limit'
+import { CHECKOUT_PAYMENT_METHOD, getCheckoutPrimaryButtonLabel, type CheckoutPaymentMethod } from '@/lib/payment-method'
 
 // Constants
 const DEFAULT_COMMISSION_FEE = 0.5
@@ -29,7 +30,6 @@ const RESTAURANT_LOGO_DEBOUNCE_MS = 200
 // Offers now loaded from API
 
 // Types
-type PaymentMethod = 'cash' | 'card' | 'momo' | 'stripe'
 type AppliedVoucher = { code: string; discount: number } | null
 
 interface CheckoutData {
@@ -37,30 +37,92 @@ interface CheckoutData {
   deliveryInfo: {
     phone: string
     address: string
+    lat?: number
+    lng?: number
   }
   voucherCode?: string
   total: number
 }
 
+function safeLocalStorageGet(key: string): string | null {
+  try {
+    return localStorage.getItem(key)
+  } catch {
+    return null
+  }
+}
+
+function safeLocalStorageSet(key: string, value: string) {
+  try {
+    localStorage.setItem(key, value)
+  } catch {}
+}
+
+function pickSelectedRestaurantId(
+  cartItems: CartItem[],
+  storedRestaurantId: string | null
+): string | null {
+  if (cartItems.length === 0) return null
+  const storedExists =
+    storedRestaurantId && cartItems.some((ci) => ci.menuItem.restaurantId === storedRestaurantId)
+  return storedExists ? storedRestaurantId : cartItems[0].menuItem.restaurantId
+}
+
 export default function CheckoutPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { cartItems, updateQuantity, removeFromCart, clearCart } = useCart()
+  const { cartItems, updateQuantity, removeFromCart } = useCart()
   const { deliveryData, isLoading: isDeliveryLoading } = useDeliveryData()
   const { isAuthenticated, isLoading: isAuthLoading } = useAuth()
   const { showToast } = useToast()
   const { t, locale } = useTranslations()
   
   // State management
+  const [selectedRestaurantId, setSelectedRestaurantId] = useState<string | null>(null)
   const [appliedVoucher, setAppliedVoucher] = useState<AppliedVoucher>(null)
   const [isOffersModalOpen, setIsOffersModalOpen] = useState(false)
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash')
+  const [paymentMethod, setPaymentMethod] = useState<CheckoutPaymentMethod>(
+    CHECKOUT_PAYMENT_METHOD.Cash,
+  )
+  const [hasConfirmedPaymentMethod, setHasConfirmedPaymentMethod] = useState(false)
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false)
   const [restaurantLogo, setRestaurantLogo] = useState<string | null>(null)
+  const [restaurantInfo, setRestaurantInfo] = useState<{
+    name: string
+    rating: number
+    deliveryTime: string
+    address: string
+  } | null>(null)
   const [availableVouchers, setAvailableVouchers] = useState<{ code: string, amount?: number, percent?: number, minOrder?: number }[]>([])
   const [commissionFee, setCommissionFee] = useState<number>(DEFAULT_COMMISSION_FEE)
   const [isPlacingOrder, setIsPlacingOrder] = useState(false)
   const hasLoadedVouchersRef = useRef(false)
+
+  useEffect(() => {
+    const stored = safeLocalStorageGet('cartSelectedRestaurantId')
+    const next = pickSelectedRestaurantId(cartItems, stored)
+    if (!next) return
+
+    // If we don't have a selection yet, or the current selection is no longer valid, refresh it.
+    if (!selectedRestaurantId || !cartItems.some((ci) => ci.menuItem.restaurantId === selectedRestaurantId)) {
+      setSelectedRestaurantId(next)
+      safeLocalStorageSet('cartSelectedRestaurantId', next)
+      return
+    }
+
+    safeLocalStorageSet('cartSelectedRestaurantId', selectedRestaurantId)
+  }, [cartItems, selectedRestaurantId])
+
+  const selectedCartItems = useMemo(() => {
+    if (!selectedRestaurantId) return cartItems
+    return cartItems.filter((ci) => ci.menuItem.restaurantId === selectedRestaurantId)
+  }, [cartItems, selectedRestaurantId])
+
+  const clearSelectedFromCart = useCallback(() => {
+    for (const item of selectedCartItems) {
+      removeFromCart(item.menuItem.id)
+    }
+  }, [removeFromCart, selectedCartItems])
 
   // Auto-apply promo from query (?promo=CODE) using API validation
   useEffect(() => {
@@ -74,48 +136,67 @@ export default function CheckoutPage() {
   }, [searchParams, router])
 
   // Calculate totals
-  const totalItems = cartItems.reduce((sum, item) => sum + item.quantity, 0)
-  const subtotal = cartItems.reduce(
+  const totalItems = selectedCartItems.reduce((sum, item) => sum + item.quantity, 0)
+  const subtotal = selectedCartItems.reduce(
     (sum, item) => sum + calculatePrice(item.menuItem.price, item.quantity),
     0
   )
   const voucherDiscount = appliedVoucher?.discount || 0
   const total = Math.max(0, subtotal + commissionFee - voucherDiscount)
 
-  // Get restaurant info from first cart item
-  const restaurantInfo = cartItems[0]?.menuItem ? {
-    name: cartItems[0].menuItem.restaurantName || 'Restaurant Name',
-    rating: 4.5,
-    deliveryTime: '25-35 min',
-    address: '123 Main Street, City'
-  } : null
-
-  // Debounced restaurant logo fetch
+  // Get restaurant info from API (includes deliveryTime/address). Fallback to cart item name.
   useEffect(() => {
-    const first = cartItems[0]?.menuItem
-    if (!first) return
-    
+    const first = selectedCartItems[0]?.menuItem
+    if (!first?.restaurantId) {
+      setRestaurantInfo(null)
+      return
+    }
+
+    const destLat = deliveryData.lat ?? undefined
+    const destLng = deliveryData.lng ?? undefined
+    const destAddress = deliveryData.address?.trim()
+
     const timeoutId = setTimeout(() => {
-      RestaurantService.getRestaurantById(first.restaurantId)
-        .then((restaurant) => {
+      RestaurantService.getRestaurantById(first.restaurantId, {
+        ...(destLat != null && destLng != null ? { destLat, destLng } : {}),
+        ...(destLat == null || destLng == null ? { destAddress } : {}),
+      })
+        .then((restaurant: any) => {
+          setRestaurantInfo({
+            name: restaurant?.name || first.restaurantName || 'Restaurant Name',
+            rating: Number(restaurant?.rating ?? 0),
+            deliveryTime: restaurant?.deliveryTime || '—',
+            address: restaurant?.address || '—',
+          })
           if (restaurant?.avatarUrl) setRestaurantLogo(restaurant.avatarUrl)
         })
-        .catch(() => {}) // Silent fail for better UX
+        .catch(() => {
+          setRestaurantInfo({
+            name: first.restaurantName || 'Restaurant Name',
+            rating: 0,
+            deliveryTime: '—',
+            address: '—',
+          })
+        })
     }, RESTAURANT_LOGO_DEBOUNCE_MS)
 
     return () => clearTimeout(timeoutId)
-  }, [cartItems])
+  }, [selectedCartItems, deliveryData.lat, deliveryData.lng, deliveryData.address])
+
+  const hasDeliveryInfo = Boolean(deliveryData.phone?.trim() && deliveryData.address?.trim())
+
+  // restaurantLogo is handled by restaurantInfo fetch above
 
   // Load commission fee from API based on restaurant
   useEffect(() => {
-    const first = cartItems[0]?.menuItem
+    const first = selectedCartItems[0]?.menuItem
     if (!first?.restaurantId) return
     RestaurantService.getCommission(first.restaurantId)
       .then((res) => {
         if (res?.success) setCommissionFee(Number(res.commissionFee) || 0)
       })
       .catch(() => {})
-  }, [cartItems])
+  }, [selectedCartItems])
 
   // Load vouchers exactly once per mount – avoids StrictMode double fetch & polling noise
   useEffect(() => {
@@ -195,7 +276,7 @@ export default function CheckoutPage() {
   }
 
   // Redirect if cart is empty - AFTER all hooks (skip during place order to avoid "cart is empty" flash)
-  if (cartItems.length === 0) {
+  if (cartItems.length === 0 || selectedCartItems.length === 0) {
     if (isPlacingOrder) {
       return (
         <div className="container py-8 flex items-center justify-center min-h-[50vh]">
@@ -246,7 +327,7 @@ export default function CheckoutPage() {
 
   const handlePlaceOrder = async () => {
     try {
-      const violatingItem = cartItems.find((item) =>
+      const violatingItem = selectedCartItems.find((item) =>
         exceedsItemValueLimit(item.menuItem.price, item.quantity)
       )
       if (violatingItem) {
@@ -275,20 +356,34 @@ export default function CheckoutPage() {
       }
 
       const checkoutData: CheckoutData = {
-        cartItems,
+        cartItems: selectedCartItems,
         deliveryInfo: {
           phone: trimmedPhone,
-          address: trimmedAddress
+          address: trimmedAddress,
+          ...(Number.isFinite(deliveryData.lat) && Number.isFinite(deliveryData.lng)
+            ? { lat: deliveryData.lat as number, lng: deliveryData.lng as number }
+            : {}),
         },
         voucherCode: appliedVoucher?.code,
         total: total
       }
 
+      // User is confirming the order, treat payment choice as confirmed (even if default Cash).
+      setHasConfirmedPaymentMethod(true)
       setIsPlacingOrder(true)
-      if (paymentMethod === 'stripe') {
-        await handleStripePayment(checkoutData)
-      } else if (paymentMethod === 'cash') {
-        await handleCashPayment(checkoutData)
+      switch (paymentMethod) {
+        case CHECKOUT_PAYMENT_METHOD.Stripe:
+          await handleStripePayment(checkoutData)
+          break
+        case CHECKOUT_PAYMENT_METHOD.VnPay:
+          await handleVnPayPayment(checkoutData)
+          break
+        case CHECKOUT_PAYMENT_METHOD.Cash:
+          await handleCashPayment(checkoutData)
+          break
+        default:
+          setIsPlacingOrder(false)
+          showToast('This payment method is not supported yet.', 'warning', 6000)
       }
     } catch (error) {
       console.error('Error processing order:', error)
@@ -311,12 +406,37 @@ export default function CheckoutPage() {
     }
   }
 
+  const handleVnPayPayment = async (checkoutData: CheckoutData) => {
+    const result = await PaymentService.processVnPayPayment(checkoutData)
+
+    if (!result.success) {
+      setIsPlacingOrder(false)
+      alert(`Failed to create VNPay payment URL: ${result.error}`)
+      return
+    }
+
+    if (result.paymentId && typeof window !== 'undefined') {
+      sessionStorage.setItem(
+        'vnpay_pending',
+        JSON.stringify({
+          paymentId: result.paymentId,
+          phone: checkoutData.deliveryInfo.phone,
+          address: checkoutData.deliveryInfo.address,
+        })
+      )
+    }
+
+    if (result.redirectUrl) {
+      window.location.href = result.redirectUrl
+    }
+  }
+
   const handleCashPayment = async (checkoutData: CheckoutData) => {
     const paymentNotification = PaymentService.createPaymentNotification()
 
     const result = await PaymentService.processCashOnDelivery(
       checkoutData,
-      clearCart,
+      clearSelectedFromCart,
       paymentNotification
     )
 
@@ -327,7 +447,7 @@ export default function CheckoutPage() {
 
       const deliveryParams = new URLSearchParams({
         orderId: result.orderId,
-        paymentMethod: 'cash',
+        paymentMethod: CHECKOUT_PAYMENT_METHOD.Cash,
         phone: deliveryData.phone,
         address: deliveryData.address
       })
@@ -360,37 +480,67 @@ export default function CheckoutPage() {
               </h1>
             </div>
             
-            {/* Order Status Progress */}
+            {/* Checkout progress (not order status) */}
             <div className="flex items-center justify-center mb-8">
-              <div className="flex items-center space-x-4">
-                <div className="flex items-center">
-                  <div className="w-8 h-8 bg-orange-500 text-white rounded-full flex items-center justify-center">
-                    <CheckCircle className="w-5 h-5" />
+              {(() => {
+                const steps = [
+                  { key: 'cart', label: 'Cart', done: cartItems.length > 0 },
+                  { key: 'delivery', label: 'Delivery', done: hasDeliveryInfo },
+                  {
+                    key: 'payment',
+                    label: 'Payment',
+                    // paymentMethod always has a default; only mark done when user confirmed/changed it
+                    done: hasConfirmedPaymentMethod,
+                  },
+                  // We navigate away on success; this step is typically "active" while placing.
+                  { key: 'confirm', label: 'Confirm', done: false },
+                ]
+
+                const currentIdx = isPlacingOrder
+                  ? steps.length - 1
+                  : Math.min(
+                      steps.findIndex(s => !s.done),
+                      steps.length - 1
+                    )
+
+                return (
+                  <div className="flex items-center">
+                    {steps.map((s, idx) => {
+                      const active = idx === currentIdx
+                      const done = s.done
+                      const circleCls = done
+                        ? 'bg-orange-500 text-white'
+                        : active
+                          ? 'bg-orange-100 text-orange-600 ring-2 ring-orange-300'
+                          : 'bg-gray-200 text-gray-500'
+
+                      const textCls = done
+                        ? 'text-orange-600'
+                        : active
+                          ? 'text-orange-700'
+                          : 'text-gray-500'
+
+                      const lineCls = steps[idx]?.done
+                        ? 'bg-orange-300'
+                        : 'bg-gray-300'
+
+                      return (
+                        <Fragment key={s.key}>
+                          <div className="flex items-center">
+                            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${circleCls}`}>
+                              {done ? <CheckCircle className="w-5 h-5" /> : <Circle className="w-5 h-5" />}
+                            </div>
+                            <span className={`ml-2 text-sm font-medium ${textCls}`}>{s.label}</span>
+                          </div>
+                          {idx < steps.length - 1 ? (
+                            <div className={`w-14 sm:w-16 h-0.5 mx-3 ${lineCls}`} />
+                          ) : null}
+                        </Fragment>
+                      )
+                    })}
                   </div>
-                  <span className="ml-2 text-sm font-medium text-orange-600">Confirmed</span>
-                </div>
-                <div className="w-16 h-0.5 bg-orange-300"></div>
-                <div className="flex items-center">
-                  <div className="w-8 h-8 bg-orange-500 text-white rounded-full flex items-center justify-center">
-                    <CheckCircle className="w-5 h-5" />
-                  </div>
-                  <span className="ml-2 text-sm font-medium text-orange-600">Preparing</span>
-                </div>
-                <div className="w-16 h-0.5 bg-orange-300"></div>
-                <div className="flex items-center">
-                  <div className="w-8 h-8 bg-orange-500 text-white rounded-full flex items-center justify-center">
-                    <CheckCircle className="w-5 h-5" />
-                  </div>
-                  <span className="ml-2 text-sm font-medium text-orange-600">On the way</span>
-                </div>
-                <div className="w-16 h-0.5 bg-gray-300"></div>
-                <div className="flex items-center">
-                  <div className="w-8 h-8 bg-gray-300 text-gray-500 rounded-full flex items-center justify-center">
-                    <Circle className="w-5 h-5" />
-                  </div>
-                  <span className="ml-2 text-sm font-medium text-gray-500">Delivered</span>
-                </div>
-              </div>
+                )
+              })()}
             </div>
           </div>
           
@@ -408,7 +558,7 @@ export default function CheckoutPage() {
                 />
               )}
 
-              <CartItems items={cartItems} totalItems={totalItems} onChangeQuantity={handleQuantityChange} onRemove={(id) => removeFromCart(id)} />
+              <CartItems items={selectedCartItems} totalItems={totalItems} onChangeQuantity={handleQuantityChange} onRemove={(id) => removeFromCart(id)} />
             </div>
 
             {/* Right - Checkout Form */}
@@ -436,7 +586,10 @@ export default function CheckoutPage() {
                 isModalOpen={isPaymentModalOpen}
                 onOpen={() => setIsPaymentModalOpen(true)}
                 onClose={() => setIsPaymentModalOpen(false)}
-                onChange={(m) => setPaymentMethod(m)}
+                onChange={(m) => {
+                  setPaymentMethod(m)
+                  setHasConfirmedPaymentMethod(true)
+                }}
               />
 
               <OrderSummary
@@ -445,13 +598,10 @@ export default function CheckoutPage() {
                 deliveryFee={commissionFee}
                 discount={appliedVoucher ? { code: appliedVoucher.code, amount: appliedVoucher.discount } : null}
                 total={total}
-                buttonText={
-                  paymentMethod === 'stripe'
-                    ? `Pay Now — ${formatPrice(total)}`
-                    : paymentMethod === 'cash'
-                      ? `Confirm Order — ${formatPrice(total)}`
-                      : `Proceed to Payment — ${formatPrice(total)}`
-                }
+                buttonText={getCheckoutPrimaryButtonLabel(
+                  paymentMethod,
+                  formatPrice(total),
+                )}
                 onPlaceOrder={handlePlaceOrder}
               />
 

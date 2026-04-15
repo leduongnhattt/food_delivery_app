@@ -1,4 +1,5 @@
 'use client'
+import React from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useRouter } from 'next/navigation'
 import { AuthGuard } from '@/components/auth/auth-guard'
@@ -13,10 +14,15 @@ import { NotificationToast } from '@/components/profile/NotificationToast'
 import { useProfileData } from '@/hooks/use-profile-data'
 import { usePasswordChange } from '@/hooks/use-password-change'
 import { useToast } from '@/contexts/toast-context'
+import { useDeliveryDestination } from '@/contexts/delivery-destination-context'
 
 export default function ProfilePage() {
   const router = useRouter()
   const { showToast } = useToast()
+  const { update: updateDestination } = useDeliveryDestination()
+  const [locationStatus, setLocationStatus] = React.useState<
+    'idle' | 'loading' | 'granted' | 'denied' | 'unsupported' | 'error'
+  >('idle')
   
   // Custom hooks for state management
   const {
@@ -59,6 +65,39 @@ export default function ProfilePage() {
 
   const handleSaveProfile = async () => {
     await saveProfile()
+  }
+
+  const handleUseCurrentLocation = async () => {
+    if (typeof window === 'undefined') return
+    if (!('geolocation' in navigator)) {
+      setLocationStatus('unsupported')
+      return
+    }
+    setLocationStatus('loading')
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const ok = await updateDestination({
+          address: profileData.address?.trim() || undefined,
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude,
+        })
+        if (ok) {
+          setLocationStatus('granted')
+          showToast('Saved your location for delivery time estimates.', 'success', 4000)
+        } else {
+          setLocationStatus('error')
+          showToast('Failed to save location. Please try again.', 'error', 5000)
+        }
+      },
+      (err) => {
+        if (err?.code === 1) {
+          setLocationStatus('denied')
+        } else {
+          setLocationStatus('error')
+        }
+      },
+      { enableHighAccuracy: false, timeout: 10_000, maximumAge: 30_000 },
+    )
   }
 
   const handleChangePassword = async () => {
@@ -155,6 +194,8 @@ export default function ProfilePage() {
                   onFieldChange={handleFieldChange}
                   onSave={handleSaveProfile}
                   onCancel={resetProfileChanges}
+                  onUseCurrentLocation={handleUseCurrentLocation}
+                  locationStatus={locationStatus}
                 />
               </CardContent>
             </Card>

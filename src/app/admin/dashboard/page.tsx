@@ -1,87 +1,49 @@
-import { prisma } from '@/lib/db'
+"use client";
+
+import { useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
+import { Building2, Users, Tag, Wallet, Activity } from 'lucide-react'
+import RangeSelect from '@/components/admin/shared/range-select'
+import { fetchAdminDashboardSummary } from '@/services/admin.service'
+import type { AdminDashboardSummaryResponse } from '@/types/admin-api.types'
 import { formatCurrency } from '@/lib/order-utils'
 import { formatDate } from '@/lib/utils'
-import RangeSelect from '@/components/admin/range-select'
-import { Building2, Users, Tag, Wallet } from 'lucide-react'
 
-export default async function AdminDashboardPage({ searchParams }: { searchParams: Promise<{ range?: string }> }) {
-  const now = new Date()
+export default function AdminDashboardPage() {
+  const searchParams = useSearchParams()
+  const rangeParam = searchParams.get('range') || '30d'
 
-  // Range selection: default 30d; support 1y per request
-  const params = await searchParams
-  const rangeParam = params?.range || '30d'
   const rangeLabelMap: Record<string, string> = {
     '30d': 'Last 30 days',
     '90d': 'Last 90 days',
-    '1y': 'Last 1 year'
+    '1y': 'Last 1 year',
   }
-  const millisByRange: Record<string, number> = {
-    '30d': 30 * 24 * 60 * 60 * 1000,
-    '90d': 90 * 24 * 60 * 60 * 1000,
-    '1y': 365 * 24 * 60 * 60 * 1000
+
+  const [data, setData] = useState<AdminDashboardSummaryResponse | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  const queryKey = useMemo(() => rangeParam, [rangeParam])
+
+  async function load() {
+    setLoading(true)
+    try {
+      const res = await fetchAdminDashboardSummary({ range: rangeParam })
+      setData(res)
+    } finally {
+      setLoading(false)
+    }
   }
-  const windowMs = millisByRange[rangeParam] ?? millisByRange['30d']
-  const rangeStart = new Date(now.getTime() - windowMs)
 
-  const [activeEnterpriseCount, customerCount, categoriesCount, pendingVouchersCount, revenueAgg, revenueOrders, ordersCount, pendingVouchersTop] = await Promise.all([
-    prisma.enterprise.count({ where: { IsActive: true } }),
-    prisma.customer.count(),
-    prisma.foodCategory.count(),
-    prisma.voucher.count({ where: { Status: 'Pending' } }),
-    prisma.order.aggregate({
-      _sum: { TotalAmount: true },
-      where: {
-        OrderDate: { gte: rangeStart },
-        Status: { in: ['Delivered', 'Completed'] }
-      }
-    }),
-    prisma.order.findMany({
-      where: { OrderDate: { gte: rangeStart }, Status: { in: ['Delivered', 'Completed'] } },
-      select: { OrderDate: true, TotalAmount: true },
-      orderBy: { OrderDate: 'asc' }
-    }),
-    prisma.order.count({
-      where: {
-        OrderDate: { gte: rangeStart },
-        Status: { in: ['Delivered', 'Completed'] }
-      }
-    }),
-    prisma.voucher.findMany({
-      where: { Status: 'Pending' },
-      orderBy: { CreatedAt: 'desc' },
-      take: 3,
-      select: {
-        VoucherID: true,
-        Code: true,
-        DiscountPercent: true,
-        DiscountAmount: true,
-        ExpiryDate: true,
-        MaxUsage: true,
-        UsedCount: true,
-        CreatedAt: true,
-        enterprise: { select: { EnterpriseName: true } }
-      }
-    })
-  ])
+  useEffect(() => {
+    void load()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [queryKey])
 
-  const revenueInRange = Number(revenueAgg._sum.TotalAmount || 0)
+  const revenueInRange = data?.revenueInRange ?? 0
+  const ordersCount = data?.ordersCount ?? 0
   const averageOrderValue = revenueInRange / Math.max(1, ordersCount)
+  const pendingVouchersTop = data?.pendingVouchersTop ?? []
 
-  // Build daily revenue series for the selected window (up to 90 days granularity to keep list tight)
-  const series: { date: string; value: number }[] = []
-  const dayMs = 24 * 60 * 60 * 1000
-  const days = Math.min(Math.round(windowMs / dayMs), 90)
-  for (let i = days - 1; i >= 0; i--) {
-    const d = new Date(now.getTime() - i * dayMs)
-    const key = d.toISOString().slice(0, 10) // yyyy-mm-dd
-    series.push({ date: key, value: 0 })
-  }
-  const indexByDate = new Map(series.map((s, idx) => [s.date, idx]))
-  for (const o of revenueOrders) {
-    const key = o.OrderDate.toISOString().slice(0, 10)
-    const idx = indexByDate.get(key)
-    if (idx !== undefined) series[idx].value += Number(o.TotalAmount)
-  }
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -93,6 +55,15 @@ export default async function AdminDashboardPage({ searchParams }: { searchParam
         <div className="flex items-center gap-3">
           <label htmlFor="range" className="text-sm text-cyan-100">Range</label>
           <RangeSelect current={rangeParam} />
+          <button
+            type="button"
+            onClick={load}
+            className="inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold text-white/95 bg-white/15 hover:bg-white/20 border border-white/20"
+            disabled={loading}
+          >
+            <Activity className="h-4 w-4" />
+            {loading ? 'Loading…' : 'Refresh'}
+          </button>
         </div>
       </div>
 
@@ -108,7 +79,7 @@ export default async function AdminDashboardPage({ searchParams }: { searchParam
                   <Building2 className="w-4 h-4" />
                 </div>
               </div>
-              <div className="mt-2 text-3xl font-extrabold text-slate-900">{activeEnterpriseCount}</div>
+              <div className="mt-2 text-3xl font-extrabold text-slate-900">{data?.activeEnterpriseCount ?? (loading ? '…' : 0)}</div>
               <div className="text-xs text-slate-500 mt-1">All time</div>
             </div>
 
@@ -119,7 +90,7 @@ export default async function AdminDashboardPage({ searchParams }: { searchParam
                   <Users className="w-4 h-4" />
                 </div>
               </div>
-              <div className="mt-2 text-3xl font-extrabold text-slate-900">{customerCount}</div>
+              <div className="mt-2 text-3xl font-extrabold text-slate-900">{data?.customerCount ?? (loading ? '…' : 0)}</div>
               <div className="text-xs text-slate-500 mt-1">Registered</div>
             </div>
 
@@ -130,7 +101,7 @@ export default async function AdminDashboardPage({ searchParams }: { searchParam
                   <Tag className="w-4 h-4" />
                 </div>
               </div>
-              <div className="mt-2 text-3xl font-extrabold text-slate-900">{categoriesCount}</div>
+              <div className="mt-2 text-3xl font-extrabold text-slate-900">{data?.categoriesCount ?? (loading ? '…' : 0)}</div>
               <div className="text-xs text-slate-500 mt-1">Catalog size</div>
             </div>
 
@@ -141,12 +112,12 @@ export default async function AdminDashboardPage({ searchParams }: { searchParam
                   <Tag className="w-4 h-4" />
                 </div>
               </div>
-              <div className="mt-2 text-3xl font-extrabold text-slate-900">{pendingVouchersCount}</div>
+              <div className="mt-2 text-3xl font-extrabold text-slate-900">{data?.pendingVouchersCount ?? (loading ? '…' : 0)}</div>
               <div className="text-xs text-slate-500 mt-1">Awaiting approval</div>
             </div>
           </div>
 
-          {/* Approvals list placeholder (hook up later) */}
+          {/* Pending vouchers */}
           <div className="rounded-2xl border border-indigo-200 bg-white/80 backdrop-blur-sm shadow-lg p-5">
             <div className="flex items-center justify-between mb-3">
               <div>
@@ -155,25 +126,30 @@ export default async function AdminDashboardPage({ searchParams }: { searchParam
               </div>
               <a href="/admin/discount" className="text-indigo-700 hover:underline text-sm">View all</a>
             </div>
-            {pendingVouchersTop.length === 0 ? (
+
+            {loading ? (
+              <div className="rounded-xl border border-dashed border-slate-200 p-8 text-slate-500 text-sm text-center">
+                Loading vouchers...
+              </div>
+            ) : pendingVouchersTop.length === 0 ? (
               <div className="rounded-xl border border-dashed border-slate-200 p-8 text-slate-500 text-sm text-center">
                 <div className="mx-auto w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center mb-2">🔎</div>
                 No vouchers awaiting approval. They will appear here once submitted.
               </div>
             ) : (
               <ul className="space-y-3">
-                {pendingVouchersTop.map(v => {
-                  const discountLabel = v.DiscountPercent
-                    ? `${Number(v.DiscountPercent)}%`
-                    : v.DiscountAmount
-                      ? `${formatCurrency(Number(v.DiscountAmount))}`
+                {pendingVouchersTop.map((v) => {
+                  const discountLabel = v.discountPercent != null
+                    ? `${v.discountPercent}%`
+                    : v.discountAmount != null
+                      ? `${formatCurrency(v.discountAmount)}`
                       : '—'
-                  const usage = typeof v.MaxUsage === 'number' && v.MaxUsage > 0
-                    ? Math.min(100, Math.round((v.UsedCount / v.MaxUsage) * 100))
+                  const usage = typeof v.maxUsage === 'number' && v.maxUsage > 0
+                    ? Math.min(100, Math.round((v.usedCount / v.maxUsage) * 100))
                     : undefined
-                  const expired = v.ExpiryDate ? new Date(v.ExpiryDate) < new Date() : false
-  return (
-                    <li key={v.VoucherID} className="bg-white border border-indigo-200 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition">
+                  const expired = v.expiryDate ? new Date(v.expiryDate) < new Date() : false
+                  return (
+                    <li key={v.id} className="bg-white border border-indigo-200 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition">
                       <div className="flex items-stretch">
                         <div className="w-1 bg-gradient-to-b from-indigo-400 to-fuchsia-500" />
                         <div className="flex-1 p-4">
@@ -181,26 +157,26 @@ export default async function AdminDashboardPage({ searchParams }: { searchParam
                             <div className="min-w-0">
                               <div className="flex items-center gap-2 min-w-0">
                                 <Tag className="w-4 h-4 text-indigo-600 shrink-0" />
-                                <span className="font-semibold text-slate-900 truncate">{v.Code}</span>
+                                <span className="font-semibold text-slate-900 truncate">{v.code}</span>
                                 <span className="text-xs px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700">{discountLabel}</span>
-                                {v.ExpiryDate && (
+                                {v.expiryDate && (
                                   <span className={`text-xs px-1.5 py-0.5 rounded ${expired ? 'bg-rose-50 text-rose-700' : 'bg-indigo-50 text-indigo-700'}`}>
-                                    {expired ? 'Expired' : `Expires ${formatDate(String(v.ExpiryDate)).split(',')[0]}`}
+                                    {expired ? 'Expired' : `Expires ${formatDate(String(v.expiryDate)).split(',')[0]}`}
                                   </span>
                                 )}
                               </div>
                               <div className="text-xs text-slate-500 mt-1 truncate">
-                                {v.enterprise?.EnterpriseName ? `${v.enterprise.EnterpriseName} • ` : ''}
-                                Created {formatDate(String(v.CreatedAt)).split(',')[0]}
+                                {v.enterpriseName ? `${v.enterpriseName} • ` : ''}
+                                Created {formatDate(String(v.createdAt)).split(',')[0]}
                               </div>
                             </div>
-                            <a href={`/admin/discount?code=${encodeURIComponent(v.Code)}`} className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full border border-indigo-200 text-indigo-700 hover:bg-indigo-50 text-sm shrink-0">Review</a>
+                            <a href={`/admin/discount?q=${encodeURIComponent(v.code)}`} className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full border border-indigo-200 text-indigo-700 hover:bg-indigo-50 text-sm shrink-0">Review</a>
                           </div>
                           {typeof usage === 'number' && (
                             <div className="mt-3">
                               <div className="flex items-center justify-between text-xs text-slate-500 mb-1">
                                 <span>Usage</span>
-                                <span>{v.UsedCount}/{v.MaxUsage}</span>
+                                <span>{v.usedCount}/{v.maxUsage}</span>
                               </div>
                               <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
                                 <div className="h-full bg-indigo-500" style={{ width: `${usage}%` }} />
@@ -232,20 +208,23 @@ export default async function AdminDashboardPage({ searchParams }: { searchParam
                 <Wallet className="w-6 h-6" />
               </div>
             </div>
-            {/* Chart removed per request */}
           </div>
 
           <div className="rounded-2xl border border-indigo-200 bg-white p-6">
             <div className="flex items-center justify-between">
-    <div>
+              <div>
                 <div className="text-sm text-slate-500">Orders ({rangeLabelMap[rangeParam] || rangeLabelMap['30d']})</div>
                 <div className="mt-1 text-3xl font-extrabold text-slate-900">{ordersCount}</div>
               </div>
             </div>
-            <div className="mt-3 text-sm text-slate-600">Average order value: <span className="font-semibold text-slate-900">{formatCurrency(averageOrderValue)}</span></div>
+            <div className="mt-3 text-sm text-slate-600">
+              Average order value:{' '}
+              <span className="font-semibold text-slate-900">{formatCurrency(averageOrderValue)}</span>
+            </div>
           </div>
         </div>
       </div>
     </div>
   )
 }
+

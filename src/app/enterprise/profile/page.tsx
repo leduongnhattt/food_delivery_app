@@ -10,6 +10,20 @@ import { buildAuthHeader, getAuthToken } from "@/lib/auth-helpers";
 import { getServerApiBase } from "@/lib/http-client";
 import { User, Camera, Lock, Save } from "lucide-react";
 import Image from "next/image";
+import { EnterprisePageHeader } from "@/components/enterprise/EnterprisePageHeader";
+import { cn } from "@/lib/utils";
+
+/** Match admin Edit Enterprise field density. Resets shadcn Input ring/offset so focus is a single ring, not stacked on defaults. */
+const profileFieldClass = cn(
+  "block h-8 w-full rounded border border-slate-300 bg-gradient-to-b from-slate-100/35 to-white px-2.5 text-[13px] leading-8 text-slate-900",
+  "shadow-[inset_0_1px_0_rgba(255,255,255,0.65)]",
+  "placeholder:text-slate-400",
+  "transition-[box-shadow,border-color] duration-150",
+  "ring-0 ring-offset-0",
+  "focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/35 focus:ring-offset-0",
+  "focus-visible:outline-none focus-visible:border-blue-500 focus-visible:ring-1 focus-visible:ring-blue-500/35 focus-visible:ring-offset-0",
+  "disabled:cursor-not-allowed disabled:opacity-50"
+);
 
 export default function EnterpriseProfile() {
   const [enterpriseName, setEnterpriseName] = useState("");
@@ -46,19 +60,21 @@ export default function EnterpriseProfile() {
     return regex.test(phone);
   };
 
+  const validateEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+
   // Get current profile data
   const fetchProfile = useCallback(async () => {
     try {
-      const response = await apiClient.get<{ enterprise: any }>(
-        "/enterprise/profile"
-      ) as any;
-
-      if (response.success === false) {
-        showToast(response.error || "Failed to load profile data", "error");
+      const base = getServerApiBase();
+      const res = await fetch(`${base}/enterprise/profile`, {
+        headers: { ...buildAuthHeader() },
+        cache: "no-store",
+      });
+      if (!res.ok) {
+        showToast("Failed to load profile data", "error");
         return;
       }
-
-      const { enterprise } = response;
+      const { enterprise } = await res.json();
       setEnterpriseName(enterprise.EnterpriseName || "");
       setEmail(enterprise.account.Email || "");
       setAddress(enterprise.Address || "");
@@ -243,24 +259,52 @@ export default function EnterpriseProfile() {
       return;
     }
 
+    const emailTrim = email.trim();
+    if (!emailTrim) {
+      showToast("Email is required", "error");
+      setIsLoading(false);
+      return;
+    }
+    if (!validateEmail(emailTrim)) {
+      showToast("Invalid email format", "error");
+      setIsLoading(false);
+      return;
+    }
+
     try {
       const payload = {
         EnterpriseName: enterpriseName.trim(),
         Address: address.trim(),
         PhoneNumber: phoneNumber.trim(),
-        Email: email,
+        Email: emailTrim,
         Description: description.trim(),
         OpenHours: openHours,
         CloseHours: closeHours,
         AvatarURL: avatar,
       };
 
-      const response = await apiClient.put("/enterprise/profile", payload) as any;
-      
-      if (response.success === false) {
-        showToast(response.error || "Failed to update profile", "error");
+      const base = getServerApiBase();
+      const res = await fetch(`${base}/enterprise/profile`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          ...buildAuthHeader(),
+        },
+        body: JSON.stringify(payload),
+        cache: "no-store",
+      });
+
+      if (!res.ok) {
+        const errBody = (await res.json().catch(() => ({}))) as {
+          message?: string | string[];
+        };
+        const raw = errBody?.message;
+        const msg =
+          Array.isArray(raw) ? raw[0] : raw || "Failed to update profile";
+        showToast(msg, "error");
       } else {
         showToast("Profile updated successfully!", "success");
+        setEmail(emailTrim);
       }
     } catch (error) {
       console.error("Error updating profile:", error);
@@ -271,314 +315,279 @@ export default function EnterpriseProfile() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-4xl mx-auto px-4">
-        {/* Header */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
-          <div className="bg-gradient-to-r from-purple-500 to-pink-500 p-6">
-            <div className="flex items-center justify-between">
-              <div className="text-white">
-                <h1 className="text-2xl font-bold">Enterprise Profile</h1>
-                <p className="text-purple-100 mt-1">Manage your business information</p>
-              </div>
-              <User className="h-8 w-8 text-white/80" />
-            </div>
-          </div>
+    <div className="w-full space-y-6 pb-10">
+      <EnterprisePageHeader
+        title="Enterprise Profile"
+        description="Manage your business information"
+      />
 
-          <div className="p-6">
-            {/* Avatar Section */}
-            <div className="flex items-center space-x-6 mb-8">
-              <div className="relative">
-                <div className="w-24 h-24 rounded-full overflow-hidden bg-gray-100 border-4 border-white shadow-lg">
-                  {avatar ? (
-                    <Image
-                      src={avatar}
-                      alt="Avatar"
-                      width={96}
-                      height={96}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center bg-gray-200">
-                      <User className="h-8 w-8 text-gray-400" />
-                    </div>
-                  )}
-                </div>
-                <label className="absolute -bottom-2 -right-2 bg-purple-500 text-white p-2 rounded-full cursor-pointer hover:bg-purple-600 transition-colors shadow-lg">
-                  <Camera className="h-4 w-4" />
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleAvatarUpload}
-                    className="hidden"
-                    disabled={isUploadingAvatar}
-                  />
-                </label>
-              </div>
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900">{enterpriseName || "Enterprise Name"}</h3>
-                <p className="text-gray-600">{email}</p>
-                <p className="text-sm text-gray-500 mt-1">Business Account</p>
-              </div>
-            </div>
-
-            {/* Profile Form */}
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Enterprise Name */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Enterprise Name *
-                  </label>
-                  <Input
-                    type="text"
-                    value={enterpriseName}
-                    onChange={handleEnterpriseNameChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                    placeholder="Enter enterprise name"
-                    required
-                    maxLength={100}
-                  />
-                </div>
-
-                {/* Email */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Email Address
-                  </label>
-                  <Input
-                    type="email"
-                    disabled
-                    value={email}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-600"
-                    placeholder="Email address"
-                  />
-                </div>
-
-                {/* Address */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Business Address
-                  </label>
-                  <Input
-                    type="text"
-                    value={address}
-                    onChange={(e) => setAddress(e.target.value)}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                    placeholder="Enter business address"
-                    maxLength={200}
-                  />
-                </div>
-
-                {/* Phone Number */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Phone Number
-                  </label>
-                  <Input
-                    type="tel"
-                    value={phoneNumber}
-                    onChange={handlePhoneNumberChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                    placeholder="Enter phone number"
-                    maxLength={15}
-                  />
-                </div>
-
-                {/* Open Hours */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Opening Hours
-                  </label>
-                  <Input
-                    type="time"
-                    value={openHours}
-                    onChange={(e) => setOpenHours(e.target.value)}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                  />
-                </div>
-
-                {/* Close Hours */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Closing Hours
-                  </label>
-                  <Input
-                    type="time"
-                    value={closeHours}
-                    onChange={(e) => setCloseHours(e.target.value)}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                  />
-                </div>
-              </div>
-
-              {/* Description */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Business Description
-                </label>
-                <textarea
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent h-32 resize-none"
-                  placeholder="Describe your business..."
-                  maxLength={255}
-                />
-                <p className="text-sm text-gray-500 mt-1">{description.length}/255 characters</p>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex flex-col sm:flex-row gap-4 pt-6 border-t border-gray-200">
-                <Button
-                  type="submit"
-                  disabled={isLoading}
-                  className="flex-1 bg-purple-500 hover:bg-purple-600 text-white px-6 py-3 rounded-lg font-medium transition-colors disabled:opacity-50"
-                >
-                  {isLoading ? (
-                    <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                      Saving...
-                    </>
-                  ) : (
-                    <>
-                      <Save className="h-4 w-4 mr-2" />
-                      Save Profile
-                    </>
-                  )}
-                </Button>
-
-                <Button
-                  type="button"
-                  onClick={() => setShowPasswordForm(!showPasswordForm)}
-                  className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 px-6 py-3 rounded-lg font-medium transition-colors"
-                >
-                  <Lock className="h-4 w-4 mr-2" />
-                  Change Password
-                </Button>
-              </div>
-            </form>
-
-            {/* Password Change Form */}
-            {showPasswordForm && (
-              <div className="mt-8 p-6 bg-gray-50 rounded-lg border border-gray-200">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-gray-900">Change Password</h3>
-                  <div className="text-sm text-gray-500">
-                    <Lock className="h-4 w-4 inline mr-1" />
-                    Secure password change
-                  </div>
-                </div>
-                
-                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
-                  <div className="flex items-start">
-                    <div className="flex-shrink-0">
-                      <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                      </svg>
-                    </div>
-                    <div className="ml-3">
-                      <p className="text-sm text-yellow-800">
-                        <strong>Security Notice:</strong> After changing your password, you will be logged out and need to sign in again with your new password.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <form onSubmit={handlePasswordChange} className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Current Password *
-                    </label>
-                    <Input
-                      type="password"
-                      value={currentPassword}
-                      onChange={(e) => setCurrentPassword(e.target.value)}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                      placeholder="Enter your current password"
-                      required
-                    />
-                    <p className="text-xs text-gray-500 mt-1">
-                      Enter your current password to verify your identity
-                    </p>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      New Password *
-                    </label>
-                    <Input
-                      type="password"
-                      value={newPassword}
-                      onChange={(e) => setNewPassword(e.target.value)}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                      placeholder="Enter new password (min 6 characters)"
-                      required
-                      minLength={6}
-                    />
-                    <p className="text-xs text-gray-500 mt-1">
-                      Password must be at least 6 characters long
-                    </p>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Confirm New Password *
-                    </label>
-                    <Input
-                      type="password"
-                      value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                      placeholder="Confirm your new password"
-                      required
-                      minLength={6}
-                    />
-                    {confirmPassword && newPassword && confirmPassword !== newPassword && (
-                      <p className="text-xs text-red-500 mt-1">Passwords do not match</p>
-                    )}
-                    {confirmPassword && newPassword && confirmPassword === newPassword && (
-                      <p className="text-xs text-green-500 mt-1">Passwords match</p>
-                    )}
-                  </div>
-
-                  <div className="flex flex-col sm:flex-row gap-3 pt-4">
-                    <Button
-                      type="submit"
-                      disabled={isChangingPassword || !currentPassword || !newPassword || !confirmPassword || newPassword !== confirmPassword}
-                      className="bg-red-500 hover:bg-red-600 text-white px-6 py-3 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {isChangingPassword ? (
-                        <>
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                          Changing Password...
-                        </>
-                      ) : (
-                        <>
-                          <Lock className="h-4 w-4 mr-2" />
-                          Change Password
-                        </>
-                      )}
-                    </Button>
-
-                    <Button
-                      type="button"
-                      onClick={() => {
-                        setShowPasswordForm(false);
-                        setCurrentPassword("");
-                        setNewPassword("");
-                        setConfirmPassword("");
-                      }}
-                      className="bg-gray-500 hover:bg-gray-600 text-white px-6 py-3 rounded-lg font-medium transition-colors"
-                    >
-                      Cancel
-                    </Button>
-                  </div>
-                </form>
+      <div className="flex flex-wrap items-center gap-6 border-b border-slate-200 pb-6">
+        <div className="relative shrink-0">
+          <div className="h-24 w-24 overflow-hidden rounded-full border border-slate-200 bg-slate-100">
+            {avatar ? (
+              <Image
+                src={avatar}
+                alt="Avatar"
+                width={96}
+                height={96}
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center bg-slate-200">
+                <User className="h-8 w-8 text-slate-400" />
               </div>
             )}
           </div>
+          <label className="absolute -bottom-1 -right-1 cursor-pointer rounded-full bg-sky-600 p-2 text-white shadow transition-colors hover:bg-sky-700">
+            <Camera className="h-4 w-4" />
+            <input
+              type="file"
+              accept="image/*"
+              onChange={handleAvatarUpload}
+              className="hidden"
+              disabled={isUploadingAvatar}
+            />
+          </label>
+        </div>
+        <div className="min-w-0">
+          <p className="text-[15px] font-semibold text-slate-900">{enterpriseName || "Enterprise Name"}</p>
+          <p className="text-[13px] text-slate-600">{email}</p>
+          <p className="mt-0.5 text-[12px] text-slate-500">Business Account</p>
         </div>
       </div>
+
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <div className="grid grid-cols-1 gap-x-10 gap-y-4 lg:grid-cols-2">
+          <div>
+            <label className="mb-1.5 block text-[13px] font-semibold text-slate-800">
+              Enterprise Name <span className="text-red-500">*</span>
+            </label>
+            <Input
+              type="text"
+              value={enterpriseName}
+              onChange={handleEnterpriseNameChange}
+              className={profileFieldClass}
+              placeholder="Enter enterprise name"
+              required
+              maxLength={100}
+            />
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-[13px] font-semibold text-slate-800">
+              Email Address <span className="text-red-500">*</span>
+            </label>
+            <Input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className={profileFieldClass}
+              placeholder="Email address"
+              autoComplete="email"
+              maxLength={100}
+              required
+            />
+            <p className="mt-1 text-[12px] text-slate-500">Used for sign-in. Must be unique.</p>
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-[13px] font-semibold text-slate-800">Business Address</label>
+            <Input
+              type="text"
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+              className={profileFieldClass}
+              placeholder="Enter business address"
+              maxLength={200}
+            />
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-[13px] font-semibold text-slate-800">Phone Number</label>
+            <Input
+              type="tel"
+              value={phoneNumber}
+              onChange={handlePhoneNumberChange}
+              className={profileFieldClass}
+              placeholder="Enter phone number"
+              maxLength={15}
+            />
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-[13px] font-semibold text-slate-800">Opening Hours</label>
+            <Input type="time" value={openHours} onChange={(e) => setOpenHours(e.target.value)} className={profileFieldClass} />
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-[13px] font-semibold text-slate-800">Closing Hours</label>
+            <Input type="time" value={closeHours} onChange={(e) => setCloseHours(e.target.value)} className={profileFieldClass} />
+          </div>
+
+          <div className="lg:col-span-2">
+            <label className="mb-1.5 block text-[13px] font-semibold text-slate-800">Business Description</label>
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              className={cn(
+                "min-h-[8rem] w-full resize-y rounded border border-slate-300 bg-gradient-to-b from-slate-100/35 to-white px-2.5 py-2 text-[13px] leading-snug text-slate-900 shadow-[inset_0_1px_0_rgba(255,255,255,0.65)] placeholder:text-slate-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/35"
+              )}
+              rows={5}
+              placeholder="Describe your business..."
+              maxLength={255}
+            />
+            <p className="mt-1 text-[12px] text-slate-500">{description.length}/255 characters</p>
+          </div>
+        </div>
+
+        <div className="flex justify-end gap-2 border-t border-slate-200 pt-6">
+          <Button
+            type="submit"
+            disabled={isLoading}
+            className="h-8 shrink-0 rounded-md bg-emerald-600 px-3 text-[12px] font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+          >
+            {isLoading ? (
+              <>
+                <div className="mr-1.5 h-3.5 w-3.5 animate-spin rounded-full border-b-2 border-white" />
+                Saving...
+              </>
+            ) : (
+              <>
+                <Save className="mr-1.5 h-3.5 w-3.5" />
+                Save Profile
+              </>
+            )}
+          </Button>
+
+          <Button
+            type="button"
+            onClick={() => setShowPasswordForm(!showPasswordForm)}
+            className="h-8 shrink-0 rounded-md border border-slate-600 bg-slate-700 px-3 text-[12px] font-semibold text-white shadow-sm hover:bg-slate-600"
+          >
+            <Lock className="mr-1.5 h-3.5 w-3.5" />
+            Change Password
+          </Button>
+        </div>
+      </form>
+
+      {showPasswordForm && (
+        <div className="space-y-6 border-t border-slate-200 pt-8">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h3 className="text-[15px] font-semibold text-slate-900">Change Password</h3>
+            <div className="flex items-center text-[12px] text-slate-500">
+              <Lock className="mr-1 inline h-4 w-4" />
+              Secure password change
+            </div>
+          </div>
+
+          <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
+            <div className="flex items-start">
+              <div className="flex-shrink-0">
+                <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+                  <path
+                    fillRule="evenodd"
+                    d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+              </div>
+              <div className="ml-3">
+                <p className="text-sm text-yellow-800">
+                  <strong>Security Notice:</strong> After changing your password, you will be logged out and need to sign in again with your new password.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <form onSubmit={handlePasswordChange} className="space-y-4">
+            <div>
+              <label className="mb-1.5 block text-[13px] font-semibold text-slate-800">Current Password *</label>
+              <Input
+                type="password"
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                className={profileFieldClass}
+                placeholder="Enter your current password"
+                required
+              />
+              <p className="mt-1 text-[12px] text-slate-500">Enter your current password to verify your identity</p>
+            </div>
+
+            <div>
+              <label className="mb-1.5 block text-[13px] font-semibold text-slate-800">New Password *</label>
+              <Input
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                className={profileFieldClass}
+                placeholder="Enter new password (min 6 characters)"
+                required
+                minLength={6}
+              />
+              <p className="mt-1 text-[12px] text-slate-500">Password must be at least 6 characters long</p>
+            </div>
+
+            <div>
+              <label className="mb-1.5 block text-[13px] font-semibold text-slate-800">Confirm New Password *</label>
+              <Input
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                className={profileFieldClass}
+                placeholder="Confirm your new password"
+                required
+                minLength={6}
+              />
+              {confirmPassword && newPassword && confirmPassword !== newPassword && (
+                <p className="mt-1 text-[12px] text-red-600">Passwords do not match</p>
+              )}
+              {confirmPassword && newPassword && confirmPassword === newPassword && (
+                <p className="mt-1 text-[12px] text-emerald-600">Passwords match</p>
+              )}
+            </div>
+
+            <div className="flex flex-col gap-3 pt-2 sm:flex-row">
+              <Button
+                type="submit"
+                disabled={
+                  isChangingPassword ||
+                  !currentPassword ||
+                  !newPassword ||
+                  !confirmPassword ||
+                  newPassword !== confirmPassword
+                }
+                className="h-9 flex-1 rounded-lg bg-sky-600 px-4 text-[13px] font-medium text-white hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {isChangingPassword ? (
+                  <>
+                    <div className="mr-2 h-4 w-4 animate-spin rounded-full border-b-2 border-white" />
+                    Changing Password...
+                  </>
+                ) : (
+                  <>
+                    <Lock className="mr-2 h-4 w-4" />
+                    Change Password
+                  </>
+                )}
+              </Button>
+
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setShowPasswordForm(false);
+                  setCurrentPassword("");
+                  setNewPassword("");
+                  setConfirmPassword("");
+                }}
+                className="h-9 flex-1 rounded-lg border-slate-200 text-[13px] font-medium"
+              >
+                Cancel
+              </Button>
+            </div>
+          </form>
+        </div>
+      )}
     </div>
   );
 }

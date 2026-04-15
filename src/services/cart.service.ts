@@ -12,7 +12,6 @@ class DebouncedCartService {
     private lastFetchPromise: Promise<CartSnapshot> | null = null
     private clearTimeout: NodeJS.Timeout | null = null
     private lastClearPromise: Promise<void> | null = null
-    private updateTimeouts: Map<string, NodeJS.Timeout> = new Map()
     private lastUpdatePromises: Map<string, Promise<CartSnapshot>> = new Map()
     private readonly DEBOUNCE_DELAY = 0 // No debounce for immediate updates
     private isSilentMode = false // Silent mode for payment operations

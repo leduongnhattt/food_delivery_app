@@ -1,5 +1,5 @@
 'use client'
-import DataRegistry from '@/components/admin/DataRegistry'
+import DataRegistry from '@/components/admin/registry/DataRegistry'
 
 export default function RegistryPage() {
   return (

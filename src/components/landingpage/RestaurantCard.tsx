@@ -110,7 +110,7 @@ const RestaurantCard: React.FC<Props> = ({
         <div className="flex items-center justify-between pt-3 border-t border-gray-100">
           <div className="flex items-center text-sm text-gray-600">
             <span className="mr-1">⏱️</span>
-            <span className="font-medium">30-45 min</span>
+            <span className="font-medium">{restaurant.deliveryTime || '30-45 min'}</span>
           </div>
           <div className="flex items-center text-sm text-gray-600">
             <span className="mr-1">🚚</span>

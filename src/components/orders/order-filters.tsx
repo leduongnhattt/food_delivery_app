@@ -12,70 +12,78 @@ interface OrderFiltersProps {
 }
 
 const statusOptions = [
-  { value: '', label: 'All Orders' },
-  { value: 'pending', label: 'Pending' },
-  { value: 'confirmed', label: 'Confirmed' },
-  { value: 'preparing', label: 'Preparing' },
-  { value: 'delivered', label: 'Delivered' },
-  { value: 'cancelled', label: 'Cancelled' }
-]
-
-const timeFilters = [
-  { value: '', label: 'All Time' },
-  { value: 'today', label: 'Today' },
-  { value: 'week', label: 'This Week' },
-  { value: 'month', label: 'This Month' },
-  { value: 'year', label: 'This Year' }
+  { value: '', label: 'All' },
+  { value: 'bucket_to_ship', label: 'To ship' },
+  { value: 'bucket_to_receive', label: 'To receive' },
+  { value: 'bucket_completed', label: 'Completed' },
+  { value: 'bucket_return_refund', label: 'Return / Refund' },
+  { value: 'bucket_cancel', label: 'Cancel' }
 ]
 
 export function OrderFilters({ onFilterChange, currentFilters }: OrderFiltersProps) {
-  const [isExpanded, setIsExpanded] = useState(false)
-  const [activeTimeFilter, setActiveTimeFilter] = useState('')
+  const [selectedDate, setSelectedDate] = useState('')
+  const [activeTimePreset, setActiveTimePreset] = useState<'all' | 'today' | 'week' | 'month' | 'date'>('all')
 
   const handleStatusChange = (status: string) => {
     onFilterChange({ ...currentFilters, status: status || undefined })
   }
 
-  const handleTimeFilter = (timeFilter: string) => {
-    setActiveTimeFilter(timeFilter)
-    
+  const handlePickDate = (value: string) => {
+    setSelectedDate(value)
+    setActiveTimePreset(value ? 'date' : 'all')
+    if (!value) {
+      onFilterChange({ ...currentFilters, startDate: undefined, endDate: undefined })
+      return
+    }
+    const d = new Date(value)
+    if (Number.isNaN(d.getTime())) return
+    const start = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0)
+    const end = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59)
+    onFilterChange({ ...currentFilters, startDate: start.toISOString(), endDate: end.toISOString() })
+  }
+
+  const handleTimePreset = (preset: 'all' | 'today' | 'week' | 'month') => {
+    setActiveTimePreset(preset)
+    setSelectedDate('')
+
     const now = new Date()
     let startDate: string | undefined
     let endDate: string | undefined
 
-    switch (timeFilter) {
-      case 'today':
-        startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString()
-        endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59).toISOString()
+    switch (preset) {
+      case 'today': {
+        const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0)
+        const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59)
+        startDate = start.toISOString()
+        endDate = end.toISOString()
         break
-      case 'week':
+      }
+      case 'week': {
         const weekStart = new Date(now)
+        weekStart.setHours(0, 0, 0, 0)
         weekStart.setDate(now.getDate() - now.getDay())
         startDate = weekStart.toISOString()
         endDate = now.toISOString()
         break
-      case 'month':
-        startDate = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
+      }
+      case 'month': {
+        const start = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0)
+        startDate = start.toISOString()
         endDate = now.toISOString()
         break
-      case 'year':
-        startDate = new Date(now.getFullYear(), 0, 1).toISOString()
-        endDate = now.toISOString()
-        break
+      }
+      case 'all':
       default:
         startDate = undefined
         endDate = undefined
     }
 
-    onFilterChange({ 
-      ...currentFilters, 
-      startDate, 
-      endDate 
-    })
+    onFilterChange({ ...currentFilters, startDate, endDate })
   }
 
   const clearFilters = () => {
-    setActiveTimeFilter('')
+    setSelectedDate('')
+    setActiveTimePreset('all')
     onFilterChange({})
   }
 
@@ -105,14 +113,6 @@ export function OrderFilters({ onFilterChange, currentFilters }: OrderFiltersPro
               Clear
             </Button>
           )}
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setIsExpanded(!isExpanded)}
-            className="text-xs px-2 py-1 h-6"
-          >
-            {isExpanded ? 'Less' : 'More'}
-          </Button>
         </div>
       </div>
 
@@ -141,57 +141,79 @@ export function OrderFilters({ onFilterChange, currentFilters }: OrderFiltersPro
       {/* Time Filter */}
       <div className="mb-3">
         <h4 className="text-xs font-medium text-gray-700 mb-2">Time</h4>
-        <div className="flex flex-wrap gap-1">
-          {timeFilters.map((option) => (
-            <Button
-              key={option.value}
-              variant={activeTimeFilter === option.value ? "default" : "outline"}
-              size="sm"
-              onClick={() => handleTimeFilter(option.value)}
-              className={`text-xs px-2 py-1 h-6 ${
-                activeTimeFilter === option.value
-                  ? "bg-orange-600 hover:bg-orange-700 text-white"
-                  : "border-gray-300 text-gray-700 hover:bg-gray-50"
-              }`}
-            >
-              {option.label}
-            </Button>
-          ))}
-        </div>
-      </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            variant={activeTimePreset === 'all' ? "default" : "outline"}
+            size="sm"
+            onClick={() => handleTimePreset('all')}
+            className={`text-xs px-2 py-1 h-6 ${
+              activeTimePreset === 'all'
+                ? "bg-orange-600 hover:bg-orange-700 text-white"
+                : "border-gray-300 text-gray-700 hover:bg-gray-50"
+            }`}
+          >
+            All time
+          </Button>
 
-      {/* Additional Filters (Expanded) */}
-      {isExpanded && (
-        <div className="border-t pt-4">
-          <h4 className="text-sm font-medium text-gray-700 mb-2">Additional Options</h4>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="text-xs text-gray-600">From Date</label>
-              <input
-                type="date"
-                value={currentFilters.startDate?.split('T')[0] || ''}
-                onChange={(e) => onFilterChange({ 
-                  ...currentFilters, 
-                  startDate: e.target.value ? new Date(e.target.value).toISOString() : undefined 
-                })}
-                className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
-              />
-            </div>
-            <div>
-              <label className="text-xs text-gray-600">To Date</label>
-              <input
-                type="date"
-                value={currentFilters.endDate?.split('T')[0] || ''}
-                onChange={(e) => onFilterChange({ 
-                  ...currentFilters, 
-                  endDate: e.target.value ? new Date(e.target.value).toISOString() : undefined 
-                })}
-                className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
-              />
-            </div>
+          <Button
+            variant={activeTimePreset === 'today' ? "default" : "outline"}
+            size="sm"
+            onClick={() => handleTimePreset('today')}
+            className={`text-xs px-2 py-1 h-6 ${
+              activeTimePreset === 'today'
+                ? "bg-orange-600 hover:bg-orange-700 text-white"
+                : "border-gray-300 text-gray-700 hover:bg-gray-50"
+            }`}
+          >
+            Today
+          </Button>
+          <Button
+            variant={activeTimePreset === 'week' ? "default" : "outline"}
+            size="sm"
+            onClick={() => handleTimePreset('week')}
+            className={`text-xs px-2 py-1 h-6 ${
+              activeTimePreset === 'week'
+                ? "bg-orange-600 hover:bg-orange-700 text-white"
+                : "border-gray-300 text-gray-700 hover:bg-gray-50"
+            }`}
+          >
+            This week
+          </Button>
+          <Button
+            variant={activeTimePreset === 'month' ? "default" : "outline"}
+            size="sm"
+            onClick={() => handleTimePreset('month')}
+            className={`text-xs px-2 py-1 h-6 ${
+              activeTimePreset === 'month'
+                ? "bg-orange-600 hover:bg-orange-700 text-white"
+                : "border-gray-300 text-gray-700 hover:bg-gray-50"
+            }`}
+          >
+            This month
+          </Button>
+
+          <span className="text-xs text-gray-400">or</span>
+
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-gray-600">Date</span>
+            <input
+              type="date"
+              value={selectedDate}
+              onChange={(e) => handlePickDate(e.target.value)}
+              className="h-7 rounded-md border border-gray-300 bg-white px-3 text-xs focus:outline-none focus:ring-2 focus:ring-orange-500"
+            />
+            {selectedDate ? (
+              <button
+                type="button"
+                onClick={() => handlePickDate('')}
+                className="text-xs text-gray-500 hover:text-gray-800"
+              >
+                Clear
+              </button>
+            ) : null}
           </div>
         </div>
-      )}
+      </div>
     </div>
   )
 }

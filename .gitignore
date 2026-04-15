@@ -30,20 +30,23 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-
-
 # vercel
 .vercel
 
 # typescript
 *.tsbuildinfo
-next-env.d.ts
-# prisma generated client (if using custom output)
-/src/generated/prisma/
+
+# env (keep .env.example tracked)
+.env
+.env*.local
+
+# caches
+.turbo
+.eslintcache
 
 # editors
 .idea/
 .vscode/
 
-.env
+# uploads (local / dev)
 /public/images/enterprise/

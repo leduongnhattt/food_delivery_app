@@ -3,28 +3,28 @@ import Link from 'next/link'
 export function Footer() {
   return (
     <footer className="border-t border-amber-500 bg-amber-400">
-      <div className="container pt-12 pb-6 text-slate-900">
+      <div className="container pt-6 pb-4 text-slate-900">
         {/* Link columns like modern sites: About us, Legal, Social */}
-        <div className="grid grid-cols-1 gap-10 sm:grid-cols-2 lg:grid-cols-3 justify-items-center text-center">
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 justify-items-center text-center">
           <div>
-            <h4 className="mb-3 text-lg font-semibold text-foreground">About us</h4>
-            <ul className="space-y-2 text-[1.05rem]">
+            <h4 className="mb-2 text-sm font-semibold text-foreground">About us</h4>
+            <ul className="space-y-1.5 text-sm">
               <li><Link href="/about" className="text-muted-foreground hover:text-foreground">Our company</Link></li>
               <li><Link href="/foundation" className="text-muted-foreground hover:text-foreground">Hanala Foundation</Link></li>
               <li><Link href="/contact" className="text-muted-foreground hover:text-foreground">Contact us</Link></li>
             </ul>
           </div>
           <div>
-            <h4 className="mb-3 text-lg font-semibold text-foreground">Legal</h4>
-            <ul className="space-y-2 text-[1.05rem]">
+            <h4 className="mb-2 text-sm font-semibold text-foreground">Legal</h4>
+            <ul className="space-y-1.5 text-sm">
               <li><Link href="/accessibility" className="text-muted-foreground hover:text-foreground">Accessibility</Link></li>
               <li><Link href="/privacy" className="text-muted-foreground hover:text-foreground">Privacy policy</Link></li>
               <li><Link href="/terms" className="text-muted-foreground hover:text-foreground">Terms of use</Link></li>
             </ul>
           </div>
           <div>
-            <h4 className="mb-3 text-lg font-semibold text-foreground">Social</h4>
-            <ul className="space-y-3 text-[1.05rem]">
+            <h4 className="mb-2 text-sm font-semibold text-foreground">Social</h4>
+            <ul className="space-y-2 text-sm">
               <li>
                 <Link href="#" className="flex items-center gap-2 text-muted-foreground hover:text-foreground">
                   <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="url(#ig)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -73,10 +73,10 @@ export function Footer() {
         </div>
 
         {/* Divider */}
-        <div className="my-4 h-px w-full bg-black/10" />
+        <div className="my-3 h-px w-full bg-black/10" />
 
         {/* Legal bar */}
-        <div className="text-sm text-slate-800 space-y-2 text-center">
+        <div className="text-xs text-slate-800 space-y-1 text-center">
           <p>&copy; 2025 Hanala Food. All rights reserved.</p>
         </div>
       </div>

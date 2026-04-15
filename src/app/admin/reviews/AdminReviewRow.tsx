@@ -54,35 +54,43 @@ export default function AdminReviewRow({
     <tr className="hover:bg-slate-50">
       <td className="py-3 pr-4">
         <div>
-          <p className="font-medium text-slate-900">{customerName}</p>
+          <p className="text-[13px] leading-4 font-medium text-slate-900">{customerName}</p>
           {review.customer?.account?.Email && (
-            <p className="text-xs text-slate-500">{review.customer.account.Email}</p>
+            <p className="text-xs leading-4 font-normal text-slate-500">
+              {review.customer.account.Email}
+            </p>
           )}
         </div>
       </td>
-      <td className="py-3 pr-4 text-slate-700">{enterpriseName}</td>
+      <td className="py-3 pr-4 text-[13px] leading-4 font-normal text-slate-700">
+        {enterpriseName}
+      </td>
       <td className="py-3 pr-4">
         <div className="flex items-center gap-1">
           {Array.from({ length: 5 }).map((_, i) => (
             <span 
               key={i} 
-              className={`text-sm ${i < rating ? 'text-yellow-400' : 'text-gray-300'}`}
+              className={`text-[13px] leading-4 ${i < rating ? 'text-yellow-400' : 'text-gray-300'}`}
             >
               ★
             </span>
           ))}
-          <span className="ml-1 text-slate-600">{rating}</span>
+          <span className="ml-1 text-[13px] leading-4 font-normal text-slate-600">{rating}</span>
         </div>
       </td>
       <td className="py-3 pr-4">
         <div className="max-w-xs">
-          <p className="text-slate-700 truncate">{comment || 'No comment'}</p>
+          <p className="text-[13px] leading-4 font-normal text-slate-700 truncate">
+            {comment || 'No comment'}
+          </p>
           {images.length > 0 && (
-            <p className="text-xs text-slate-500 mt-1">{images.length} image{images.length !== 1 ? 's' : ''}</p>
+            <p className="text-xs leading-4 font-normal text-slate-500 mt-1">
+              {images.length} image{images.length !== 1 ? 's' : ''}
+            </p>
           )}
         </div>
       </td>
-      <td className="py-3 pr-4 text-slate-700 text-xs">
+      <td className="py-3 pr-4 text-slate-700 text-xs leading-4 font-normal">
         {formatDate(review.CreatedAt)}
       </td>
       <td className="py-3 pr-4">

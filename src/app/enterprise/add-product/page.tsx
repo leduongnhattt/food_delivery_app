@@ -3,7 +3,7 @@ import { Camera, ChevronDown } from "lucide-react";
 import { useFoodForm } from "@/hooks/use-food-form";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
-
+import { EnterprisePageHeader, ENTERPRISE_PANEL_CLASS } from "@/components/enterprise/EnterprisePageHeader";
 
 export default function FoodUploadForm() {
   const {
@@ -37,33 +37,26 @@ export default function FoodUploadForm() {
 
 
   return (
-    <div className="relative">
-      {/* Decorative Background */}
-      <div className="pointer-events-none absolute inset-0 -z-10">
-        <div className="absolute inset-x-0 top-0 h-64 bg-gradient-to-br from-blue-50 via-indigo-50 to-fuchsia-50" />
-        <div className="absolute -top-10 left-1/2 h-64 w-64 -translate-x-1/2 rounded-full bg-fuchsia-200/30 blur-3xl" />
-        <div className="absolute top-10 right-10 h-40 w-40 rounded-full bg-indigo-200/30 blur-2xl" />
-      </div>
-
-      {/* Header */}
-      <div className="mx-auto max-w-7xl">
-        <div className="mb-8 rounded-2xl border border-white/50 bg-white/70 p-6 shadow-md backdrop-blur supports-[backdrop-filter]:bg-white/60">
-          <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
-            <div>
-              <h1 className="text-2xl font-bold tracking-tight text-gray-900">Create a Stunning Dish</h1>
-              <p className="mt-1 text-sm text-gray-600">Craft a beautiful product card with image, price and category.</p>
-            </div>
+    <>
+      <div className="space-y-6">
+      <div className={`${ENTERPRISE_PANEL_CLASS} p-4`}>
+        <EnterprisePageHeader
+          title="Create a Stunning Dish"
+          description="Craft a product card with image, price and category."
+          actions={
             <div className="hidden gap-2 sm:flex">
-              <Button type="button" variant="outline" onClick={resetForm}>Reset</Button>
+              <Button type="button" variant="outline" className="h-9 text-[13px]" onClick={resetForm}>
+                Reset
+              </Button>
               <Button
                 type="button"
                 onClick={handleSubmit}
                 disabled={!isFormValid || isSubmitting || isUploading}
-                className="bg-blue-600 text-white hover:bg-blue-700 disabled:bg-gray-300"
+                className="h-9 bg-sky-600 text-[13px] text-white hover:bg-sky-700 disabled:bg-gray-300"
               >
                 {isSubmitting ? (
                   <div className="flex items-center">
-                    <div className="mr-2 h-4 w-4 animate-spin rounded-full border-b-2 border-white"></div>
+                    <div className="mr-2 h-4 w-4 animate-spin rounded-full border-b-2 border-white" />
                     Saving
                   </div>
                 ) : (
@@ -71,9 +64,11 @@ export default function FoodUploadForm() {
                 )}
               </Button>
             </div>
-          </div>
-        </div>
+          }
+        />
+      </div>
 
+      <div className="mx-auto max-w-7xl">
         {/* Content Grid */}
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
           {/* Left: Image Upload & Live Preview */}
@@ -288,6 +283,8 @@ export default function FoodUploadForm() {
       </div>
 
       {/* Close dropdown on outside click */}
+      </div>
+
       {showDropdown && (
         <div className="fixed inset-0 z-0" onClick={() => setShowDropdown(false)} />
       )}
@@ -306,6 +303,6 @@ export default function FoodUploadForm() {
           />
         </div>
       )}
-    </div>
+    </>
   );
 }

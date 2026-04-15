@@ -1,14 +1,13 @@
 'use client'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-
-type Method = 'cash' | 'card' | 'momo' | 'stripe'
+import { CHECKOUT_PAYMENT_METHOD, CHECKOUT_PAYMENT_METHOD_UI_ORDER, type CheckoutPaymentMethod } from '@/lib/payment-method'
 
 interface PaymentSelectorProps {
-  method: Method
+  method: CheckoutPaymentMethod
   isModalOpen: boolean
   onOpen: () => void
   onClose: () => void
-  onChange: (m: Method) => void
+  onChange: (m: CheckoutPaymentMethod) => void
 }
 
 export function PaymentSelector({ method, onChange }: PaymentSelectorProps) {
@@ -19,7 +18,7 @@ export function PaymentSelector({ method, onChange }: PaymentSelectorProps) {
       </CardHeader>
       <CardContent>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {(['cash','card','stripe','momo'] as Method[]).map((m) => (
+          {CHECKOUT_PAYMENT_METHOD_UI_ORDER.map((m) => (
             <label
               key={m}
               className={`cursor-pointer p-4 rounded-xl border transition-colors flex items-start gap-3 ${
@@ -35,13 +34,31 @@ export function PaymentSelector({ method, onChange }: PaymentSelectorProps) {
                 className="mt-1 text-orange-500"
               />
               <div className="flex items-start gap-3">
-                <span className="text-2xl" aria-hidden>{m === 'cash' ? '💵' : m === 'card' ? '💳' : m === 'stripe' ? '💳' : '📱'}</span>
+                <span className="text-2xl" aria-hidden>
+                  {m === CHECKOUT_PAYMENT_METHOD.Cash
+                    ? '💵'
+                    : m === CHECKOUT_PAYMENT_METHOD.Card || m === CHECKOUT_PAYMENT_METHOD.Stripe
+                      ? '💳'
+                      : '🏦'}
+                </span>
                 <div>
                   <div className="font-medium">
-                    {m === 'cash' ? 'Cash on Delivery' : m === 'card' ? 'Credit/Debit Card' : m === 'stripe' ? 'Stripe Payment' : 'MoMo Wallet'}
+                    {m === CHECKOUT_PAYMENT_METHOD.Cash
+                      ? 'Cash on Delivery'
+                      : m === CHECKOUT_PAYMENT_METHOD.Card
+                        ? 'Credit/Debit Card'
+                        : m === CHECKOUT_PAYMENT_METHOD.Stripe
+                          ? 'Stripe Payment'
+                          : 'VNPAY'}
                   </div>
                   <div className="text-xs text-gray-500 mt-0.5">
-                    {m === 'cash' ? 'Pay when the order arrives' : m === 'card' ? 'Use your Visa/MasterCard' : m === 'stripe' ? 'Secure checkout via Stripe' : 'Pay with MoMo app'}
+                    {m === CHECKOUT_PAYMENT_METHOD.Cash
+                      ? 'Pay when the order arrives'
+                      : m === CHECKOUT_PAYMENT_METHOD.Card
+                        ? 'Use your Visa/MasterCard'
+                        : m === CHECKOUT_PAYMENT_METHOD.Stripe
+                          ? 'Secure checkout via Stripe'
+                          : 'Pay via VNPAY gateway'}
                   </div>
                 </div>
               </div>

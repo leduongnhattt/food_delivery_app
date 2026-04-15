@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
 
 jobs:
   build:
@@ -33,15 +33,7 @@ jobs:
         env:
           CI: true
           NEXT_TELEMETRY_DISABLED: 1
-          PRISMA_HIDE_UPDATE_MESSAGE: 1
         run: npm ci
-
-      - name: Generate Prisma client
-        env:
-          CI: true
-          NEXT_TELEMETRY_DISABLED: 1
-          PRISMA_HIDE_UPDATE_MESSAGE: 1
-        run: npm run db:generate
 
       - name: Lint
         env:
@@ -59,7 +51,6 @@ jobs:
         env:
           CI: true
           NEXT_TELEMETRY_DISABLED: 1
-          PRISMA_HIDE_UPDATE_MESSAGE: 1
+          NEXT_PUBLIC_API_URL: http://localhost:3001/api
           NEXTAUTH_URL: http://localhost:3000
         run: npm run build
-

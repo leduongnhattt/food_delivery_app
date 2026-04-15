@@ -21,6 +21,11 @@ import {
   fetchEnterpriseReviews,
   requestReviewVisibility
 } from "@/services/enterprise-reviews";
+import {
+  EnterpriseMenuSelect,
+  type EnterpriseMenuSelectOption,
+} from "@/components/enterprise/orders/EnterpriseMenuSelect";
+import { EnterprisePageHeader, ENTERPRISE_PANEL_CLASS } from "@/components/enterprise/EnterprisePageHeader";
 
 const defaultFilters: Required<ReviewFilters> = {
   q: "",
@@ -38,6 +43,16 @@ const ratingOptions = [
   { label: "3 stars", value: "3" },
   { label: "2 stars", value: "2" },
   { label: "1 star", value: "1" }
+];
+
+const ratingMenuOptions: EnterpriseMenuSelectOption[] = ratingOptions.map((o) => ({
+  value: o.value,
+  label: o.label,
+}));
+
+const sortMenuOptions: EnterpriseMenuSelectOption[] = [
+  { value: "newest", label: "Newest first" },
+  { value: "oldest", label: "Oldest first" },
 ];
 
 const filterKeys: Array<keyof ReviewFilters> = ["q", "rating", "status", "startDate", "endDate", "sort"];
@@ -129,7 +144,6 @@ export default function EnterpriseReviewsPage() {
       setReviews(response?.reviews || []);
       setStats(response?.stats || null);
       setSupportsVisibility(response?.features?.visibilityToggle !== false);
-      setSupportsVisibility(response.features?.visibilityToggle !== false);
     } catch (error) {
       console.error(error);
       showToast("Failed to load reviews", "error");
@@ -189,45 +203,38 @@ export default function EnterpriseReviewsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/40 to-indigo-50/60">
-      <div className="sticky top-16 z-10 border-b border-white/40 bg-white/80 backdrop-blur-lg">
-        <div className="px-6 py-5 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-          <div>
-            <p className="text-sm uppercase tracking-wide text-indigo-500 font-semibold mb-1">
-              Reviews
-            </p>
-            <h1 className="text-3xl font-bold text-slate-900">Customer Feedback</h1>
-            <p className="text-slate-600 mt-1">
-              Monitor ratings and moderate reviews left for your restaurant.
-            </p>
-          </div>
+    <div className="space-y-6">
+      <EnterprisePageHeader
+        title="Customer Feedback"
+        description="Monitor ratings and moderate reviews left for your restaurant."
+        actions={
           <button
+            type="button"
             onClick={() => {
               setRefreshing(true);
               fetchReviews();
             }}
-            className="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-indigo-500 to-purple-500 shadow-lg shadow-indigo-500/20 hover:shadow-xl transition-all disabled:opacity-50"
+            className="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-[13px] font-medium text-slate-900 shadow-sm hover:bg-slate-50 disabled:opacity-50"
             disabled={refreshing}
           >
             {refreshing ? (
               <>
-                <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-slate-200 border-t-sky-600" />
                 Refreshing
               </>
             ) : (
               <>
-                <RefreshCw className="w-4 h-4" />
+                <RefreshCw className="h-4 w-4" />
                 Refresh
               </>
             )}
           </button>
-        </div>
-      </div>
+        }
+      />
 
-      <div className="p-6 space-y-6">
-        {/* Overview cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="rounded-2xl border border-white/70 bg-white/90 p-5 shadow">
+      {/* Overview cards */}
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+          <div className={`${ENTERPRISE_PANEL_CLASS} p-5`}>
             <p className="text-sm text-slate-500">Average Rating</p>
             <div className="mt-2 flex items-end gap-2">
               <span className="text-4xl font-bold text-slate-900">
@@ -249,7 +256,7 @@ export default function EnterpriseReviewsPage() {
             </div>
           </div>
 
-          <div className="rounded-2xl border border-white/70 bg-white/90 p-5 shadow">
+          <div className={`${ENTERPRISE_PANEL_CLASS} p-5`}>
             <p className="text-sm text-slate-500">Total Reviews</p>
             <p className="mt-2 text-3xl font-bold text-slate-900">
               {stats?.totalReviews ?? 0}
@@ -259,7 +266,7 @@ export default function EnterpriseReviewsPage() {
             </p>
           </div>
 
-          <div className="rounded-2xl border border-white/70 bg-white/90 p-5 shadow">
+          <div className={`${ENTERPRISE_PANEL_CLASS} p-5`}>
             <p className="text-sm text-slate-500">Visible</p>
             <p className="mt-2 text-3xl font-bold text-emerald-600">
               {stats?.visibleCount ?? 0}
@@ -267,7 +274,7 @@ export default function EnterpriseReviewsPage() {
             <p className="text-xs text-slate-500 mt-1">Live on restaurant page</p>
           </div>
 
-          <div className="rounded-2xl border border-white/70 bg-white/90 p-5 shadow">
+          <div className={`${ENTERPRISE_PANEL_CLASS} p-5`}>
             <p className="text-sm text-slate-500">Hidden</p>
             <p className="mt-2 text-3xl font-bold text-rose-600">
               {stats?.hiddenCount ?? 0}
@@ -277,7 +284,7 @@ export default function EnterpriseReviewsPage() {
         </div>
 
         {/* Filters */}
-        <div className="rounded-2xl border border-white/70 bg-white/90 p-5 shadow space-y-4">
+        <div className={`${ENTERPRISE_PANEL_CLASS} space-y-4 p-5`}>
           {!supportsVisibility && (
             <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
               <Filter className="w-4 h-4 flex-shrink-0 mt-0.5" />
@@ -295,21 +302,19 @@ export default function EnterpriseReviewsPage() {
                 value={filters.q}
                 onChange={(e) => handleFilterChange("q", e.target.value)}
                 placeholder="Search by customer or comment"
-                className="w-full rounded-xl border border-slate-200 bg-white/80 py-2.5 pl-10 pr-3 text-sm focus:border-indigo-400 focus:ring-indigo-200"
+                className="w-full h-9 min-h-9 rounded-xl border border-slate-200 bg-white/80 py-0 pl-10 pr-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-200"
               />
             </div>
 
-            <select
-              value={filters.rating}
-              onChange={(e) => handleFilterChange("rating", e.target.value)}
-              className="rounded-xl border border-slate-200 bg-white/80 py-2.5 px-3 text-sm focus:border-indigo-400 focus:ring-indigo-200"
-            >
-              {ratingOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
+            <EnterpriseMenuSelect
+              value={filters.rating ?? "all"}
+              onChange={(v) => handleFilterChange("rating", v)}
+              options={ratingMenuOptions}
+              className="w-full min-w-0"
+              menuClassName="min-w-[12rem]"
+              triggerClassName="rounded-xl"
+              aria-label="Filter by rating"
+            />
 
             <div className="flex rounded-xl border border-slate-200 overflow-hidden">
               {["all", "active", "hidden"].map((status) => {
@@ -331,14 +336,16 @@ export default function EnterpriseReviewsPage() {
               })}
             </div>
 
-            <select
-              value={filters.sort}
-              onChange={(e) => handleFilterChange("sort", e.target.value)}
-              className="rounded-xl border border-slate-200 bg-white/80 py-2.5 px-3 text-sm focus:border-indigo-400 focus:ring-indigo-200"
-            >
-              <option value="newest">Newest first</option>
-              <option value="oldest">Oldest first</option>
-            </select>
+            <EnterpriseMenuSelect
+              value={filters.sort ?? "newest"}
+              onChange={(v) => handleFilterChange("sort", v)}
+              options={sortMenuOptions}
+              className="w-full min-w-0"
+              alignMenu="right"
+              menuClassName="min-w-[11rem]"
+              triggerClassName="rounded-xl"
+              aria-label="Sort reviews"
+            />
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -374,7 +381,7 @@ export default function EnterpriseReviewsPage() {
         </div>
 
         {/* Reviews table */}
-        <div className="rounded-2xl border border-white/70 bg-white/95 shadow overflow-hidden">
+        <div className={`${ENTERPRISE_PANEL_CLASS} overflow-hidden`}>
           {loading ? (
             <div className="py-16 text-center text-slate-500">
               <div className="w-10 h-10 border-2 border-indigo-200 border-t-indigo-500 rounded-full animate-spin mx-auto mb-3" />
@@ -470,7 +477,6 @@ export default function EnterpriseReviewsPage() {
             </div>
           )}
         </div>
-      </div>
 
       {requestReview && (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">

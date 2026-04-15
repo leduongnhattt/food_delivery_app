@@ -79,6 +79,10 @@ export default function HealthChatbot({ className = '' }: HealthChatbotProps) {
     return undefined
   }
 
+  const isNumericField = (
+    field: keyof HealthProfile
+  ): field is 'age' | 'height' | 'weight' => field === 'age' || field === 'height' || field === 'weight'
+
   const validateForm = (): boolean => {
     const newErrors: FormErrors = {}
 
@@ -137,8 +141,10 @@ export default function HealthChatbot({ className = '' }: HealthChatbotProps) {
     }))
     
     // Validate field in real-time if it's age, height, or weight
-    if (field === 'age' || field === 'height' || field === 'weight') {
-      const error = validateField(field, value)
+    if (isNumericField(field)) {
+      const numericValue =
+        typeof value === 'number' ? value : Number(value ?? 0)
+      const error = validateField(field, numericValue)
       setErrors(prev => {
         if (error) {
           return { ...prev, [field]: error }

@@ -1,6 +1,7 @@
 "use client";
 
 import { ShoppingCart } from "lucide-react";
+import { ENTERPRISE_PANEL_CLASS } from "@/components/enterprise/EnterprisePageHeader";
 
 interface RecentOrder {
   id: string;
@@ -55,12 +56,13 @@ export default function RecentOrders({ orders }: RecentOrdersProps) {
   };
 
   return (
-    <div className="bg-white/70 backdrop-blur-sm rounded-2xl p-6 border border-white/20 shadow-lg">
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="text-xl font-bold text-gray-900">Recent Orders</h2>
-        <button 
-          onClick={() => window.location.href = '/enterprise/orders'}
-          className="text-purple-600 hover:text-purple-700 font-medium text-sm"
+    <div className={`${ENTERPRISE_PANEL_CLASS} p-6`}>
+      <div className="mb-6 flex items-center justify-between">
+        <h2 className="text-[15px] font-semibold leading-5 text-slate-900">Recent Orders</h2>
+        <button
+          type="button"
+          onClick={() => (window.location.href = "/enterprise/orders")}
+          className="text-[13px] font-medium text-sky-700 hover:text-sky-800"
         >
           View All
         </button>

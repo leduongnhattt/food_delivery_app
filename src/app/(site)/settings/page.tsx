@@ -8,6 +8,7 @@ import { useRouter } from 'next/navigation'
 import { ArrowLeft, Globe, Bell, Shield, Palette, Moon, Sun, Save, CheckCircle2 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { AuthGuard } from '@/components/auth/auth-guard'
+import { getServerApiBase } from '@/lib/http-client'
 
 export default function SettingsPage() {
   const router = useRouter()
@@ -43,7 +44,8 @@ export default function SettingsPage() {
     const loadSettings = async () => {
       try {
         const token = localStorage.getItem('access_token')
-        const response = await fetch('/api/settings', {
+        const base = getServerApiBase()
+        const response = await fetch(`${base}/settings`, {
           headers: {
             ...(token ? { 'Authorization': `Bearer ${token}` } : {})
           },
@@ -106,7 +108,8 @@ export default function SettingsPage() {
   const saveNotificationSettings = async (newSettings: typeof settings) => {
     try {
       const token = localStorage.getItem('access_token')
-      await fetch('/api/settings', {
+      const base = getServerApiBase()
+      await fetch(`${base}/settings`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -128,7 +131,8 @@ export default function SettingsPage() {
     setIsSaving(true)
     try {
       const token = localStorage.getItem('access_token')
-      const response = await fetch('/api/settings', {
+      const base = getServerApiBase()
+      const response = await fetch(`${base}/settings`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
