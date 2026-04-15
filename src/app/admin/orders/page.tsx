@@ -1,10 +1,14 @@
-import AdminPlaceholderPage from "@/components/admin/AdminPlaceholderPage"
+import OrdersAdminPage from "@/components/admin/orders/OrdersAdminPage"
+import { Suspense } from "react"
 
-export default function AdminOrderListPage() {
+export default function AdminOrdersPage() {
   return (
-    <AdminPlaceholderPage
-      title="Order List"
-      description="Search, filter, and manage all platform orders."
-    />
+    <Suspense
+      fallback={
+        <div className="p-8 text-center text-slate-500">Loading…</div>
+      }
+    >
+      <OrdersAdminPage />
+    </Suspense>
   )
 }
