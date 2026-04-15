@@ -141,7 +141,7 @@ export default function OrderSuccessPage() {
                   <span className="text-gray-600">Contact:</span>
                 </div>
                 <p className="ml-6 text-gray-800">
-                  {orderDetails?.phone || phone || 'Your phone number will be shown here'}
+                  {orderDetails?.recipientPhone || phone || 'Your phone number will be shown here'}
                 </p>
               </div>
             </CardContent>
