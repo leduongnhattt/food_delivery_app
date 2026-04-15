@@ -29,7 +29,7 @@ const getStatusConfig = (status: Order['status']) => {
   // Display raw status on each item (bucket is only for filters).
   switch (status) {
     case 'pending':
-      return { color: 'bg-yellow-50 text-yellow-800 border-yellow-200', icon: Clock, label: 'Pending' }
+      return { color: 'bg-yellow-50 text-yellow-800 border-yellow-200', icon: Clock, label: 'Waiting confirmation' }
     case 'confirmed':
       return { color: 'bg-blue-50 text-blue-700 border-blue-200', icon: Package, label: 'Confirmed' }
     case 'preparing':

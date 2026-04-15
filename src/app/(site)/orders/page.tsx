@@ -13,7 +13,7 @@ import {
   Clock,
   CheckCircle
 } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useToast } from '@/contexts/toast-context'
 import { OrderService } from '@/services/order.service'
 import type { Order } from '@/services/order.service'
@@ -26,6 +26,9 @@ export default function OrdersPage() {
   const router = useRouter()
   const { orders, loading, error, hasMore, loadMore, refreshOrders, filterOrders } = useOrders()
   const [filters, setFilters] = useState<OrderFiltersType>({})
+  const [pageSize, setPageSize] = useState<12 | 24 | 48>(12)
+  const [page, setPage] = useState(1)
+  const pagerRef = useRef<HTMLDivElement | null>(null)
   const { showToast } = useToast()
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [pendingCancelId, setPendingCancelId] = useState<string | null>(null)
@@ -35,6 +38,7 @@ export default function OrdersPage() {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
 
   const handleViewDetails = async (orderId: string) => {
+    // Restore existing modal UX; keep full page route as optional fallback.
     setDetailsOpen(true)
     setDetailLoading(true)
     setSelectedOrder(null)
@@ -69,7 +73,7 @@ export default function OrdersPage() {
   }
 
   const handleTrack = (orderId: string) => {
-    router.push(`/orders/${orderId}/track`)
+    router.push(`/orders/${orderId}`)
   }
 
   const handleCancel = (orderId: string) => {
@@ -107,6 +111,7 @@ export default function OrdersPage() {
   const handleFilterChange = (newFilters: OrderFiltersType) => {
     setFilters(newFilters)
     filterOrders(newFilters)
+    setPage(1)
   }
 
   const getOrderStats = () => {
@@ -121,6 +126,27 @@ export default function OrdersPage() {
 
   const stats = getOrderStats()
 
+  const totalPages = useMemo(
+    () => Math.max(1, Math.ceil(orders.length / pageSize)),
+    [orders.length, pageSize],
+  )
+
+  useEffect(() => {
+    setPage((p) => Math.min(Math.max(1, p), totalPages))
+  }, [totalPages])
+
+  const pagedOrders = useMemo(() => {
+    const start = (page - 1) * pageSize
+    return orders.slice(start, start + pageSize)
+  }, [orders, page, pageSize])
+
+  const scrollPagerIntoView = () => {
+    if (typeof window === 'undefined') return
+    window.requestAnimationFrame(() => {
+      pagerRef.current?.scrollIntoView({ block: 'end', behavior: 'smooth' })
+    })
+  }
+
   // Auto-refresh when there are in-progress orders
   useEffect(() => {
     const inProgressStatuses = ['pending', 'confirmed', 'preparing', 'out_for_delivery']
@@ -128,19 +154,44 @@ export default function OrdersPage() {
     if (!hasInProgress) return
 
     const onFocus = () => {
-      void refreshOrders()
+      void refreshOrders({ force: true })
     }
     window.addEventListener('focus', onFocus)
 
     const intervalId = window.setInterval(() => {
-      void refreshOrders()
-    }, 15000)
+      void refreshOrders({ force: true })
+    }, 2000)
 
     return () => {
       window.removeEventListener('focus', onFocus)
       window.clearInterval(intervalId)
     }
   }, [orders, refreshOrders])
+
+  // Keep the details modal updated while it is open.
+  useEffect(() => {
+    if (!detailsOpen) return
+    if (!selectedOrder?.id) return
+    const watchStatuses: Array<Order['status']> = ['pending', 'confirmed', 'preparing', 'out_for_delivery']
+    if (!watchStatuses.includes(selectedOrder.status)) return
+
+    let cancelled = false
+    const tick = async () => {
+      try {
+        const latest = await OrderService.getOrderById(selectedOrder.id)
+        if (!cancelled) setSelectedOrder(latest as Order)
+      } catch {
+        // keep modal open; next tick may succeed
+      }
+    }
+
+    void tick()
+    const id = window.setInterval(() => void tick(), 2000)
+    return () => {
+      cancelled = true
+      window.clearInterval(id)
+    }
+  }, [detailsOpen, selectedOrder?.id, selectedOrder?.status])
 
   // Handle authentication errors
   if (error && error.includes('sign in')) {
@@ -330,7 +381,7 @@ export default function OrdersPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
-                    {orders.map((order) => (
+                    {pagedOrders.map((order) => (
                       <OrderRow
                         key={order.id}
                         order={order}
@@ -344,11 +395,72 @@ export default function OrdersPage() {
                   </tbody>
                 </table>
               </div>
+
+              {/* Pagination (inside table container) */}
+              {orders.length > pageSize && (
+                <div
+                  ref={pagerRef}
+                  className="flex items-center justify-end gap-2 bg-white px-4 py-2"
+                >
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPage((p) => Math.max(1, p - 1))
+                      scrollPagerIntoView()
+                    }}
+                    disabled={page <= 1}
+                    className={`inline-flex h-7 w-7 items-center justify-center rounded border text-sm ${
+                      page <= 1
+                        ? 'border-gray-200 text-gray-300 cursor-not-allowed'
+                        : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+                    }`}
+                    aria-label="Previous page"
+                  >
+                    ‹
+                  </button>
+
+                  <div className="text-xs tabular-nums text-gray-700">
+                    {page} / {totalPages}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPage((p) => Math.min(totalPages, p + 1))
+                      scrollPagerIntoView()
+                    }}
+                    disabled={page >= totalPages}
+                    className={`inline-flex h-7 w-7 items-center justify-center rounded border text-sm ${
+                      page >= totalPages
+                        ? 'border-gray-200 text-gray-300 cursor-not-allowed'
+                        : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+                    }`}
+                    aria-label="Next page"
+                  >
+                    ›
+                  </button>
+
+                  <select
+                    value={pageSize}
+                    onChange={(e) => {
+                      setPageSize(Number(e.target.value) as 12 | 24 | 48)
+                      setPage(1)
+                      scrollPagerIntoView()
+                    }}
+                    className="h-7 rounded border border-gray-300 bg-white px-2 text-xs text-gray-900"
+                    aria-label="Rows per page"
+                  >
+                    <option value={12}>12 / page</option>
+                    <option value={24}>24 / page</option>
+                    <option value={48}>48 / page</option>
+                  </select>
+                </div>
+              )}
             </div>
 
             {/* Mobile Card View */}
             <div className="md:hidden space-y-3">
-              {orders.map((order) => (
+              {pagedOrders.map((order) => (
                 <OrderCard
                   key={order.id}
                   order={order}
@@ -385,7 +497,12 @@ export default function OrdersPage() {
         )}
       </div>
       <ConfirmCancelModal open={confirmOpen} submitting={submitting} onClose={() => { setConfirmOpen(false); setPendingCancelId(null) }} onConfirm={confirmCancel} />
-      <OrderDetailsModal open={detailsOpen} loading={detailLoading} order={selectedOrder} onClose={() => setDetailsOpen(false)} />
+      <OrderDetailsModal
+        open={detailsOpen}
+        loading={detailLoading}
+        order={selectedOrder}
+        onClose={() => setDetailsOpen(false)}
+      />
     </div>
   )
 }
