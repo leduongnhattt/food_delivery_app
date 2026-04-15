@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
-import { apiClient } from "@/services/api";
 import { Menu } from "./MenuList";
+import { getServerApiBase } from "@/lib/http-client";
+import { buildAuthHeader } from "@/lib/auth-helpers";
 
 interface EditMenuPopupProps {
   open: boolean;
@@ -42,10 +43,19 @@ export default function EditMenuPopup({
     setError(null);
     setLoading(true);
     try {
-      await apiClient.put("/enterprise/menu", {
-        MenuID: menu?.MenuID, // chú ý: phải khớp với API, không phải MenuId
-        MenuName: menuName,
-        Description: description,
+      const base = getServerApiBase();
+      await fetch(`${base}/enterprise/menu`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          ...buildAuthHeader(),
+        },
+        body: JSON.stringify({
+          MenuID: menu?.MenuID, // chú ý: phải khớp với API, không phải MenuId
+          MenuName: menuName,
+          Description: description,
+        }),
+        cache: "no-store",
       });
       onSuccess();
       onClose();

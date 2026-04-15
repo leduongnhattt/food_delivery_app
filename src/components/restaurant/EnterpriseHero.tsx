@@ -38,13 +38,21 @@ export default function EnterpriseHero({ name, description, avatarUrl, rating, i
             {/* Left Side - Vertical Image */}
             <div className="lg:w-1/3 relative h-64 lg:h-auto">
               <div className="absolute inset-4 rounded-xl overflow-hidden border-4 border-white shadow-lg">
-                <Image 
-                  src={avatarUrl} 
-                  alt={name} 
-                  fill 
-                  className="object-cover" 
-                  priority 
-                />
+                {avatarUrl && avatarUrl.trim() !== '' ? (
+                  <Image 
+                    src={avatarUrl} 
+                    alt={name} 
+                    fill 
+                    className="object-cover" 
+                    priority 
+                  />
+                ) : (
+                  <div className="w-full h-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center">
+                    <span className="text-white text-4xl font-bold">
+                      {name.charAt(0).toUpperCase()}
+                    </span>
+                  </div>
+                )}
                 <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
               </div>
               

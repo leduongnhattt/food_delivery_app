@@ -3,6 +3,7 @@
  */
 
 import { buildAuthHeader } from '@/lib/auth-helpers'
+import { API_BASE_URL } from '@/services/api'
 
 export interface ChangePasswordRequest {
     currentPassword: string;
@@ -23,7 +24,7 @@ export async function changePassword({
     newPassword
 }: ChangePasswordRequest): Promise<ChangePasswordResponse> {
     try {
-        const response = await fetch('/api/auth/change-password', {
+        const response = await fetch(`${API_BASE_URL}/auth/change-password`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',

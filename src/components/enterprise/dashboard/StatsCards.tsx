@@ -1,15 +1,16 @@
 "use client";
 
-import { 
-  TrendingUp, 
-  Users, 
-  ShoppingCart, 
-  DollarSign, 
+import {
+  TrendingUp,
+  Users,
+  ShoppingCart,
+  DollarSign,
   Clock,
   Star,
   ArrowUpRight,
-  ArrowDownRight
+  ArrowDownRight,
 } from "lucide-react";
+import { ENTERPRISE_PANEL_CLASS } from "@/components/enterprise/EnterprisePageHeader";
 
 interface DashboardStats {
   totalOrders: number;
@@ -40,7 +41,7 @@ export default function StatsCards({ stats }: StatsCardsProps) {
       {/* Primary Stats */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {/* Total Revenue */}
-        <div className="bg-white/70 backdrop-blur-sm rounded-2xl p-6 border border-white/20 shadow-lg hover:shadow-xl transition-all duration-300">
+        <div className={`${ENTERPRISE_PANEL_CLASS} p-6 transition-shadow hover:shadow-md`}>
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600 mb-1">Total Revenue</p>
@@ -67,7 +68,7 @@ export default function StatsCards({ stats }: StatsCardsProps) {
         </div>
 
         {/* Total Orders */}
-        <div className="bg-white/70 backdrop-blur-sm rounded-2xl p-6 border border-white/20 shadow-lg hover:shadow-xl transition-all duration-300">
+        <div className={`${ENTERPRISE_PANEL_CLASS} p-6 transition-shadow hover:shadow-md`}>
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600 mb-1">Total Orders</p>
@@ -94,7 +95,7 @@ export default function StatsCards({ stats }: StatsCardsProps) {
         </div>
 
         {/* Total Customers */}
-        <div className="bg-white/70 backdrop-blur-sm rounded-2xl p-6 border border-white/20 shadow-lg hover:shadow-xl transition-all duration-300">
+        <div className={`${ENTERPRISE_PANEL_CLASS} p-6 transition-shadow hover:shadow-md`}>
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600 mb-1">Total Customers</p>
@@ -110,7 +111,7 @@ export default function StatsCards({ stats }: StatsCardsProps) {
         </div>
 
         {/* Average Rating */}
-        <div className="bg-white/70 backdrop-blur-sm rounded-2xl p-6 border border-white/20 shadow-lg hover:shadow-xl transition-all duration-300">
+        <div className={`${ENTERPRISE_PANEL_CLASS} p-6 transition-shadow hover:shadow-md`}>
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600 mb-1">Average Rating</p>
@@ -132,7 +133,7 @@ export default function StatsCards({ stats }: StatsCardsProps) {
       {/* Secondary Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Pending Orders */}
-        <div className="bg-white/70 backdrop-blur-sm rounded-2xl p-6 border border-white/20 shadow-lg">
+        <div className={`${ENTERPRISE_PANEL_CLASS} p-6`}>
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600 mb-1">Pending Orders</p>
@@ -145,7 +146,7 @@ export default function StatsCards({ stats }: StatsCardsProps) {
         </div>
 
         {/* Completed Orders */}
-        <div className="bg-white/70 backdrop-blur-sm rounded-2xl p-6 border border-white/20 shadow-lg">
+        <div className={`${ENTERPRISE_PANEL_CLASS} p-6`}>
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600 mb-1">Completed Orders</p>
@@ -158,7 +159,7 @@ export default function StatsCards({ stats }: StatsCardsProps) {
         </div>
 
         {/* Total Products */}
-        <div className="bg-white/70 backdrop-blur-sm rounded-2xl p-6 border border-white/20 shadow-lg">
+        <div className={`${ENTERPRISE_PANEL_CLASS} p-6`}>
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600 mb-1">Total Products</p>

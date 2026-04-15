@@ -2,6 +2,7 @@
  * Authentication helper functions for managing localStorage
  * Only stores access token, user data is fetched from server when needed
  */
+import { API_BASE_URL } from '@/services/api'
 
 const TOKEN_KEY = 'access_token';
 
@@ -72,10 +73,13 @@ export async function refreshAccessToken(): Promise<string | null> {
     if (!accountId) return null;
 
     try {
-        const res = await fetch('/api/auth/refresh', {
+        const res = await fetch(`${API_BASE_URL}/auth/refresh`, {
             method: 'POST',
-            headers: { 'x-account-id': accountId },
-            credentials: 'include'
+            headers: {
+                'Content-Type': 'application/json',
+                'x-account-id': accountId,
+            },
+            credentials: 'include',
         });
         if (!res.ok) return null;
         const data = await res.json();
@@ -146,7 +150,7 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
     if (!token) return null;
 
     try {
-        const response = await fetch('/api/auth/profile', {
+        const response = await fetch(`${API_BASE_URL}/auth/profile`, {
             headers: {
                 'Authorization': `Bearer ${token}`
             }
@@ -182,11 +186,12 @@ export async function logoutUser(): Promise<void> {
     try {
         // Call logout API if token exists
         if (token) {
-            await fetch('/api/auth/logout', {
+            await fetch(`${API_BASE_URL}/auth/logout`, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`
-                }
+                },
+                credentials: 'include'
             });
         }
     } catch (error) {

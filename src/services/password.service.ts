@@ -1,3 +1,5 @@
+import { API_BASE_URL } from '@/services/api'
+
 interface SendCodeResponse {
     success: boolean
     error?: string
@@ -17,7 +19,7 @@ interface ResetPasswordResponse {
 export class PasswordService {
     static async sendResetCode(email: string): Promise<SendCodeResponse> {
         try {
-            const res = await fetch('/api/auth/forgot-password', {
+            const res = await fetch(`${API_BASE_URL}/auth/forgot-password`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ email })
@@ -36,7 +38,7 @@ export class PasswordService {
 
     static async resendResetCode(email: string): Promise<SendCodeResponse> {
         try {
-            const res = await fetch('/api/auth/resend-reset-code', {
+            const res = await fetch(`${API_BASE_URL}/auth/resend-reset-code`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ email })
@@ -55,7 +57,7 @@ export class PasswordService {
 
     static async verifyResetCode(email: string, code: string): Promise<VerifyCodeResponse> {
         try {
-            const res = await fetch('/api/auth/verify-reset-code', {
+            const res = await fetch(`${API_BASE_URL}/auth/verify-reset-code`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ email, code })
@@ -75,7 +77,7 @@ export class PasswordService {
 
     static async resetPassword(tokenId: string, newPassword: string): Promise<ResetPasswordResponse> {
         try {
-            const res = await fetch('/api/auth/reset-password', {
+            const res = await fetch(`${API_BASE_URL}/auth/reset-password`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ tokenId, newPassword })

@@ -1,6 +1,7 @@
 'use client'
 import { useRouter } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
+import { Headphones } from 'lucide-react'
 import { useAccountHeader } from '@/hooks/use-account-header'
 
 type UserLike = {
@@ -13,8 +14,15 @@ export function UserMenu(props: {
   onLogout: () => void
   profileHref?: string
   settingsHref?: string
+  supportHref?: string
 }) {
-  const { user, onLogout, profileHref = '/profile', settingsHref = '/settings' } = props
+  const {
+    user,
+    onLogout,
+    profileHref = '/profile',
+    settingsHref = '/settings',
+    supportHref = '/profile/support',
+  } = props
   const router = useRouter()
   const [isOpen, setIsOpen] = useState(false)
   const accountHeader = useAccountHeader()
@@ -29,6 +37,11 @@ export function UserMenu(props: {
   function handleSettings() {
     setIsOpen(false)
     router.push(settingsHref)
+  }
+
+  function handleSupport() {
+    setIsOpen(false)
+    router.push(supportHref)
   }
 
   useEffect(() => {
@@ -83,6 +96,16 @@ export function UserMenu(props: {
             >
               <span className="flex items-center justify-center w-7 h-7 rounded-md bg-indigo-50 text-indigo-600 group-hover:bg-indigo-100 transition-transform group-hover:scale-105">👤</span>
               <span className="transition-transform group-hover:translate-x-0.5">Profile</span>
+            </button>
+            <button
+              role="menuitem"
+              onClick={handleSupport}
+              className="group w-full px-4 py-2 text-left text-sm flex items-center gap-3 text-gray-900 hover:bg-amber-100 hover:font-medium transition-all"
+            >
+              <span className="flex items-center justify-center w-7 h-7 rounded-md bg-violet-50 text-violet-600 group-hover:bg-violet-100 transition-transform group-hover:scale-105">
+                <Headphones className="h-4 w-4" aria-hidden />
+              </span>
+              <span className="transition-transform group-hover:translate-x-0.5">Support</span>
             </button>
             <button
               role="menuitem"

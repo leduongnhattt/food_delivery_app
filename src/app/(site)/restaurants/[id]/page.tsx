@@ -6,9 +6,10 @@ import { MenuItem } from '@/types/models'
 import { useCart } from '@/hooks/use-cart'
 import { useRestaurantDetail, useRestaurantCategoryNav } from '@/hooks/use-restaurant-detail'
 import EnterpriseHero from '@/components/restaurant/EnterpriseHero'
-import ReviewsSection from '@/components/restaurant/ReviewsSection'
+import ReviewsSection, { Review } from '@/components/restaurant/ReviewsSection'
 import CategoryPills from '@/components/restaurant/CategoryPills'
 import RestaurantMenuSection from '@/components/restaurant/RestaurantMenuSection'
+import { RestaurantService } from '@/services/restaurant.service'
 
 
 interface RestaurantPageProps {
@@ -25,6 +26,43 @@ export default function RestaurantPage({ params }: RestaurantPageProps) {
 
   const { restaurant, items: menuItems, loading } = useRestaurantDetail(id)
   const { activeCategory, categoryRefs, categories: catList, handleSelectCategory } = useRestaurantCategoryNav(menuItems)
+
+  // Reviews state
+  const [reviews, setReviews] = React.useState<Review[]>([])
+  const [reviewsLoading, setReviewsLoading] = React.useState(true)
+  const [averageRating, setAverageRating] = React.useState(0)
+  const [sortBy, setSortBy] = React.useState<'newest' | 'oldest'>('newest')
+
+  // Fetch reviews from API
+  const fetchReviews = React.useCallback(async (sort: 'newest' | 'oldest' = 'newest') => {
+    if (!id) return
+
+    setReviewsLoading(true)
+    try {
+      const data = await RestaurantService.getReviews(id, { sort, limit: 50 })
+      setReviews(data.reviews || [])
+      setAverageRating(data.averageRating || 0)
+    } catch (err) {
+      console.error('[Client] Error fetching reviews:', err)
+      setReviews([])
+      setAverageRating(0)
+    } finally {
+      setReviewsLoading(false)
+    }
+  }, [id])
+
+  // Handle sort change
+  const handleSortChange = React.useCallback((sort: 'newest' | 'oldest') => {
+    setSortBy(sort)
+    fetchReviews(sort)
+  }, [fetchReviews])
+
+  // Fetch reviews on mount and when restaurant ID changes
+  React.useEffect(() => {
+    if (id) {
+      fetchReviews()
+    }
+  }, [id, fetchReviews])
 
   if (!loading && !restaurant) {
     notFound()
@@ -47,6 +85,9 @@ export default function RestaurantPage({ params }: RestaurantPageProps) {
     )
   }
 
+  // Use average rating from reviews API if available, otherwise fallback to restaurant rating
+  const displayRating = reviews.length > 0 ? averageRating : restaurant.rating
+
   return (
     <div className="min-h-screen bg-gray-50">
       
@@ -54,7 +95,7 @@ export default function RestaurantPage({ params }: RestaurantPageProps) {
         name={restaurant!.name}
         description={restaurant!.description}
         avatarUrl={restaurant!.avatarUrl}
-        rating={restaurant!.rating}
+        rating={displayRating}
         isOpen={restaurant!.isOpen}
         phone={restaurant!.phone}
         address={restaurant!.address}
@@ -95,14 +136,20 @@ export default function RestaurantPage({ params }: RestaurantPageProps) {
           ))}
         </div>
 
-        <ReviewsSection 
-          rating={restaurant!.rating}
-          reviews={[
-            { id: '1', author: 'Anonymous', rating: 4, content: 'Great desserts and quick delivery. Will order again!', images: ['/static/rev1.jpg','/static/rev2.jpg'] },
-            { id: '2', author: 'Nguyen', rating: 3, content: 'Tasty, but the salad could be fresher.', images: ['/static/rev3.jpg'] },
-            { id: '3', author: 'Linh', rating: 5, content: 'Excellent service and the pasta was amazing! Highly recommended.', images: ['/static/rev4.jpg'] },
-          ]}
-        />
+        {reviewsLoading ? (
+          <div className="mt-14 flex items-center justify-center py-12">
+            <p className="text-gray-500">Loading reviews...</p>
+          </div>
+        ) : (
+          <ReviewsSection 
+            enterpriseId={id}
+            rating={displayRating}
+            reviews={reviews}
+            sortBy={sortBy}
+            onSortChange={handleSortChange}
+            onReviewsUpdate={() => fetchReviews(sortBy)}
+          />
+        )}
       </div>
     </div>
   )

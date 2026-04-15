@@ -6,17 +6,19 @@ import { Button } from '@/components/ui/button'
 import { CheckCircle, ArrowLeft, Clock, MapPin } from 'lucide-react'
 import { PaymentService } from '@/services/payment.service'
 import { useCart } from '@/hooks/use-cart'
+import { CheckoutService } from '@/services/checkout.service'
 
 export default function PaymentSuccessPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { clearCart } = useCart()
+  const { cartItems, removeFromCart } = useCart()
   const [orderDetails, setOrderDetails] = useState<any>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isProcessing, setIsProcessing] = useState(false)
   const processedOnceRef = useRef(false)
   
   const sessionId = searchParams.get('session_id')
+  const sessionIdRef = useRef<string | null>(null)
 
   const processPaymentSuccess = useCallback(async (sessionId: string) => {
     if (isProcessing) return // Prevent duplicate calls
@@ -24,6 +26,21 @@ export default function PaymentSuccessPage() {
     try {
       setIsProcessing(true)
       setIsLoading(true)
+
+      const clearSelectedFromCart = () => {
+        let selectedRestaurantId: string | null = null
+        try {
+          selectedRestaurantId = localStorage.getItem('cartSelectedRestaurantId')
+        } catch {}
+
+        const itemsToClear = selectedRestaurantId
+          ? cartItems.filter((ci) => ci.menuItem.restaurantId === selectedRestaurantId)
+          : cartItems
+
+        for (const item of itemsToClear) {
+          removeFromCart(item.menuItem.id)
+        }
+      }
       
       // Create payment notification utilities
       const notification = PaymentService.createPaymentNotification()
@@ -31,7 +48,7 @@ export default function PaymentSuccessPage() {
       // Process payment success using service
       const result = await PaymentService.handlePaymentSuccess(
         sessionId,
-        clearCart,
+        clearSelectedFromCart,
         notification
       )
       
@@ -52,17 +69,54 @@ export default function PaymentSuccessPage() {
       setIsLoading(false)
       setIsProcessing(false)
     }
-  }, [clearCart, isProcessing])
+  }, [cartItems, isProcessing, removeFromCart])
 
   useEffect(() => {
     if (!sessionId) return
     if (processedOnceRef.current) return
 
     processedOnceRef.current = true
+    sessionIdRef.current = sessionId
     processPaymentSuccess(sessionId)
     // Remove query param to avoid re-trigger on state changes/navigation
     router.replace('/checkout/success')
   }, [sessionId, router, processPaymentSuccess])
+
+  // Fallback: even if process-checkout-success fails (token expired, user closed tab),
+  // still show accurate status by polling the server for the Stripe session.
+  useEffect(() => {
+    if (orderDetails?.orderId) return
+    const sid = sessionIdRef.current
+    if (!sid) return
+
+    let cancelled = false
+    let attempt = 0
+
+    const poll = async () => {
+      attempt += 1
+      const res = await CheckoutService.getStripeSessionStatus(sid)
+      if (cancelled) return
+
+      if (res.success && res.orderId) {
+        setOrderDetails({
+          orderId: res.orderId,
+          sessionId: sid,
+          orderStatus: res.orderStatus,
+          paymentStatus: res.paymentStatus,
+        })
+        return
+      }
+
+      if (attempt < 8) {
+        setTimeout(poll, 1500)
+      }
+    }
+
+    poll()
+    return () => {
+      cancelled = true
+    }
+  }, [orderDetails?.orderId])
 
   const handleBackToApp = () => {
     // Cart is already cleared above, just redirect to home
@@ -95,7 +149,7 @@ export default function PaymentSuccessPage() {
             Payment Successful!
           </CardTitle>
           <p className="text-gray-600 mt-2">
-            Your order has been confirmed and payment processed successfully.
+            Payment processed successfully. Your order is now waiting for the shop to confirm.
           </p>
         </CardHeader>
         
@@ -122,9 +176,9 @@ export default function PaymentSuccessPage() {
               What's Next?
             </h4>
             <ul className="text-sm text-blue-700 space-y-1">
-              <li>• Your order is being prepared</li>
-              <li>• You'll receive updates via SMS/email</li>
-              <li>• Estimated delivery time: 30-45 minutes</li>
+              <li>• The shop will review and confirm your order</li>
+              <li>• If the shop doesn't confirm within 30 minutes, the order will be cancelled automatically</li>
+              <li>• You'll be able to track updates in your Orders</li>
             </ul>
           </div>
 

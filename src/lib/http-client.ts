@@ -1,3 +1,5 @@
+import { refreshAccessToken } from '@/lib/auth-helpers'
+
 // Common HTTP client utilities for all services
 
 export interface ApiResponse<T = any> {
@@ -29,6 +31,17 @@ export interface SearchFilters {
     isOpen?: boolean
     minRating?: number
     maxPrice?: number
+}
+
+/**
+ * Base URL of the Nest API server (for direct client calls).
+ * Use NEXT_PUBLIC_API_URL (e.g. http://localhost:3001/api) in .env.
+ */
+export function getServerApiBase(): string {
+    if (typeof window === 'undefined') {
+        return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'
+    }
+    return (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api').replace(/\/$/, '')
 }
 
 /**
@@ -72,37 +85,88 @@ export function buildQueryString(params: Record<string, any>): string {
 }
 
 /**
- * Generic HTTP request handler
+ * Generic HTTP request handler.
  */
 export async function requestJson<T>(
     url: string,
     options: RequestInit = {}
 ): Promise<T> {
-    const response = await fetch(url, {
-        cache: 'no-store',
-        ...options,
-        headers: buildHeaders(options.headers as Record<string, string>)
-    })
+    const method = (options.method || 'GET').toUpperCase()
+    const dedupeKey = `${method}:${url}`
+    const globalAny = globalThis as any
+    const inflight: Map<string, Promise<any>> =
+        globalAny.__httpClientInflight ||
+        (globalAny.__httpClientInflight = new Map<string, Promise<any>>())
 
-    if (!response.ok) {
-        let errorMessage = `Request failed with status ${response.status}`
+    const performFetch = () =>
+        fetch(url, {
+            cache: 'no-store',
+            mode: 'cors',
+            credentials: 'include',
+            ...options,
+            headers: buildHeaders(options.headers as Record<string, string>),
+        })
 
-        try {
-            const errorData = await response.json()
-            errorMessage = errorData.error || errorData.message || errorMessage
-        } catch {
-            // If response is not JSON, use status text or default message
-            errorMessage = response.statusText || errorMessage
+    if (typeof window !== 'undefined' && method === 'GET') {
+        const existing = inflight.get(dedupeKey)
+        if (existing) {
+            return existing as Promise<T>
         }
-
-        // Create error object with status for better handling
-        const error = new Error(errorMessage) as any
-        error.status = response.status
-        error.url = url
-        throw error
     }
 
-    return response.json()
+    let response: Response
+    const task = (async () => {
+        try {
+            response = await performFetch()
+        } catch (err) {
+            const message = err instanceof Error ? err.message : String(err)
+            const hint =
+                url.startsWith('http') && typeof window !== 'undefined'
+                    ? ' (Check CORS on the server or ensure the server is running with the correct URL/port)'
+                    : ''
+            const error = new Error(`Failed to fetch${hint}: ${message}`) as Error & { url?: string; cause?: unknown }
+            error.url = url
+            error.cause = err
+            throw error
+        }
+
+        if (response.status === 401) {
+            const refreshed = await refreshAccessToken()
+            if (refreshed) {
+                response = await performFetch()
+            }
+        }
+
+        if (!response.ok) {
+            let errorMessage = `Request failed with status ${response.status}`
+
+            try {
+                const errorData = await response.json()
+                errorMessage = errorData.error || errorData.message || errorMessage
+            } catch {
+                // If response is not JSON, use status text or default message
+                errorMessage = response.statusText || errorMessage
+            }
+
+            const error = new Error(errorMessage) as Error & { status: number; url: string }
+            error.status = response.status
+            error.url = url
+            throw error
+        }
+
+        return response.json()
+    })()
+
+    if (typeof window !== 'undefined' && method === 'GET') {
+        inflight.set(dedupeKey, task)
+        try {
+            return (await task) as T
+        } finally {
+            inflight.delete(dedupeKey)
+        }
+    }
+
+    return (await task) as T
 }
 
 /**

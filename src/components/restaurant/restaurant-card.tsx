@@ -12,13 +12,20 @@ interface RestaurantCardProps {
 export function RestaurantCard({ restaurant }: RestaurantCardProps) {
   return (
     <Card className="overflow-hidden hover:shadow-lg transition-shadow">
-      <div className="relative h-48 w-full">
+      <div className="relative h-40 w-full">
         <Image
           src={restaurant.avatarUrl}
           alt={restaurant.name}
           fill
           className="object-cover"
         />
+        {restaurant.isOpen && (
+          <div className="absolute top-2 right-2">
+            <span className="inline-flex items-center rounded-full bg-emerald-500 px-2.5 py-1 text-[11px] font-semibold text-white shadow-sm">
+              Open
+            </span>
+          </div>
+        )}
         {!restaurant.isOpen && (
           <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
             <span className="text-white font-semibold">Closed</span>
@@ -26,9 +33,9 @@ export function RestaurantCard({ restaurant }: RestaurantCardProps) {
         )}
       </div>
       
-      <CardHeader className="pb-3">
-        <CardTitle className="text-lg">{restaurant.name}</CardTitle>
-        <p className="text-sm text-muted-foreground line-clamp-2">
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm">{restaurant.name}</CardTitle>
+        <p className="text-xs text-muted-foreground line-clamp-2">
           {restaurant.description}
         </p>
       </CardHeader>
@@ -37,24 +44,24 @@ export function RestaurantCard({ restaurant }: RestaurantCardProps) {
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center space-x-2">
             <span className="text-yellow-500">★</span>
-            <span className="text-sm font-medium">{restaurant.rating}</span>
+            <span className="text-xs font-medium">{restaurant.rating}</span>
           </div>
-          <span className="text-sm text-muted-foreground">
+          <span className="text-xs text-muted-foreground">
             {restaurant.deliveryTime}
           </span>
         </div>
         
-        <div className="flex items-center justify-between mb-4">
-          <span className="text-sm text-muted-foreground">
+        <div className="flex items-center justify-between mb-3">
+          <span className="text-xs text-muted-foreground">
             Min. order: {formatPrice(restaurant.minimumOrder)}
           </span>
-          <span className="text-sm text-muted-foreground">
+          <span className="text-xs text-muted-foreground">
             {restaurant.address}
           </span>
         </div>
         
         <Link href={`/restaurants/${restaurant.id}`}>
-          <Button className="w-full" disabled={!restaurant.isOpen}>
+          <Button className="w-full h-8 text-xs" disabled={!restaurant.isOpen}>
             {restaurant.isOpen ? 'View Menu' : 'Currently Closed'}
           </Button>
         </Link>

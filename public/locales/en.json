@@ -132,5 +132,10 @@
   },
   "cart": {
     "orderLimitExceeded": "You've exceeded the per-item order limit of {amount}. Please place another order for additional items."
+  },
+  "reviews": {
+    "outOf5": "out of 5",
+    "review": "review",
+    "reviews": "reviews"
   }
 }

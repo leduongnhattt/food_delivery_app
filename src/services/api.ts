@@ -1,6 +1,9 @@
 // Base API configuration
 import { refreshAccessToken, setAuthToken } from '@/lib/auth-helpers'
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'
+import { getServerApiBase } from '@/lib/http-client'
+
+export const API_BASE_URL =
+    getServerApiBase().replace(/\/$/, '')
 
 interface ApiResponse<T = any> {
     data?: T
@@ -29,7 +32,10 @@ class ApiClient {
         endpoint: string,
         options: RequestInit = {}
     ): Promise<T | ApiResponse> {
-        const url = `${this.baseURL}${endpoint}`
+        // Accept both absolute and relative URLs
+        const url = endpoint.startsWith("http")
+            ? endpoint
+            : `${this.baseURL}${endpoint}`
 
         // Get token from localStorage for authenticated requests
         const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null

@@ -15,18 +15,18 @@ interface ScrollAmountConfig {
 
 export const useResponsiveCardSizes = () => {
     const cardSizes: CardSizeConfig = {
-        mobile: 'w-[240px]',
-        small: 'xs:w-[260px]',
-        medium: 'sm:w-[280px]',
-        large: 'md:w-[300px]',
-        xl: 'lg:w-[320px]'
+        mobile: 'w-[220px]',
+        small: 'xs:w-[240px]',
+        medium: 'sm:w-[260px]',
+        large: 'md:w-[280px]',
+        xl: 'lg:w-[300px]'
     };
 
     const scrollAmounts: ScrollAmountConfig = {
-        mobile: 260,
-        tablet: 300,
-        desktop: 320,
-        large: 340
+        mobile: 240,
+        tablet: 280,
+        desktop: 300,
+        large: 320
     };
 
     const getCurrentScrollAmount = (): number => {

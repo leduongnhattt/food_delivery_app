@@ -1,6 +1,7 @@
 import React from "react";
 import RestaurantCard from "./RestaurantCard";
 import { useRestaurantList } from '@/hooks/use-restaurant-list';
+import { CATALOG_REFETCH_INTERVAL_MS } from '@/hooks/catalog-refetch';
 import { Loading } from '@/components/ui/loading';
 import { ErrorDisplay } from '@/components/ui/error-display';
 import { Restaurant as ApiRestaurant, RestaurantCardData } from '@/types/models';
@@ -13,7 +14,10 @@ const transformRestaurantForCard = (restaurant: ApiRestaurant): RestaurantCardDa
   address: restaurant.address,
   description: restaurant.description,
   avatarUrl: restaurant.avatarUrl,
-  status: restaurant.isOpen ? "open" : "closed" as "open" | "closed"
+  status: restaurant.isOpen ? "open" : "closed" as "open" | "closed",
+  rating: restaurant.rating,
+  totalReviews: restaurant.totalReviews,
+  deliveryTime: restaurant.deliveryTime,
 });
 
 interface Props {
@@ -36,11 +40,16 @@ const RestaurantMenu: React.FC<Props> = ({
     loading, 
     error, 
     refetch 
-  } = useRestaurantList({
-    limit: Math.min(displayLimit, 100),
-    isOpen: true, // Only show open restaurants
-    // minRating: 3.0 // Removed this filter since all restaurants have rating 0
-  });
+  } = useRestaurantList(
+    {
+      limit: Math.min(displayLimit, 100),
+      isOpen: true,
+    },
+    {
+      refetchIntervalMs: CATALOG_REFETCH_INTERVAL_MS,
+      refetchOnVisibility: true,
+    },
+  );
 
 
   const handleViewAll = () => {
@@ -65,7 +74,7 @@ const RestaurantMenu: React.FC<Props> = ({
   if (loading) {
     return (
       <div className={className}>
-        <h1 className="text-2xl md:text-3xl font-bold text-gray-800 mb-6">
+        <h1 className="text-xl md:text-2xl font-bold text-gray-800 mb-5">
           🍽️ Popular Restaurants
         </h1>
         <div className="flex justify-center items-center py-8">
@@ -79,7 +88,7 @@ const RestaurantMenu: React.FC<Props> = ({
   if (error) {
     return (
       <div className={className}>
-        <h1 className="text-2xl md:text-3xl font-bold text-gray-800 mb-6">
+        <h1 className="text-xl md:text-2xl font-bold text-gray-800 mb-5">
           🍽️ Popular Restaurants
         </h1>
         <div className="flex justify-center items-center py-8">
@@ -96,7 +105,7 @@ const RestaurantMenu: React.FC<Props> = ({
   if (!restaurants || restaurants.length === 0) {
     return (
       <div className={className}>
-        <h1 className="text-2xl md:text-3xl font-bold text-gray-800 mb-6">
+        <h1 className="text-xl md:text-2xl font-bold text-gray-800 mb-5">
           🍽️ Popular Restaurants
         </h1>
         <div className="text-center py-8">
@@ -115,10 +124,10 @@ const RestaurantMenu: React.FC<Props> = ({
   return (
     <div className={className}>
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6">
-        <h1 className="text-2xl md:text-3xl font-bold text-gray-800">
+        <h1 className="text-xl md:text-2xl font-bold text-gray-800">
           🍽️ Popular Restaurants
         </h1>
-        <div className="text-sm text-gray-600 mt-2 sm:mt-0">
+        <div className="text-xs text-gray-600 mt-2 sm:mt-0">
           {restaurants.length} restaurants available
         </div>
       </div>
@@ -138,7 +147,7 @@ const RestaurantMenu: React.FC<Props> = ({
         <div className="flex justify-center mt-8">
           <button
             onClick={handleViewAll} 
-            className="group px-8 py-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white font-semibold rounded-full shadow-lg hover:shadow-xl hover:from-orange-600 hover:to-orange-700 transition-all duration-300 transform hover:-translate-y-1"
+            className="group px-7 py-2.5 text-sm bg-gradient-to-r from-orange-500 to-orange-600 text-white font-semibold rounded-full shadow-lg hover:shadow-xl hover:from-orange-600 hover:to-orange-700 transition-all duration-300 transform hover:-translate-y-1"
           >
             <span className="flex items-center">
               {expanded ? 'Show less' : 'View all restaurants'}

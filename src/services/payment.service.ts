@@ -74,6 +74,25 @@ export class PaymentService {
         return { success: false, error: 'No checkout URL received' }
     }
 
+    /**
+     * Handle VNPay payment flow
+     */
+    static async processVnPayPayment(
+        checkoutData: Parameters<typeof CheckoutService.createVnPayPaymentUrl>[0]
+    ): Promise<PaymentResult & { orderId?: string; paymentId?: string }> {
+        const res = await CheckoutService.createVnPayPaymentUrl(checkoutData)
+
+        if (res.error) {
+            return { success: false, error: res.error }
+        }
+
+        if (res.url) {
+            return { success: true, redirectUrl: res.url, orderId: res.orderId, paymentId: res.paymentId }
+        }
+
+        return { success: false, error: 'No VNPay URL received' }
+    }
+
 
     /**
      * Handle successful payment processing

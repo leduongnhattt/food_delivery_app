@@ -1,4 +1,5 @@
 // Client-side authentication utilities
+import { API_BASE_URL } from '@/services/api'
 
 export interface AuthError {
     message: string;
@@ -83,11 +84,12 @@ export async function registerUser(data: RegisterData): Promise<AuthResponse> {
         }
 
         // Call the API
-        const response = await fetch("/api/auth/register", {
+        const response = await fetch(`${API_BASE_URL}/auth/register`, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
             },
+            credentials: "include",
             body: JSON.stringify(data),
         });
 
@@ -133,26 +135,34 @@ export async function loginUser(data: LoginData): Promise<AuthResponse> {
         }
 
         // Call the API
-        const response = await fetch("/api/auth/login", {
+        const response = await fetch(`${API_BASE_URL}/auth/login`, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
             },
+            credentials: "include",
             body: JSON.stringify(data),
         });
 
         const result = await response.json();
 
         if (!response.ok) {
-            // Map locked account to a friendly popup message (vi)
             if (response.status === 403) {
+                const msg =
+                    typeof result.error === 'string'
+                        ? result.error
+                        : 'Your account has been locked. Please contact support.';
+                const code =
+                    typeof result.code === 'string'
+                        ? result.code
+                        : 'FORBIDDEN';
                 return {
                     success: false,
                     error: {
-                        message: "Your account has been locked. Please contact support.",
-                        code: 'ACCOUNT_LOCKED',
-                        status: 403
-                    }
+                        message: msg,
+                        code,
+                        status: 403,
+                    },
                 };
             }
             return {
@@ -193,11 +203,12 @@ export async function loginWithGoogle(data: GoogleLoginData): Promise<AuthRespon
         }
 
         // Call the API
-        const response = await fetch("/api/auth/google", {
+        const response = await fetch(`${API_BASE_URL}/auth/google`, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
             },
+            credentials: "include",
             body: JSON.stringify(data),
         });
 

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { CustomerService } from '@/services/customer.service'
+import { getServerApiBase } from '@/lib/http-client'
 import { useAuth } from './use-auth'
 
 export interface ProfileData {
@@ -37,13 +38,17 @@ export function useProfileData() {
             try {
                 const customer = await CustomerService.getByAccount(user.id)
                 if (customer) {
-                    // Fetch account to get avatar via lightweight profile endpoint if available
+                    // Fetch account to get avatar via server auth/profile
                     let avatarUrl = ''
                     try {
-                        const res = await fetch('/api/account/me', { headers: { Authorization: `Bearer ${localStorage.getItem('access_token')}` || '' } })
+                        const base = getServerApiBase()
+                        const res = await fetch(`${base}/auth/profile`, {
+                            headers: { Authorization: `Bearer ${localStorage.getItem('access_token')}` || '' },
+                            cache: 'no-store'
+                        })
                         if (res.ok) {
                             const data = await res.json()
-                            avatarUrl = data?.avatar || ''
+                            avatarUrl = data?.account?.avatar || data?.account?.Avatar || ''
                         }
                     } catch { }
                     const hydratedProfile: ProfileData = {

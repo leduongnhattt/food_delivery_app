@@ -1,4 +1,4 @@
-import { buildHeaders } from "@/lib/http-client";
+import { buildHeaders, getServerApiBase } from "@/lib/http-client";
 import { useState } from "react";
 
 interface UploadResponse {
@@ -53,7 +53,8 @@ export const useEnterpriseUpload = () => {
       const headers = buildHeaders() as Record<string, string>
       delete headers['Content-Type']
 
-      const response = await fetch("/api/enterprise/food-image", {
+      const base = getServerApiBase();
+      const response = await fetch(`${base}/enterprise/food-image`, {
         method: "POST",
         headers,
         body: formData,

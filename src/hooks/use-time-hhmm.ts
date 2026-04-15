@@ -14,12 +14,14 @@ export function useTimeHhmm(initial: string = '00:00') {
 
     const handleDigit = useCallback((digitChar: string) => {
         if (!/^[0-9]$/.test(digitChar)) return
-        const next = (buf + digitChar).slice(-4)
+        // Shift-left input so typing fills HH first: 1 -> 10:00, 12 -> 12:00, 123 -> 12:30, 1234 -> 12:34
+        const next = (buf.slice(1) + digitChar).slice(0, 4)
         apply(next)
     }, [buf, apply])
 
     const handleBackspace = useCallback(() => {
-        const next = ('0' + buf).slice(0, 4)
+        // Shift-right on backspace to undo last typed digit.
+        const next = ('0' + buf.slice(0, 3)).slice(0, 4)
         apply(next)
     }, [buf, apply])
 
@@ -45,7 +47,7 @@ export function useTimeHhmm(initial: string = '00:00') {
         let next = buf
         for (const ch of digits) {
             if (!/[0-9]/.test(ch)) continue
-            next = (next + ch).slice(-4)
+            next = (next.slice(1) + ch).slice(0, 4)
         }
         apply(next)
     }, [buf, apply])

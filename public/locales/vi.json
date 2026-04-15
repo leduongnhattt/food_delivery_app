@@ -132,5 +132,10 @@
   },
   "cart": {
     "orderLimitExceeded": "Bạn đã vượt giới hạn mỗi món {amount}. Vui lòng tạo đơn mới cho các món thêm."
+  },
+  "reviews": {
+    "outOf5": "trên 5 sao",
+    "review": "đánh giá",
+    "reviews": "đánh giá"
   }
 }

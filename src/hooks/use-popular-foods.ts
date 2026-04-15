@@ -1,6 +1,14 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { Food } from '@/types/models'
 import { FoodService, FoodServiceFilters } from '@/services/food.service'
+import { CATALOG_REFETCH_INTERVAL_MS } from '@/hooks/catalog-refetch'
+
+export interface UsePopularFoodsOptions {
+  /** When false, no network calls (e.g. FoodsSlideMenu with sample data only). */
+  enabled?: boolean
+  refetchIntervalMs?: number
+  refetchOnVisibility?: boolean
+}
 
 interface UsePopularFoodsReturn {
     foods: Food[]
@@ -15,9 +23,30 @@ interface UsePopularFoodsReturn {
     refetch: () => Promise<void>
 }
 
-export function usePopularFoods(filters: FoodServiceFilters = {}): UsePopularFoodsReturn {
+// Serialize filter values so we only refetch when they change, not when the object reference changes
+function getFilterKey(filters: FoodServiceFilters): string {
+    return JSON.stringify({
+        limit: filters.limit,
+        page: filters.page,
+        restaurantId: filters.restaurantId,
+        category: filters.category,
+        search: filters.search,
+        isAvailable: filters.isAvailable
+    })
+}
+
+export function usePopularFoods(
+    filters: FoodServiceFilters = {},
+    options: UsePopularFoodsOptions = {},
+): UsePopularFoodsReturn {
+    const {
+        enabled = true,
+        refetchIntervalMs = CATALOG_REFETCH_INTERVAL_MS,
+        refetchOnVisibility = true,
+    } = options
+
     const [foods, setFoods] = useState<Food[]>([])
-    const [loading, setLoading] = useState(true)
+    const [loading, setLoading] = useState(enabled)
     const [error, setError] = useState<string | null>(null)
     const [pagination, setPagination] = useState({
         page: 1,
@@ -26,44 +55,73 @@ export function usePopularFoods(filters: FoodServiceFilters = {}): UsePopularFoo
         totalPages: 0
     })
 
-    // Memoize filters to prevent unnecessary re-renders when object reference changes but values don't
-    const stableFilters = useMemo(() => {
-        return filters
-    }, [
-        filters.limit,
-        filters.page,
-        filters.restaurantId,
-        filters.category,
-        filters.search,
-        filters.isAvailable
-    ])
+    const filtersRef = useRef(filters)
+    filtersRef.current = filters
 
-    const fetchFoods = useCallback(async () => {
+    const filterKey = getFilterKey(filters)
+
+    const fetchFoods = useCallback(async (opts?: { silent?: boolean }) => {
+        const silent = opts?.silent === true
+        const currentFilters = filtersRef.current
         try {
-            setLoading(true)
+            if (!silent) {
+                setLoading(true)
+            }
             setError(null)
 
-            const response = await FoodService.getPopularFoodsDebounced(stableFilters)
+            const response = await FoodService.getPopularFoodsDebounced(currentFilters)
             setFoods(response.foods)
             setPagination(response.pagination)
         } catch (err) {
-            const errorMessage = err instanceof Error ? err.message : 'Failed to fetch foods'
-            setError(errorMessage)
-            console.error('Error in usePopularFoods:', err)
+            if (!silent) {
+                const errorMessage = err instanceof Error ? err.message : 'Failed to fetch foods'
+                setError(errorMessage)
+                console.error('Error in usePopularFoods:', err)
+            } else {
+                console.warn('usePopularFoods: background refetch failed', err)
+            }
         } finally {
-            setLoading(false)
+            if (!silent) {
+                setLoading(false)
+            }
         }
-    }, [stableFilters])
+    }, [])
 
     useEffect(() => {
-        fetchFoods()
-    }, [fetchFoods])
+        if (!enabled) {
+            setLoading(false)
+            setFoods([])
+            setError(null)
+            return
+        }
+        void fetchFoods()
+    }, [enabled, filterKey, fetchFoods])
+
+    useEffect(() => {
+        if (!enabled || !refetchIntervalMs || refetchIntervalMs < 5_000) return
+        const id = window.setInterval(() => {
+            if (document.visibilityState !== 'visible') return
+            void fetchFoods({ silent: true })
+        }, refetchIntervalMs)
+        return () => window.clearInterval(id)
+    }, [enabled, refetchIntervalMs, filterKey, fetchFoods])
+
+    useEffect(() => {
+        if (!enabled || !refetchOnVisibility) return
+        const onVisibility = () => {
+            if (document.visibilityState === 'visible') {
+                void fetchFoods({ silent: true })
+            }
+        }
+        document.addEventListener('visibilitychange', onVisibility)
+        return () => document.removeEventListener('visibilitychange', onVisibility)
+    }, [enabled, refetchOnVisibility, fetchFoods])
 
     return {
         foods,
         loading,
         error,
         pagination,
-        refetch: fetchFoods,
+        refetch: () => fetchFoods(),
     }
 }

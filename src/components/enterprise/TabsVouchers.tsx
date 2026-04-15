@@ -7,27 +7,27 @@ type TabKey = 'all' | 'approved' | 'pending'
 
 export default function TabsVouchers({ current, search }: { current: TabKey; search: string }) {
   const router = useRouter()
-  const params = useSearchParams()
+  const currentSearchParams = useSearchParams()
   const [isPending, startTransition] = useTransition()
 
-  const onSelect = (t: TabKey) => {
-    if (t === current) return
-    const p = new URLSearchParams(params.toString())
-    p.set('status', t)
-    if (search) p.set('q', search)
-    else p.delete('q')
+  const handleTabSelect = (nextTab: TabKey) => {
+    if (nextTab === current) return
+    const nextQuery = new URLSearchParams(currentSearchParams.toString())
+    nextQuery.set('status', nextTab)
+    if (search) nextQuery.set('q', search)
+    else nextQuery.delete('q')
     startTransition(() => {
-      router.replace(`/enterprise/discount?${p.toString()}`, { scroll: false })
+      router.replace(`/enterprise/discount?${nextQuery.toString()}`, { scroll: false })
     })
   }
 
-  const btn = (t: TabKey, label: string) => (
+  const renderTabButton = (tabKey: TabKey, label: string) => (
     <button
-      key={t}
-      onClick={() => onSelect(t)}
-      aria-current={current === t}
+      key={tabKey}
+      onClick={() => handleTabSelect(tabKey)}
+      aria-current={current === tabKey}
       className={`px-3 py-1.5 rounded-md text-sm border transition-colors ${
-        current === t 
+        current === tabKey 
           ? 'bg-purple-600 text-white border-purple-600' 
           : 'border-slate-200 text-slate-700 hover:bg-slate-50'
       } ${isPending ? 'opacity-60 pointer-events-none' : ''}`}
@@ -38,9 +38,9 @@ export default function TabsVouchers({ current, search }: { current: TabKey; sea
 
   return (
     <div className="flex items-center gap-2">
-      {btn('all', 'All')}
-      {btn('approved', 'Approved')}
-      {btn('pending', 'Pending')}
+      {renderTabButton('all', 'All')}
+      {renderTabButton('approved', 'Approved')}
+      {renderTabButton('pending', 'Pending')}
     </div>
   )
 }

@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
-import { apiClient } from "@/services/api";
 import { Voucher } from "./VoucherList";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/contexts/toast-context";
+import { getServerApiBase } from "@/lib/http-client";
+import { buildAuthHeader } from "@/lib/auth-helpers";
 
 interface EditVoucherPopupProps {
   open: boolean;
@@ -89,10 +90,19 @@ export default function EditVoucherPopup({
         payload.MaxUsage = maxUsage;
       }
 
-      const response = await apiClient.put("/enterprise/voucher", payload) as any;
-      
-      if (response.success === false) {
-        showToast(response.error || "Failed to update voucher. Please try again.", "error", 5000);
+      const base = getServerApiBase();
+      const res = await fetch(`${base}/enterprise/voucher`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          ...buildAuthHeader(),
+        },
+        body: JSON.stringify(payload),
+        cache: "no-store",
+      });
+
+      if (!res.ok) {
+        showToast("Failed to update voucher. Please try again.", "error", 5000);
         return;
       }
       

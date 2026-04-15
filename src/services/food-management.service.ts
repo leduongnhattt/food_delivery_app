@@ -1,4 +1,4 @@
-import { apiClient } from "./api";
+import { getServerApiBase, requestJson } from "@/lib/http-client";
 
 export interface CreateFoodData {
     DishName: string;
@@ -25,23 +25,23 @@ class FoodManagementServiceImpl implements FoodManagementService {
      * Create a new food item
      */
     async createFood(foodData: CreateFoodData): Promise<void> {
-        const response = await apiClient.post("/enterprise/food", foodData) as any;
-
-        if (response.success === false) {
-            throw new Error(response.error || "Failed to create food item");
-        }
+        const base = getServerApiBase();
+        await requestJson(`${base}/enterprise/food`, {
+            method: "POST",
+            body: JSON.stringify(foodData),
+            cache: "no-store",
+        });
     }
 
     /**
      * Get all available food categories
      */
     async getCategories(): Promise<Category[]> {
-        const response = await apiClient.get<{ categories: Category[] }>("/enterprise/category") as any;
-
-        if (response.success === false) {
-            throw new Error(response.error || "Failed to fetch categories");
-        }
-
+        const base = getServerApiBase();
+        const response = await requestJson<{ categories: Category[] }>(`${base}/enterprise/category`, {
+            method: "GET",
+            cache: "no-store",
+        });
         return response.categories;
     }
 }

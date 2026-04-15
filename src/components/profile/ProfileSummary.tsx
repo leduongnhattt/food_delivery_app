@@ -1,7 +1,8 @@
 import { Button } from '@/components/ui/button'
 import { Camera, Edit } from 'lucide-react'
 import { useRef, useState, useEffect } from 'react'
-import { buildAuthHeader } from '@/lib/auth-helpers'
+import { getAuthToken } from '@/lib/auth-helpers'
+import { getServerApiBase } from '@/lib/http-client'
 import { useToast } from '@/contexts/toast-context'
 
 interface ProfileSummaryProps {
@@ -30,11 +31,11 @@ export function ProfileSummary({ fullName, email, isEditing, onEdit, avatarUrl: 
     try {
       const form = new FormData()
       form.append('file', file)
-      const res = await fetch('/api/profile/avatar', {
+      const token = getAuthToken()
+      const base = getServerApiBase()
+      const res = await fetch(`${base}/auth/avatar`, {
         method: 'POST',
-        headers: {
-          ...buildAuthHeader()
-        },
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
         body: form
       })
       if (!res.ok) {

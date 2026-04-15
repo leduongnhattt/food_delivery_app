@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
-import enFallback from '../../public/locales/en.json';
+import { useState, useEffect, useCallback } from 'react';
+import enFallback from '@/locales/en.json';
 
 export type Locale = 'en' | 'vi';
 
@@ -124,9 +124,9 @@ export const useTranslations = (locale?: Locale) => {
         let isMounted = true;
         const loadTranslationsForLocale = async () => {
             setIsLoading(true);
-            await loadTranslations(currentLocale, {
-                forceReload: process.env.NODE_ENV !== 'production'
-            });
+            // Do NOT force reload on every mount (would spam /locales/*.json in dev/StrictMode).
+            // Use clearTranslationCache() when you explicitly want a reload.
+            await loadTranslations(currentLocale);
             if (isMounted) {
                 setIsLoading(false);
                 setRevision(prev => prev + 1); // trigger re-render so `t` sees the latest cache

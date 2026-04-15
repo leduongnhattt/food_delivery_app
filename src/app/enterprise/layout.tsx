@@ -1,4 +1,3 @@
-import "../globals.css"
 import type { Metadata } from "next"
 import React from "react"
 import AdminLayoutClient from "./EnterpriseLayoutClient"
@@ -11,14 +10,8 @@ export const metadata: Metadata = {
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="vi">
-      <body className="min-h-screen bg-white">
-        <AppProvider>
-          <AdminLayoutClient>
-            {children}
-          </AdminLayoutClient>
-        </AppProvider>
-      </body>
-    </html>
+    <AppProvider>
+      <AdminLayoutClient>{children}</AdminLayoutClient>
+    </AppProvider>
   )
 }

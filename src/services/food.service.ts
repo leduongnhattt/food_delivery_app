@@ -2,6 +2,14 @@ import { Food } from '@/types/models'
 import { BaseService } from '@/lib/base-service'
 import { buildQueryString, requestJson } from '@/lib/http-client'
 import { createDebouncedApiCall } from '@/lib/debounce'
+import { API_BASE_URL } from '@/services/api'
+
+/** Base URL for foods APIs, derived from the shared API_BASE_URL. */
+function getFoodsApiBase(): string {
+    return `${API_BASE_URL}/foods`
+}
+
+const GET_OPTIONS: RequestInit = { method: 'GET', cache: 'no-store' }
 
 export interface PopularFoodsResponse {
     foods: Food[]
@@ -13,6 +21,11 @@ export interface PopularFoodsResponse {
     }
 }
 
+const EMPTY_POPULAR_RESPONSE: PopularFoodsResponse = {
+    foods: [],
+    pagination: { page: 1, limit: 10, total: 0, totalPages: 0 },
+}
+
 export interface FoodServiceFilters {
     limit?: number
     page?: number
@@ -22,91 +35,64 @@ export interface FoodServiceFilters {
     isAvailable?: boolean
 }
 
+export interface FoodByIdItem {
+    id: string
+    name: string
+    price: number
+    imageUrl: string
+    restaurantId: string
+    category?: string
+    description?: string
+    restaurantName?: string
+}
+
 export class FoodService extends BaseService {
     constructor() {
-        super('/api/foods')
+        super(getFoodsApiBase())
     }
 
-    /**
-     * Fetch popular foods from the database
-     */
+    private static async fetchList(path: string, filters: FoodServiceFilters): Promise<PopularFoodsResponse> {
+        const queryString = buildQueryString(filters)
+        const url = `${getFoodsApiBase()}${path}${queryString ? `?${queryString}` : ''}`
+        return requestJson<PopularFoodsResponse>(url, GET_OPTIONS)
+    }
+
     static async getPopularFoods(filters: FoodServiceFilters = {}): Promise<PopularFoodsResponse> {
         try {
-            const queryString = buildQueryString(filters)
-            const url = `/api/foods/popular${queryString ? `?${queryString}` : ''}`
-
-            const response = await requestJson<PopularFoodsResponse>(url, {
-                method: 'GET',
-                cache: 'no-store'
-            })
-
-            return response
+            return await FoodService.fetchList('/popular', filters)
         } catch (error) {
             console.error('Error fetching popular foods:', error)
-            return {
-                foods: [],
-                pagination: {
-                    page: 1,
-                    limit: 10,
-                    total: 0,
-                    totalPages: 0
-                }
-            }
+            return EMPTY_POPULAR_RESPONSE
         }
     }
 
-    /**
-     * Fetch all foods with filters
-     */
     static async getAllFoods(filters: FoodServiceFilters = {}): Promise<PopularFoodsResponse> {
         try {
-            const queryString = buildQueryString(filters)
-            const url = `/api/foods${queryString ? `?${queryString}` : ''}`
-
-            const response = await requestJson<PopularFoodsResponse>(url, {
-                method: 'GET',
-                cache: 'no-store'
-            })
-
-            return response
+            return await FoodService.fetchList('', filters)
         } catch (error) {
             console.error('Error fetching foods:', error)
-            return {
-                foods: [],
-                pagination: {
-                    page: 1,
-                    limit: 10,
-                    total: 0,
-                    totalPages: 0
-                }
-            }
+            return EMPTY_POPULAR_RESPONSE
         }
     }
 
-    /**
-     * Fetch foods by restaurant ID
-     */
-    static async getFoodsByRestaurant(restaurantId: string, limit?: number): Promise<PopularFoodsResponse> {
+    static getFoodsByRestaurant(restaurantId: string, limit?: number): Promise<PopularFoodsResponse> {
         return this.getPopularFoods({ restaurantId, limit })
     }
 
-    /**
-     * Fetch foods by category
-     */
-    static async getFoodsByCategory(category: string, limit?: number): Promise<PopularFoodsResponse> {
+    static getFoodsByCategory(category: string, limit?: number): Promise<PopularFoodsResponse> {
         return this.getPopularFoods({ category, limit })
     }
 
-    static async getFoodsByIds(ids: string[]): Promise<Array<{ id: string, name: string, price: number, imageUrl: string, restaurantId: string, category?: string, description?: string, restaurantName?: string }>> {
+    static async getFoodsByIds(ids: string[]): Promise<FoodByIdItem[]> {
         if (!ids.length) return []
 
         try {
-            const response = await requestJson<{ foods: any[] }>('/api/foods/by-ids', {
+            const response = await requestJson<{ foods: FoodByIdItem[] }>(`${getFoodsApiBase()}/by-ids`, {
                 method: 'POST',
                 body: JSON.stringify({ ids }),
-                cache: 'no-store'
+                cache: 'no-store',
             })
-            return response.foods || []
+            return response.foods ?? []
         } catch (error) {
             console.error('Error fetching foods by IDs:', error)
             return []

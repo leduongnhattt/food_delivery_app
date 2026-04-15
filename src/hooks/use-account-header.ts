@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { buildAuthHeader } from "@/lib/auth-helpers";
+import { getServerApiBase } from "@/lib/http-client";
 import { useAuth } from "@/hooks/use-auth";
 import { useAPICache } from "@/hooks/use-api-cache";
 
@@ -18,12 +19,14 @@ export function useAccountHeader(): AccountHeader {
     const { data: accountData } = useAPICache({
         key: 'account-me',
         fetcher: async () => {
-            const res = await fetch("/api/account/me", {
+            const base = getServerApiBase();
+            const res = await fetch(`${base}/auth/profile`, {
                 headers: { ...buildAuthHeader() },
                 cache: "no-store"
             });
             if (!res.ok) throw new Error('Failed to fetch account data');
-            return await res.json();
+            const data = await res.json();
+            return { avatar: data?.account?.avatar || data?.account?.Avatar || null };
         },
         ttl: 5 * 60 * 1000, // 5 minutes
         enabled: !!user

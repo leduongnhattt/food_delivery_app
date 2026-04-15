@@ -1,24 +1,25 @@
 'use client'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, Settings, Globe, Bell, Shield, User, Palette, Moon, Sun, Save, Eye, EyeOff } from 'lucide-react'
-import { useState } from 'react'
+import { ArrowLeft, Globe, Bell, Shield, Palette, Moon, Sun, Save, CheckCircle2 } from 'lucide-react'
+import { useState, useEffect } from 'react'
 import { AuthGuard } from '@/components/auth/auth-guard'
+import { getServerApiBase } from '@/lib/http-client'
 
 export default function SettingsPage() {
   const router = useRouter()
-  const isEditing = true
-  const [showPassword, setShowPassword] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
+  const [showSuccess, setShowSuccess] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
   
   // Settings state
   const [settings, setSettings] = useState({
     // Language & Region
-    language: 'vi',
+    language: 'en',
     timezone: 'Asia/Ho_Chi_Minh',
     
     // Notifications
@@ -35,13 +36,56 @@ export default function SettingsPage() {
     
     // Appearance
     theme: 'light',
-    fontSize: 'medium',
-    
-    // Account
-    currentPassword: '',
-    newPassword: '',
-    confirmPassword: ''
+    fontSize: 'medium'
   })
+
+  // Load settings on mount
+  useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        const token = localStorage.getItem('access_token')
+        const base = getServerApiBase()
+        const response = await fetch(`${base}/settings`, {
+          headers: {
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+          },
+          credentials: 'include'
+        })
+
+        if (response.ok) {
+          const data = await response.json()
+          if (data.settings) {
+            setSettings(data.settings)
+          }
+        } else {
+          // Fallback: load from localStorage
+          const saved = localStorage.getItem('userSettings')
+          if (saved) {
+            try {
+              setSettings(JSON.parse(saved))
+            } catch (e) {
+              console.error('Error parsing saved settings:', e)
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error loading settings:', error)
+        // Fallback: load from localStorage
+        const saved = localStorage.getItem('userSettings')
+        if (saved) {
+          try {
+            setSettings(JSON.parse(saved))
+          } catch (e) {
+            console.error('Error parsing saved settings:', e)
+          }
+        }
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    loadSettings()
+  }, [])
 
   const languages = [
     { code: 'vi', name: 'Tiếng Việt', flag: '🇻🇳' },
@@ -60,65 +104,159 @@ export default function SettingsPage() {
   ]
 
 
-  const handleSave = () => {
-    // TODO: Implement save settings to backend
-    console.log('Saving settings:', settings)
-    // Show success message
-    alert('Settings saved successfully!')
+  // Auto-save notification settings when changed
+  const saveNotificationSettings = async (newSettings: typeof settings) => {
+    try {
+      const token = localStorage.getItem('access_token')
+      const base = getServerApiBase()
+      await fetch(`${base}/settings`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
+        credentials: 'include',
+        body: JSON.stringify(newSettings)
+      })
+      // Save to localStorage as backup
+      localStorage.setItem('userSettings', JSON.stringify(newSettings))
+    } catch (error) {
+      console.error('Error auto-saving notification settings:', error)
+      // Fallback: save to localStorage
+      localStorage.setItem('userSettings', JSON.stringify(newSettings))
+    }
+  }
+
+  const handleSave = async () => {
+    setIsSaving(true)
+    try {
+      const token = localStorage.getItem('access_token')
+      const base = getServerApiBase()
+      const response = await fetch(`${base}/settings`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
+        credentials: 'include',
+        body: JSON.stringify(settings)
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to save settings')
+      }
+
+      // Also save to localStorage as backup
+      localStorage.setItem('userSettings', JSON.stringify(settings))
+      
+      setShowSuccess(true)
+      setTimeout(() => setShowSuccess(false), 3000)
+    } catch (error) {
+      console.error('Error saving settings:', error)
+      // Fallback: save to localStorage
+      localStorage.setItem('userSettings', JSON.stringify(settings))
+      setShowSuccess(true)
+      setTimeout(() => setShowSuccess(false), 3000)
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  // Update notification setting with auto-save
+  const updateNotificationSetting = (key: keyof typeof settings, value: boolean) => {
+    const newSettings = { ...settings, [key]: value }
+    setSettings(newSettings)
+    // Auto-save notification preferences
+    saveNotificationSettings(newSettings)
   }
 
   const handleReset = () => {
-    // TODO: Implement reset to defaults
-    console.log('Resetting settings')
+    setSettings({
+      language: 'en',
+      timezone: 'Asia/Ho_Chi_Minh',
+      emailNotifications: true,
+      pushNotifications: true,
+      orderUpdates: true,
+      promotions: false,
+      marketing: false,
+      profileVisibility: 'public',
+      dataSharing: false,
+      twoFactorAuth: false,
+      theme: 'light',
+      fontSize: 'medium'
+    })
+  }
+
+  if (isLoading) {
+    return (
+      <AuthGuard>
+        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-orange-50/30 to-amber-50/50 flex items-center justify-center">
+          <div className="text-center">
+            <div className="w-12 h-12 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+            <p className="text-slate-600">Loading settings...</p>
+          </div>
+        </div>
+      </AuthGuard>
+    )
   }
 
   return (
     <AuthGuard>
-      <div className="min-h-screen bg-gradient-to-br from-orange-50 to-red-50">
-        <div className="container py-8">
-          <div className="max-w-4xl mx-auto">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-orange-50/30 to-amber-50/50">
+        <div className="container py-8 px-4 sm:px-6 lg:px-8">
+          <div className="max-w-5xl mx-auto">
             {/* Header */}
-            <div className="flex items-center gap-4 mb-8">
+            <div className="mb-10">
               <Button
                 variant="ghost"
-                size="sm"
+                size="lg"
                 onClick={() => router.back()}
-                className="flex items-center gap-2 hover:bg-white/50"
+                className="mb-6 group flex items-center gap-2 px-4 py-2.5 rounded-xl text-slate-700 hover:text-slate-900 hover:bg-white/90 backdrop-blur-sm border border-slate-200/50 hover:border-slate-300 shadow-sm hover:shadow-md transition-all duration-200"
               >
-                <ArrowLeft className="w-4 h-4" />
-                Back
+                <ArrowLeft className="w-5 h-5 transition-transform group-hover:-translate-x-1" />
+                <span className="font-medium">Back</span>
               </Button>
-              <h1 className="text-3xl font-bold bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent">
-                Settings
-              </h1>
+              <div className="flex items-center gap-3">
+                <div className="p-3 rounded-2xl bg-gradient-to-br from-orange-500 to-amber-500 shadow-lg">
+                  <Globe className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h1 className="text-4xl font-bold text-slate-900 tracking-tight">
+                    Settings
+                  </h1>
+                  <p className="text-slate-600 mt-1">Manage your preferences and account settings</p>
+                </div>
+              </div>
             </div>
 
-            <div className="space-y-8">
+            <div className="space-y-6">
               {/* Language & Region */}
-              <Card className="shadow-xl border-0 bg-white/80 backdrop-blur-sm relative z-10">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Globe className="w-5 h-5 text-orange-500" />
-                    Language & Region
+              <Card className="border border-slate-200/80 bg-white/90 backdrop-blur-sm shadow-lg hover:shadow-xl transition-shadow duration-300">
+                <CardHeader className="pb-4 border-b border-slate-100">
+                  <CardTitle className="flex items-center gap-3 text-xl">
+                    <div className="p-2 rounded-lg bg-blue-50">
+                      <Globe className="w-5 h-5 text-blue-600" />
+                    </div>
+                    <span className="text-slate-900">Language & Region</span>
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <Label htmlFor="language">Language</Label>
+                <CardContent className="pt-6 space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <Label htmlFor="language" className="text-slate-700 font-medium">Language</Label>
                       <Select 
                         value={settings.language} 
                         onValueChange={(value) => setSettings({...settings, language: value})}
                       >
-                        <SelectTrigger className="w-full">
+                        <SelectTrigger className="w-full h-11 border-slate-200 focus:border-blue-500 focus:ring-blue-500">
                           <SelectValue placeholder="Select language" />
                         </SelectTrigger>
                         <SelectContent>
                           {languages.map((lang) => (
-                            <SelectItem key={lang.code} value={lang.code}>
-                              <div className="flex items-center gap-2">
-                                <span>{lang.flag}</span>
-                                <span>{lang.name}</span>
+                            <SelectItem key={lang.code} value={lang.code} className="cursor-pointer">
+                              <div className="flex items-center gap-3 py-1">
+                                <span className="text-xl">{lang.flag}</span>
+                                <span className="font-medium">{lang.name}</span>
                               </div>
                             </SelectItem>
                           ))}
@@ -126,18 +264,18 @@ export default function SettingsPage() {
                       </Select>
                     </div>
                     
-                    <div>
-                      <Label htmlFor="timezone">Timezone</Label>
+                    <div className="space-y-2">
+                      <Label htmlFor="timezone" className="text-slate-700 font-medium">Timezone</Label>
                       <Select 
                         value={settings.timezone} 
                         onValueChange={(value) => setSettings({...settings, timezone: value})}
                       >
-                        <SelectTrigger className="w-full">
+                        <SelectTrigger className="w-full h-11 border-slate-200 focus:border-blue-500 focus:ring-blue-500">
                           <SelectValue placeholder="Select timezone" />
                         </SelectTrigger>
                         <SelectContent>
                           {timezones.map((tz) => (
-                            <SelectItem key={tz.value} value={tz.value}>
+                            <SelectItem key={tz.value} value={tz.value} className="cursor-pointer">
                               {tz.label}
                             </SelectItem>
                           ))}
@@ -149,101 +287,105 @@ export default function SettingsPage() {
               </Card>
 
               {/* Notifications */}
-              <Card className="shadow-xl border-0 bg-white/80 backdrop-blur-sm relative z-10">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Bell className="w-5 h-5 text-orange-500" />
-                    Notifications
+              <Card className="border border-slate-200/80 bg-white/90 backdrop-blur-sm shadow-lg hover:shadow-xl transition-shadow duration-300">
+                <CardHeader className="pb-4 border-b border-slate-100">
+                  <CardTitle className="flex items-center gap-3 text-xl">
+                    <div className="p-2 rounded-lg bg-amber-50">
+                      <Bell className="w-5 h-5 text-amber-600" />
+                    </div>
+                    <span className="text-slate-900">Notifications</span>
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <Label className="text-base font-medium">Email Notifications</Label>
-                      <p className="text-sm text-gray-600">Receive notifications via email</p>
+                <CardContent className="pt-6 space-y-5">
+                  <div className="flex items-center justify-between p-4 rounded-lg hover:bg-slate-50/50 transition-colors border border-transparent hover:border-slate-200">
+                    <div className="flex-1">
+                      <Label className="text-base font-semibold text-slate-900">Email Notifications</Label>
+                      <p className="text-sm text-slate-600 mt-1">Receive notifications via email</p>
                     </div>
                     <Switch 
                       checked={settings.emailNotifications}
-                      onCheckedChange={(checked) => setSettings({...settings, emailNotifications: checked})}
+                      onCheckedChange={(checked) => updateNotificationSetting('emailNotifications', checked)}
                     />
                   </div>
                   
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <Label className="text-base font-medium">Push Notifications</Label>
-                      <p className="text-sm text-gray-600">Receive push notifications on your device</p>
+                  <div className="flex items-center justify-between p-4 rounded-lg hover:bg-slate-50/50 transition-colors border border-transparent hover:border-slate-200">
+                    <div className="flex-1">
+                      <Label className="text-base font-semibold text-slate-900">Push Notifications</Label>
+                      <p className="text-sm text-slate-600 mt-1">Receive push notifications on your device</p>
                     </div>
                     <Switch 
                       checked={settings.pushNotifications}
-                      onCheckedChange={(checked) => setSettings({...settings, pushNotifications: checked})}
+                      onCheckedChange={(checked) => updateNotificationSetting('pushNotifications', checked)}
                     />
                   </div>
                   
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <Label className="text-base font-medium">Order Updates</Label>
-                      <p className="text-sm text-gray-600">Get notified about your order status</p>
+                  <div className="flex items-center justify-between p-4 rounded-lg hover:bg-slate-50/50 transition-colors border border-transparent hover:border-slate-200">
+                    <div className="flex-1">
+                      <Label className="text-base font-semibold text-slate-900">Order Updates</Label>
+                      <p className="text-sm text-slate-600 mt-1">Get notified about your order status</p>
                     </div>
                     <Switch 
                       checked={settings.orderUpdates}
-                      onCheckedChange={(checked) => setSettings({...settings, orderUpdates: checked})}
+                      onCheckedChange={(checked) => updateNotificationSetting('orderUpdates', checked)}
                     />
                   </div>
                   
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <Label className="text-base font-medium">Promotions</Label>
-                      <p className="text-sm text-gray-600">Receive promotional offers and discounts</p>
+                  <div className="flex items-center justify-between p-4 rounded-lg hover:bg-slate-50/50 transition-colors border border-transparent hover:border-slate-200">
+                    <div className="flex-1">
+                      <Label className="text-base font-semibold text-slate-900">Promotions</Label>
+                      <p className="text-sm text-slate-600 mt-1">Receive promotional offers and discounts</p>
                     </div>
                     <Switch 
                       checked={settings.promotions}
-                      onCheckedChange={(checked) => setSettings({...settings, promotions: checked})}
+                      onCheckedChange={(checked) => updateNotificationSetting('promotions', checked)}
                     />
                   </div>
                   
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <Label className="text-base font-medium">Marketing</Label>
-                      <p className="text-sm text-gray-600">Receive marketing communications</p>
+                  <div className="flex items-center justify-between p-4 rounded-lg hover:bg-slate-50/50 transition-colors border border-transparent hover:border-slate-200">
+                    <div className="flex-1">
+                      <Label className="text-base font-semibold text-slate-900">Marketing</Label>
+                      <p className="text-sm text-slate-600 mt-1">Receive marketing communications</p>
                     </div>
                     <Switch 
                       checked={settings.marketing}
-                      onCheckedChange={(checked) => setSettings({...settings, marketing: checked})}
+                      onCheckedChange={(checked) => updateNotificationSetting('marketing', checked)}
                     />
                   </div>
                 </CardContent>
               </Card>
 
               {/* Privacy & Security */}
-              <Card className="shadow-xl border-0 bg-white/80 backdrop-blur-sm relative z-10">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Shield className="w-5 h-5 text-orange-500" />
-                    Privacy & Security
+              <Card className="border border-slate-200/80 bg-white/90 backdrop-blur-sm shadow-lg hover:shadow-xl transition-shadow duration-300">
+                <CardHeader className="pb-4 border-b border-slate-100">
+                  <CardTitle className="flex items-center gap-3 text-xl">
+                    <div className="p-2 rounded-lg bg-emerald-50">
+                      <Shield className="w-5 h-5 text-emerald-600" />
+                    </div>
+                    <span className="text-slate-900">Privacy & Security</span>
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  <div>
-                    <Label htmlFor="profileVisibility">Profile Visibility</Label>
+                <CardContent className="pt-6 space-y-5">
+                  <div className="space-y-2">
+                    <Label htmlFor="profileVisibility" className="text-slate-700 font-medium">Profile Visibility</Label>
                     <Select 
                       value={settings.profileVisibility} 
                       onValueChange={(value) => setSettings({...settings, profileVisibility: value})}
                     >
-                      <SelectTrigger className="w-full">
+                      <SelectTrigger className="w-full h-11 border-slate-200 focus:border-emerald-500 focus:ring-emerald-500">
                         <SelectValue placeholder="Select visibility" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="public">Public</SelectItem>
-                        <SelectItem value="friends">Friends Only</SelectItem>
-                        <SelectItem value="private">Private</SelectItem>
+                        <SelectItem value="public" className="cursor-pointer">Public</SelectItem>
+                        <SelectItem value="friends" className="cursor-pointer">Friends Only</SelectItem>
+                        <SelectItem value="private" className="cursor-pointer">Private</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                   
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <Label className="text-base font-medium">Data Sharing</Label>
-                      <p className="text-sm text-gray-600">Allow sharing data for improved service</p>
+                  <div className="flex items-center justify-between p-4 rounded-lg hover:bg-slate-50/50 transition-colors">
+                    <div className="flex-1">
+                      <Label className="text-base font-semibold text-slate-900">Data Sharing</Label>
+                      <p className="text-sm text-slate-600 mt-1">Allow sharing data for improved service</p>
                     </div>
                     <Switch 
                       checked={settings.dataSharing}
@@ -251,77 +393,76 @@ export default function SettingsPage() {
                     />
                   </div>
                   
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <Label className="text-base font-medium">Two-Factor Authentication</Label>
-                      <p className="text-sm text-gray-600">Add an extra layer of security</p>
+                  <div className="flex items-center justify-between p-4 rounded-lg hover:bg-slate-50/50 transition-colors">
+                    <div className="flex-1">
+                      <Label className="text-base font-semibold text-slate-900">Two-Factor Authentication</Label>
+                      <p className="text-sm text-slate-600 mt-1">Add an extra layer of security</p>
                     </div>
                     <Switch 
                       checked={settings.twoFactorAuth}
                       onCheckedChange={(checked) => setSettings({...settings, twoFactorAuth: checked})}
-                      disabled={!isEditing}
                     />
                   </div>
                 </CardContent>
               </Card>
 
               {/* Appearance */}
-              <Card className="shadow-xl border-0 bg-white/80 backdrop-blur-sm relative z-10">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Palette className="w-5 h-5 text-orange-500" />
-                    Appearance
+              <Card className="border border-slate-200/80 bg-white/90 backdrop-blur-sm shadow-lg hover:shadow-xl transition-shadow duration-300">
+                <CardHeader className="pb-4 border-b border-slate-100">
+                  <CardTitle className="flex items-center gap-3 text-xl">
+                    <div className="p-2 rounded-lg bg-purple-50">
+                      <Palette className="w-5 h-5 text-purple-600" />
+                    </div>
+                    <span className="text-slate-900">Appearance</span>
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <Label htmlFor="theme">Theme</Label>
+                <CardContent className="pt-6 space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <Label htmlFor="theme" className="text-slate-700 font-medium">Theme</Label>
                       <Select 
                         value={settings.theme} 
                         onValueChange={(value) => setSettings({...settings, theme: value})}
-                        disabled={!isEditing}
                       >
-                        <SelectTrigger className="w-full">
+                        <SelectTrigger className="w-full h-11 border-slate-200 focus:border-purple-500 focus:ring-purple-500">
                           <SelectValue placeholder="Select theme" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="light">
-                            <div className="flex items-center gap-2">
-                              <Sun className="w-4 h-4" />
-                              <span>Light</span>
+                          <SelectItem value="light" className="cursor-pointer">
+                            <div className="flex items-center gap-3 py-1">
+                              <Sun className="w-4 h-4 text-amber-500" />
+                              <span className="font-medium">Light</span>
                             </div>
                           </SelectItem>
-                          <SelectItem value="dark">
-                            <div className="flex items-center gap-2">
-                              <Moon className="w-4 h-4" />
-                              <span>Dark</span>
+                          <SelectItem value="dark" className="cursor-pointer">
+                            <div className="flex items-center gap-3 py-1">
+                              <Moon className="w-4 h-4 text-slate-600" />
+                              <span className="font-medium">Dark</span>
                             </div>
                           </SelectItem>
-                          <SelectItem value="auto">
-                            <div className="flex items-center gap-2">
-                              <Settings className="w-4 h-4" />
-                              <span>Auto</span>
+                          <SelectItem value="auto" className="cursor-pointer">
+                            <div className="flex items-center gap-3 py-1">
+                              <Palette className="w-4 h-4 text-purple-500" />
+                              <span className="font-medium">Auto</span>
                             </div>
                           </SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
                     
-                    <div>
-                      <Label htmlFor="fontSize">Font Size</Label>
+                    <div className="space-y-2">
+                      <Label htmlFor="fontSize" className="text-slate-700 font-medium">Font Size</Label>
                       <Select 
                         value={settings.fontSize} 
                         onValueChange={(value) => setSettings({...settings, fontSize: value})}
-                        disabled={!isEditing}
                       >
-                        <SelectTrigger className="w-full">
+                        <SelectTrigger className="w-full h-11 border-slate-200 focus:border-purple-500 focus:ring-purple-500">
                           <SelectValue placeholder="Select font size" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="small">Small</SelectItem>
-                          <SelectItem value="medium">Medium</SelectItem>
-                          <SelectItem value="large">Large</SelectItem>
+                          <SelectItem value="small" className="cursor-pointer">Small</SelectItem>
+                          <SelectItem value="medium" className="cursor-pointer">Medium</SelectItem>
+                          <SelectItem value="large" className="cursor-pointer">Large</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -329,79 +470,41 @@ export default function SettingsPage() {
                 </CardContent>
               </Card>
 
-              {/* Account Security */}
-              <Card className="shadow-xl border-0 bg-white/80 backdrop-blur-sm relative z-10">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <User className="w-5 h-5 text-orange-500" />
-                    Account Security
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div>
-                    <Label htmlFor="currentPassword">Current Password</Label>
-                    <div className="relative">
-                      <Input
-                        id="currentPassword"
-                        type={showPassword ? "text" : "password"}
-                        value={settings.currentPassword}
-                        onChange={(e) => setSettings({...settings, currentPassword: e.target.value})}
-                        disabled={!isEditing}
-                        className="pr-10"
-                      />
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                        onClick={() => setShowPassword(!showPassword)}
-                      >
-                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                      </Button>
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <Label htmlFor="newPassword">New Password</Label>
-                    <Input
-                      id="newPassword"
-                      type="password"
-                      value={settings.newPassword}
-                      onChange={(e) => setSettings({...settings, newPassword: e.target.value})}
-                      disabled={!isEditing}
-                    />
-                  </div>
-                  
-                  <div>
-                    <Label htmlFor="confirmPassword">Confirm New Password</Label>
-                    <Input
-                      id="confirmPassword"
-                      type="password"
-                      value={settings.confirmPassword}
-                      onChange={(e) => setSettings({...settings, confirmPassword: e.target.value})}
-                      disabled={!isEditing}
-                    />
-                  </div>
-                </CardContent>
-              </Card>
-
               {/* Action Buttons */}
-              <div className="flex justify-end gap-4">
+              <div className="flex flex-col sm:flex-row justify-end gap-3 pt-6 border-t border-slate-200">
                 <Button
                   variant="outline"
                   onClick={handleReset}
-                  className="px-6"
+                  className="px-6 h-11 border-slate-300 text-slate-700 hover:bg-slate-50 hover:border-slate-400 transition-all"
                 >
                   Reset to Defaults
                 </Button>
                 <Button
                   onClick={handleSave}
-                  className="px-6 bg-orange-500 hover:bg-orange-600"
+                  disabled={isSaving}
+                  className="px-8 h-11 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white shadow-lg hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <Save className="w-4 h-4 mr-2" />
-                  Save Changes
+                  {isSaving ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="w-4 h-4 mr-2" />
+                      Save Changes
+                    </>
+                  )}
                 </Button>
               </div>
+
+              {/* Success Message */}
+              {showSuccess && (
+                <div className="fixed bottom-6 right-6 bg-emerald-500 text-white px-6 py-4 rounded-lg shadow-2xl flex items-center gap-3 animate-in slide-in-from-bottom-5 z-50">
+                  <CheckCircle2 className="w-5 h-5" />
+                  <span className="font-medium">Settings saved successfully!</span>
+                </div>
+              )}
             </div>
           </div>
         </div>

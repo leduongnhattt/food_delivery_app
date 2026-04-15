@@ -14,9 +14,19 @@ interface ProfileFormProps {
   onFieldChange: (field: string, value: string) => void
   onSave: () => void
   onCancel: () => void
+  onUseCurrentLocation?: () => void
+  locationStatus?: 'idle' | 'loading' | 'granted' | 'denied' | 'unsupported' | 'error'
 }
 
-export function ProfileForm({ profileData, isEditing, onFieldChange, onSave, onCancel }: ProfileFormProps) {
+export function ProfileForm({
+  profileData,
+  isEditing,
+  onFieldChange,
+  onSave,
+  onCancel,
+  onUseCurrentLocation,
+  locationStatus = 'idle',
+}: ProfileFormProps) {
   const [validationErrors, setValidationErrors] = useState<Record<string, ValidationResult>>({})
   const [isFormValid, setIsFormValid] = useState(false)
 
@@ -87,6 +97,29 @@ export function ProfileForm({ profileData, isEditing, onFieldChange, onSave, onC
           {getFieldError('address') && (
             <p className="text-red-500 text-sm mt-1">{getFieldError('address')}</p>
           )}
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              className="h-10"
+              onClick={onUseCurrentLocation}
+              disabled={!onUseCurrentLocation || locationStatus === 'loading'}
+              title="Update your saved location using GPS"
+            >
+              {locationStatus === 'loading' ? 'Getting location…' : 'Use current location'}
+            </Button>
+            <div className="text-xs text-gray-500">
+              {locationStatus === 'denied'
+                ? 'Permission denied. You can still save an address.'
+                : locationStatus === 'unsupported'
+                  ? 'GPS is not supported on this device/browser.'
+                  : locationStatus === 'error'
+                    ? 'Failed to update location. Please try again.'
+                    : locationStatus === 'granted'
+                      ? 'Saved GPS location.'
+                      : 'Optional: save GPS to improve ETA everywhere.'}
+            </div>
+          </div>
         </div>
       </div>
 

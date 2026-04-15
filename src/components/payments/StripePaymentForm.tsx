@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { CreditCard, Lock, AlertCircle } from 'lucide-react'
 import { buildHeaders } from '@/lib/http-client'
+import { getServerApiBase } from '@/lib/http-client'
 
 interface StripePaymentFormProps {
   amount: number
@@ -38,7 +39,8 @@ export function StripePaymentForm({
 
     try {
       // Create checkout session
-      const response = await fetch('/api/payments/create-checkout-session', {
+      const base = getServerApiBase()
+      const response = await fetch(`${base}/payments/create-checkout-session`, {
         method: 'POST',
         headers: buildHeaders(),
         body: JSON.stringify({

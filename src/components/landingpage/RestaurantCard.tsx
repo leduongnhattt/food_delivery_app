@@ -15,6 +15,13 @@ const RestaurantCard: React.FC<Props> = ({
   showRating = true,
   showDescription = true 
 }) => {
+  const rating = restaurant.rating ?? 0;
+  const totalReviews = restaurant.totalReviews ?? 0;
+  
+  // Calculate star display
+  const fullStars = Math.floor(rating);
+  const hasHalfStar = rating % 1 >= 0.5;
+  
   return (
     <Link href={`/restaurants/${restaurant.enterpriseId}`} className="block">
       <div className="group bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-2 cursor-pointer">
@@ -72,14 +79,30 @@ const RestaurantCard: React.FC<Props> = ({
         {showRating && (
           <div className="flex items-center mb-3">
             <div className="flex items-center">
-              <Star className="w-4 h-4 text-yellow-400 fill-current" />
-              <Star className="w-4 h-4 text-yellow-400 fill-current" />
-              <Star className="w-4 h-4 text-yellow-400 fill-current" />
-              <Star className="w-4 h-4 text-yellow-400 fill-current" />
-              <Star className="w-4 h-4 text-gray-300" />
+              {[...Array(5)].map((_, index) => {
+                if (index < fullStars) {
+                  return <Star key={index} className="w-4 h-4 text-yellow-400 fill-current" />;
+                } else if (index === fullStars && hasHalfStar) {
+                  return (
+                    <div key={index} className="relative w-4 h-4">
+                      <Star className="w-4 h-4 text-gray-300 absolute" />
+                      <Star className="w-4 h-4 text-yellow-400 fill-current absolute" style={{ clipPath: 'inset(0 50% 0 0)' }} />
+                    </div>
+                  );
+                } else {
+                  return <Star key={index} className="w-4 h-4 text-gray-300" />;
+                }
+              })}
             </div>
-            <span className="text-sm text-gray-600 ml-2 font-medium">4.2</span>
-            <span className="text-xs text-gray-400 ml-1">(128 reviews)</span>
+            {rating > 0 && (
+              <>
+                <span className="text-sm text-gray-600 ml-2 font-medium">{rating.toFixed(1)}</span>
+                <span className="text-xs text-gray-400 ml-1">({totalReviews} {totalReviews === 1 ? 'review' : 'reviews'})</span>
+              </>
+            )}
+            {rating === 0 && totalReviews === 0 && (
+              <span className="text-xs text-gray-400 ml-2">No reviews yet</span>
+            )}
           </div>
         )}
 
@@ -87,7 +110,7 @@ const RestaurantCard: React.FC<Props> = ({
         <div className="flex items-center justify-between pt-3 border-t border-gray-100">
           <div className="flex items-center text-sm text-gray-600">
             <span className="mr-1">⏱️</span>
-            <span className="font-medium">30-45 min</span>
+            <span className="font-medium">{restaurant.deliveryTime || '30-45 min'}</span>
           </div>
           <div className="flex items-center text-sm text-gray-600">
             <span className="mr-1">🚚</span>

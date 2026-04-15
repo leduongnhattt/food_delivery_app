@@ -1,5 +1,5 @@
 import { BaseService } from '@/lib/base-service'
-import { requestJson } from '@/lib/http-client'
+import { requestJson, getServerApiBase } from '@/lib/http-client'
 import { createDebouncedApiCall } from '@/lib/debounce'
 
 export interface CategoryDto {
@@ -16,7 +16,8 @@ export class CategoryService extends BaseService {
 
     static async getAll(): Promise<CategoryDto[]> {
         try {
-            const response = await requestJson<{ categories: CategoryDto[] }>('/api/categories', {
+            const base = getServerApiBase()
+            const response = await requestJson<{ categories: CategoryDto[] }>(`${base}/categories`, {
                 method: 'GET',
                 cache: 'no-store'
             })

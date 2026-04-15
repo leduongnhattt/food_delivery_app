@@ -6,11 +6,20 @@ import { loginWithGoogle } from '@/lib/client-auth';
 import { setAuthToken } from '@/lib/auth-helpers';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
+import { API_BASE_URL } from '@/services/api';
 
 interface GoogleAuthButtonProps {
   onSuccess?: () => void;
   onError?: (error: string) => void;
   className?: string;
+}
+
+function getApiOrigin(): string {
+  try {
+    return new URL(API_BASE_URL).origin;
+  } catch {
+    return '';
+  }
 }
 
 export default function GoogleAuthButton({
@@ -34,9 +43,9 @@ export default function GoogleAuthButton({
       const top = window.screenY + (window.outerHeight - height) / 2;
       const features = `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes`;
       
-      // Open Google OAuth authorization URL in a popup
+      // Open Google OAuth authorization URL in a popup (Nest or Next API)
       const popup = window.open(
-        `/api/auth/google/authorize`, 
+        `${API_BASE_URL}/auth/google/authorize`,
         'GoogleLogin',
         features
       );
@@ -47,10 +56,13 @@ export default function GoogleAuthButton({
         return;
       }
 
-      // Listen for messages from the popup
+      const apiOrigin = getApiOrigin();
+
+      // Listen for messages from the popup (allow same origin or API server origin when using Nest)
       const messageHandler = async (event: MessageEvent) => {
-        // Make sure message is from our domain
-        if (event.origin !== window.location.origin) return;
+        const allowedOrigin =
+          event.origin === window.location.origin || event.origin === apiOrigin;
+        if (!allowedOrigin) return;
         
         try {
           const data = event.data;

@@ -11,11 +11,10 @@ import {
   CheckCircle, 
   XCircle, 
   RotateCcw,
-  Eye,
   ChevronDown,
   ChevronRight
 } from 'lucide-react'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 
 interface OrderRowProps {
   order: Order
@@ -23,62 +22,61 @@ interface OrderRowProps {
   onReorder: (orderId: string) => void
   onTrack: (orderId: string) => void
   onCancel: (orderId: string) => void
+  onRequestRefund: (orderId: string) => void
 }
 
-const getStatusConfig = (status: string) => {
+const getStatusConfig = (status: Order['status']) => {
+  // Display raw status on each item (bucket is only for filters).
   switch (status) {
     case 'pending':
-      return {
-        color: 'bg-yellow-100 text-yellow-800 border-yellow-200',
-        icon: Clock,
-        label: 'Pending'
-      }
+      return { color: 'bg-yellow-50 text-yellow-800 border-yellow-200', icon: Clock, label: 'Waiting confirmation' }
     case 'confirmed':
-      return {
-        color: 'bg-blue-100 text-blue-800 border-blue-200',
-        icon: Package,
-        label: 'Confirmed'
-      }
+      return { color: 'bg-blue-50 text-blue-700 border-blue-200', icon: Package, label: 'Confirmed' }
     case 'preparing':
-      return {
-        color: 'bg-orange-100 text-orange-800 border-orange-200',
-        icon: Package,
-        label: 'Preparing'
-      }
+      return { color: 'bg-orange-50 text-orange-800 border-orange-200', icon: Package, label: 'Preparing' }
     case 'out_for_delivery':
-      return {
-        color: 'bg-purple-100 text-purple-800 border-purple-200',
-        icon: Truck,
-        label: 'Out for Delivery'
-      }
+      return { color: 'bg-purple-50 text-purple-700 border-purple-200', icon: Truck, label: 'Out for delivery' }
     case 'delivered':
-      return {
-        color: 'bg-green-100 text-green-800 border-green-200',
-        icon: CheckCircle,
-        label: 'Delivered'
-      }
+      return { color: 'bg-green-50 text-green-700 border-green-200', icon: CheckCircle, label: 'Delivered' }
+    case 'completed':
+      return { color: 'bg-green-50 text-green-700 border-green-200', icon: CheckCircle, label: 'Completed' }
     case 'cancelled':
-      return {
-        color: 'bg-red-100 text-red-800 border-red-200',
-        icon: XCircle,
-        label: 'Cancelled'
-      }
+      return { color: 'bg-red-50 text-red-700 border-red-200', icon: XCircle, label: 'Cancelled' }
+    case 'refunded':
+      return { color: 'bg-orange-50 text-orange-700 border-orange-200', icon: RotateCcw, label: 'Refunded' }
     default:
-      return {
-        color: 'bg-gray-100 text-gray-800 border-gray-200',
-        icon: Clock,
-        label: status
-      }
+      return { color: 'bg-gray-100 text-gray-800 border-gray-200', icon: Clock, label: status }
   }
 }
 
-export function OrderRow({ order, onViewDetails, onReorder, onTrack, onCancel }: OrderRowProps) {
+export function OrderRow({ order, onViewDetails, onReorder, onTrack, onCancel, onRequestRefund }: OrderRowProps) {
   const statusConfig = getStatusConfig(order.status)
   const StatusIcon = statusConfig.icon
 
-  const canCancel = ['pending', 'confirmed'].includes(order.status)
-  const canTrack = ['preparing', 'out_for_delivery'].includes(order.status)
-  const canReorder = order.status === 'delivered'
+  const canCancel = order.status === 'pending'
+  const canTrack = order.status === 'out_for_delivery'
+  const canReorder = order.status === 'delivered' || order.status === 'completed'
+  const canRequestRefund = order.status === 'delivered' || order.status === 'completed'
+
+  const secondaryActions = useMemo(() => {
+    if (canCancel) return [{ key: 'cancel', label: 'Cancel order', onClick: () => onCancel(order.id) }]
+    if (canTrack) return [{ key: 'track', label: 'Track order', onClick: () => onTrack(order.id) }]
+    const actions: Array<{ key: string; label: string; onClick: () => void }> = []
+    if (canRequestRefund) actions.push({ key: 'refund', label: 'Return / Refund', onClick: () => onRequestRefund(order.id) })
+    if (canReorder) actions.push({ key: 'reorder', label: 'Reorder', onClick: () => onReorder(order.id) })
+    return actions.slice(0, 2)
+  }, [canCancel, canReorder, canRequestRefund, canTrack, onCancel, onReorder, onRequestRefund, onTrack, order.id])
+
+  const getSecondaryTone = (key: string) =>
+    key === 'cancel'
+      ? 'text-red-600 border-red-200 hover:bg-red-50'
+      : key === 'reorder'
+        ? 'text-green-700 border-green-200 hover:bg-green-50'
+        : key === 'refund'
+          ? 'text-orange-700 border-orange-200 hover:bg-orange-50'
+          : key === 'track'
+            ? 'text-purple-700 border-purple-200 hover:bg-purple-50'
+            : 'text-gray-700 border-gray-200 hover:bg-gray-50'
 
   return (
     <tr className="hover:bg-gray-50 transition-colors duration-200 border-b border-gray-100">
@@ -128,65 +126,62 @@ export function OrderRow({ order, onViewDetails, onReorder, onTrack, onCancel }:
 
         {/* Actions */}
         <td className="px-6 py-4">
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center gap-2">
             <Button
               variant="outline"
               size="sm"
               onClick={() => onViewDetails(order.id)}
-              className="flex items-center space-x-1 text-xs px-3 py-1 h-7"
+              className="text-xs px-3 py-1 h-7 bg-white"
             >
-              <Eye className="w-3 h-3" />
-              <span>Details</span>
+              <span>View details</span>
             </Button>
 
-            {canTrack && (
+            {secondaryActions.map((a) => (
               <Button
-                size="sm"
-                onClick={() => onTrack(order.id)}
-                className="flex items-center space-x-1 bg-purple-600 hover:bg-purple-700 text-xs px-3 py-1 h-7"
-              >
-                <Truck className="w-3 h-3" />
-                <span>Track</span>
-              </Button>
-            )}
-
-            {canReorder && (
-              <Button
+                key={a.key}
                 variant="outline"
                 size="sm"
-                onClick={() => onReorder(order.id)}
-                className="flex items-center space-x-1 text-green-600 border-green-200 hover:bg-green-50 text-xs px-3 py-1 h-7"
+                onClick={a.onClick}
+                className={`text-xs px-3 py-1 h-7 bg-white ${getSecondaryTone(a.key)}`}
               >
-                <RotateCcw className="w-3 h-3" />
-                <span>Reorder</span>
+                <span>{a.label}</span>
               </Button>
-            )}
-
-            {canCancel && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => onCancel(order.id)}
-                className="flex items-center space-x-1 text-red-600 border-red-200 hover:bg-red-50 text-xs px-3 py-1 h-7"
-              >
-                <XCircle className="w-3 h-3" />
-                <span>Cancel</span>
-              </Button>
-            )}
+            ))}
           </div>
         </td>
       </tr>
   )
 }
 
-export function OrderCard({ order, onViewDetails, onReorder, onTrack, onCancel }: OrderRowProps) {
+export function OrderCard({ order, onViewDetails, onReorder, onTrack, onCancel, onRequestRefund }: OrderRowProps) {
   const [isExpanded, setIsExpanded] = useState(false)
   const statusConfig = getStatusConfig(order.status)
   const StatusIcon = statusConfig.icon
 
-  const canCancel = ['pending', 'confirmed'].includes(order.status)
-  const canTrack = ['preparing', 'out_for_delivery'].includes(order.status)
-  const canReorder = order.status === 'delivered'
+  const canCancel = order.status === 'pending'
+  const canTrack = order.status === 'out_for_delivery'
+  const canReorder = order.status === 'delivered' || order.status === 'completed'
+  const canRequestRefund = order.status === 'delivered' || order.status === 'completed'
+
+  const secondaryActions = useMemo(() => {
+    if (canCancel) return [{ key: 'cancel', label: 'Cancel order', onClick: () => onCancel(order.id) }]
+    if (canTrack) return [{ key: 'track', label: 'Track order', onClick: () => onTrack(order.id) }]
+    const actions: Array<{ key: string; label: string; onClick: () => void }> = []
+    if (canRequestRefund) actions.push({ key: 'refund', label: 'Return / Refund', onClick: () => onRequestRefund(order.id) })
+    if (canReorder) actions.push({ key: 'reorder', label: 'Reorder', onClick: () => onReorder(order.id) })
+    return actions.slice(0, 2)
+  }, [canCancel, canReorder, canRequestRefund, canTrack, onCancel, onReorder, onRequestRefund, onTrack, order.id])
+
+  const getSecondaryTone = (key: string) =>
+    key === 'cancel'
+      ? 'text-red-600 border-red-200 hover:bg-red-50'
+      : key === 'reorder'
+        ? 'text-green-700 border-green-200 hover:bg-green-50'
+        : key === 'refund'
+          ? 'text-orange-700 border-orange-200 hover:bg-orange-50'
+          : key === 'track'
+            ? 'text-purple-700 border-purple-200 hover:bg-purple-50'
+            : 'text-gray-700 border-gray-200 hover:bg-gray-50'
 
   return (
     <div className="md:hidden">
@@ -259,51 +254,27 @@ export function OrderCard({ order, onViewDetails, onReorder, onTrack, onCancel }
           </div>
 
           {/* Action Buttons */}
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2 items-center">
             <Button
               variant="outline"
               size="sm"
               onClick={() => onViewDetails(order.id)}
-              className="flex items-center space-x-1 text-xs px-3 py-1 h-7"
+              className="text-xs px-3 py-1 h-7 bg-white"
             >
-              <Eye className="w-3 h-3" />
-              <span>Details</span>
+              <span>View details</span>
             </Button>
 
-            {canTrack && (
+            {secondaryActions.map((a) => (
               <Button
-                size="sm"
-                onClick={() => onTrack(order.id)}
-                className="flex items-center space-x-1 bg-purple-600 hover:bg-purple-700 text-xs px-3 py-1 h-7"
-              >
-                <Truck className="w-3 h-3" />
-                <span>Track</span>
-              </Button>
-            )}
-
-            {canReorder && (
-              <Button
+                key={a.key}
                 variant="outline"
                 size="sm"
-                onClick={() => onReorder(order.id)}
-                className="flex items-center space-x-1 text-green-600 border-green-200 hover:bg-green-50 text-xs px-3 py-1 h-7"
+                onClick={a.onClick}
+                className={`text-xs px-3 py-1 h-7 bg-white ${getSecondaryTone(a.key)}`}
               >
-                <RotateCcw className="w-3 h-3" />
-                <span>Reorder</span>
+                <span>{a.label}</span>
               </Button>
-            )}
-
-            {canCancel && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => onCancel(order.id)}
-                className="flex items-center space-x-1 text-red-600 border-red-200 hover:bg-red-50 text-xs px-3 py-1 h-7"
-              >
-                <XCircle className="w-3 h-3" />
-                <span>Cancel</span>
-              </Button>
-            )}
+            ))}
           </div>
         </div>
       </div>

@@ -55,7 +55,7 @@ export function useAuth() {
     };
 
     // Logout function
-    const logout = async () => {
+    const logout = async (redirectTo: string = '/') => {
         try {
             await logoutUser();
             // Ensure cart state switches to guest immediately without page refresh
@@ -65,7 +65,8 @@ export function useAuth() {
                 user: null,
                 isLoading: false
             });
-            router.push('/');
+            // Use replace to prevent going "Back" into authed pages.
+            router.replace(redirectTo);
         } catch (error) {
             console.error('Logout error:', error);
         }

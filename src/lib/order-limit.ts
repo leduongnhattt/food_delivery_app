@@ -1,6 +1,5 @@
 import { Locale } from './i18n'
 
-const VND_PER_USD = 24_000
 export const ITEM_ORDER_VALUE_LIMIT_USD = 100 // $10M per item (default currency)
 export const ITEM_ORDER_VALUE_LIMIT_VND = 1_000_000 // 1M VND per item
 export const ITEM_ORDER_VALUE_LIMIT = ITEM_ORDER_VALUE_LIMIT_USD
