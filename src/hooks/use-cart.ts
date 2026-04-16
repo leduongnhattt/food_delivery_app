@@ -81,8 +81,6 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     useEffect(() => {
         (async () => {
             await updateCartFromServer(true) // Use immediate fetch for initial load
-            console.log(cartItems);
-            
             isMounted.current = true
         })()
     }, [updateCartFromServer])

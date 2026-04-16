@@ -23,7 +23,7 @@ export default function OrderStatusTabs({ current }: { current: string }) {
   const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
 
-  const handleTabSelect = (nextStatus: string) => {
+  const handleTabSelect = (nextStatus: OrderStatusKey) => {
     if (nextStatus === current) return;
     const p = new URLSearchParams(searchParams.toString());
     if (nextStatus === "all") {
