@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { EnterpriseOrdersPageClient } from "@/components/enterprise/orders/EnterpriseOrdersPageClient";
+import { EnterpriseOrdersPageClient } from "@/components/enterprise/orders/list/EnterpriseOrdersPageClient";
 
 function OrdersLoadingFallback() {
   return (

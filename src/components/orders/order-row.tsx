@@ -49,14 +49,40 @@ const getStatusConfig = (status: Order['status']) => {
   }
 }
 
+const getReturnStatusConfig = (status: Order['returnRequestStatus']) => {
+  switch (status) {
+    case 'PendingReview':
+      return { color: 'bg-amber-50 text-amber-700 border-amber-200', label: 'Return: Under review' }
+    case 'Approved':
+      return { color: 'bg-green-50 text-green-700 border-green-200', label: 'Return: Approved' }
+    case 'Rejected':
+      return { color: 'bg-red-50 text-red-700 border-red-200', label: 'Return: Rejected' }
+    case 'CancelledByCustomer':
+      return { color: 'bg-slate-50 text-slate-700 border-slate-200', label: 'Return: Cancelled' }
+    case 'Completed':
+      return { color: 'bg-slate-50 text-slate-700 border-slate-200', label: 'Return: Completed' }
+    default:
+      return null
+  }
+}
+
 export function OrderRow({ order, onViewDetails, onReorder, onTrack, onCancel, onRequestRefund }: OrderRowProps) {
   const statusConfig = getStatusConfig(order.status)
   const StatusIcon = statusConfig.icon
+  const returnStatusConfig = getReturnStatusConfig(order.returnRequestStatus)
 
   const canCancel = order.status === 'pending'
   const canTrack = order.status === 'out_for_delivery'
   const canReorder = order.status === 'delivered' || order.status === 'completed'
-  const canRequestRefund = order.status === 'delivered' || order.status === 'completed'
+  const canRequestRefund = (() => {
+    if (order.returnRequestStatus) return false
+    if (order.status !== 'delivered') return false
+    // If deliveredAt is missing (older payload), allow opening modal; backend will validate.
+    if (!order.deliveredAt) return true
+    const deliveredAt = new Date(order.deliveredAt)
+    if (Number.isNaN(deliveredAt.getTime())) return true
+    return Date.now() - deliveredAt.getTime() <= 2 * 60 * 60 * 1000
+  })()
 
   const secondaryActions = useMemo(() => {
     if (canCancel) return [{ key: 'cancel', label: 'Cancel order', onClick: () => onCancel(order.id) }]
@@ -95,10 +121,17 @@ export function OrderRow({ order, onViewDetails, onReorder, onTrack, onCancel, o
 
         {/* Status */}
         <td className="px-6 py-4">
-          <Badge className={`${statusConfig.color} border text-xs px-3 py-1`}>
-            <StatusIcon className="w-3 h-3 mr-1" />
-            {statusConfig.label}
-          </Badge>
+          <div className="flex flex-col gap-2">
+            <Badge className={`${statusConfig.color} border text-xs px-3 py-1 w-fit`}>
+              <StatusIcon className="w-3 h-3 mr-1" />
+              {statusConfig.label}
+            </Badge>
+            {returnStatusConfig ? (
+              <Badge className={`${returnStatusConfig.color} border text-[11px] px-2.5 py-1 w-fit`}>
+                {returnStatusConfig.label}
+              </Badge>
+            ) : null}
+          </div>
         </td>
 
         {/* Items */}
@@ -157,11 +190,19 @@ export function OrderCard({ order, onViewDetails, onReorder, onTrack, onCancel, 
   const [isExpanded, setIsExpanded] = useState(false)
   const statusConfig = getStatusConfig(order.status)
   const StatusIcon = statusConfig.icon
+  const returnStatusConfig = getReturnStatusConfig(order.returnRequestStatus)
 
   const canCancel = order.status === 'pending'
   const canTrack = order.status === 'out_for_delivery'
   const canReorder = order.status === 'delivered' || order.status === 'completed'
-  const canRequestRefund = order.status === 'delivered' || order.status === 'completed'
+  const canRequestRefund = (() => {
+    if (order.returnRequestStatus) return false
+    if (order.status !== 'delivered') return false
+    if (!order.deliveredAt) return true
+    const deliveredAt = new Date(order.deliveredAt)
+    if (Number.isNaN(deliveredAt.getTime())) return true
+    return Date.now() - deliveredAt.getTime() <= 2 * 60 * 60 * 1000
+  })()
 
   const secondaryActions = useMemo(() => {
     if (canCancel) return [{ key: 'cancel', label: 'Cancel order', onClick: () => onCancel(order.id) }]
@@ -197,10 +238,17 @@ export function OrderCard({ order, onViewDetails, onReorder, onTrack, onCancel, 
                 <div className="text-sm text-gray-500">{order.restaurantName}</div>
               </div>
             </div>
-            <Badge className={`${statusConfig.color} border text-xs px-2 py-1`}>
-              <StatusIcon className="w-3 h-3 mr-1" />
-              {statusConfig.label}
-            </Badge>
+            <div className="flex flex-col items-end gap-1.5">
+              <Badge className={`${statusConfig.color} border text-xs px-2 py-1`}>
+                <StatusIcon className="w-3 h-3 mr-1" />
+                {statusConfig.label}
+              </Badge>
+              {returnStatusConfig ? (
+                <Badge className={`${returnStatusConfig.color} border text-[11px] px-2 py-1`}>
+                  {returnStatusConfig.label}
+                </Badge>
+              ) : null}
+            </div>
           </div>
 
           {/* Order Details */}

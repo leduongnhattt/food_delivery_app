@@ -36,7 +36,9 @@ export function useOrders() {
                     order.status === 'delivered' || order.status === 'completed'
                 )
             } else if (bucket === 'bucket_return_refund') {
-                filteredOrders = filteredOrders.filter(order => order.status === 'refunded')
+                filteredOrders = filteredOrders.filter(order =>
+                    order.status === 'refunded' || !!order.returnRequestStatus || !!order.refundPending
+                )
             } else if (bucket === 'bucket_cancel') {
                 filteredOrders = filteredOrders.filter(order => order.status === 'cancelled')
             } else {

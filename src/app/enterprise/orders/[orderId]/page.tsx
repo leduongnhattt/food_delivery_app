@@ -8,20 +8,20 @@ import {
   orderManagementService,
   type EnterpriseOrderDetail,
 } from "@/services/order-management.service";
-import { BuyerPaymentCard } from "@/components/enterprise/orders/BuyerPaymentCard";
-import { CancelOrderDialog } from "@/components/enterprise/orders/CancelOrderDialog";
-import { FinalAmountCard } from "@/components/enterprise/orders/FinalAmountCard";
-import { OrderHistoryCard } from "@/components/enterprise/orders/OrderHistoryCard";
-import { OrderInformationCard } from "@/components/enterprise/orders/OrderInformationCard";
-import { OrderNoteCard } from "@/components/enterprise/orders/OrderNoteCard";
-import { PaymentInformationCard } from "@/components/enterprise/orders/PaymentInformationCard";
-import { SellerContactCard } from "@/components/enterprise/orders/SellerContactCard";
-import { StatusCard } from "@/components/enterprise/orders/StatusCard";
+import { BuyerPaymentCard } from "@/components/enterprise/orders/detail/BuyerPaymentCard";
+import { CancelOrderDialog } from "@/components/enterprise/orders/cancellation/CancelOrderDialog";
+import { FinalAmountCard } from "@/components/enterprise/orders/detail/FinalAmountCard";
+import { OrderHistoryCard } from "@/components/enterprise/orders/detail/OrderHistoryCard";
+import { OrderInformationCard } from "@/components/enterprise/orders/detail/OrderInformationCard";
+import { OrderNoteCard } from "@/components/enterprise/orders/detail/OrderNoteCard";
+import { PaymentInformationCard } from "@/components/enterprise/orders/detail/PaymentInformationCard";
+import { SellerContactCard } from "@/components/enterprise/orders/detail/SellerContactCard";
+import { StatusCard } from "@/components/enterprise/orders/detail/StatusCard";
 import {
   ArrangeShipmentModal,
   type DeliveryMethod,
-} from "@/components/enterprise/orders/ArrangeShipmentModal";
-import { buildEnterpriseOrderActions } from "@/components/enterprise/orders/order-actions";
+} from "@/components/enterprise/orders/shared/ArrangeShipmentModal";
+import { buildEnterpriseOrderActions } from "@/components/enterprise/orders/detail/order-actions";
 import {
   buildActivityDisplayItems,
   buildLogisticsTimelineItems,
@@ -29,7 +29,7 @@ import {
   clampMoney,
   copyText,
   maskPhone,
-} from "@/components/enterprise/orders/order-detail-helpers";
+} from "@/components/enterprise/orders/detail/order-detail-helpers";
 
 type PatchableStatus =
   | "Confirmed"
