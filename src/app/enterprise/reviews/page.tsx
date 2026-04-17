@@ -24,7 +24,7 @@ import {
 import {
   EnterpriseMenuSelect,
   type EnterpriseMenuSelectOption,
-} from "@/components/enterprise/orders/EnterpriseMenuSelect";
+} from "@/components/enterprise/orders/shared/EnterpriseMenuSelect";
 import { EnterprisePageHeader, ENTERPRISE_PANEL_CLASS } from "@/components/enterprise/EnterprisePageHeader";
 
 const defaultFilters: Required<ReviewFilters> = {

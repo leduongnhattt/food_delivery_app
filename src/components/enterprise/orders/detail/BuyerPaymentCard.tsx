@@ -15,15 +15,15 @@ export function BuyerPaymentCard(props: {
     <div className="flex flex-col gap-0 overflow-hidden rounded-xl border border-gray-200 bg-white p-6">
       <button
         type="button"
-        className="flex w-full items-center justify-between transition-opacity hover:opacity-80"
+        className="flex w-full items-stretch justify-between gap-6 transition-opacity hover:opacity-80"
         onClick={props.onToggle}
       >
         <div className="flex items-center gap-2">
           <Wallet className="h-5 w-5 text-[#2563FF]" />
           <h3 className="font-medium">Buyer Payment</h3>
         </div>
-        <div className="flex items-center gap-2">
-          <span>{money(props.orderTotal)}</span>
+        <div className="flex w-[160px] items-center justify-end gap-2 border-l border-gray-200 pl-6 text-right tabular-nums">
+          <span className="text-lg font-semibold text-gray-900">{money(props.orderTotal)}</span>
           {props.buyerPaymentExpanded ? (
             <ChevronUp className="h-4 w-4 text-gray-500" />
           ) : (
@@ -55,7 +55,7 @@ export function BuyerPaymentCard(props: {
           <div className="my-2 h-px bg-gray-200" />
           <div className="flex justify-between">
             <span className="font-medium">Total Buyer Payment</span>
-            <span className="font-medium">{money(props.orderTotal)}</span>
+            <span className="text-xl font-semibold text-gray-900 tabular-nums">{money(props.orderTotal)}</span>
           </div>
         </div>
       </div>

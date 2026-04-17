@@ -21,6 +21,7 @@ import { useRouter } from 'next/navigation'
 import { addItemToCart } from '@/services/cart.service'
 import { ConfirmCancelModal } from '@/components/orders/ConfirmCancelModal'
 import { OrderDetailsModal } from '@/components/orders/OrderDetailsModal'
+import { ReturnRequestModal } from '@/components/orders/ReturnRequestModal'
 
 export default function OrdersPage() {
   const router = useRouter()
@@ -36,6 +37,9 @@ export default function OrdersPage() {
   const [detailsOpen, setDetailsOpen] = useState(false)
   const [detailLoading, setDetailLoading] = useState(false)
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
+  const [returnOpen, setReturnOpen] = useState(false)
+  const [returnLoading, setReturnLoading] = useState(false)
+  const [returnOrder, setReturnOrder] = useState<Order | null>(null)
 
   const handleViewDetails = async (orderId: string) => {
     // Restore existing modal UX; keep full page route as optional fallback.
@@ -82,8 +86,21 @@ export default function OrdersPage() {
   }
 
   const handleRequestRefund = (orderId: string) => {
-    // TODO: implement refund workflow + backend endpoint
-    showToast(`Return/Refund for order ${orderId} is not implemented yet`, 'info', 3500)
+    setReturnOpen(true)
+    setReturnLoading(true)
+    setReturnOrder(null)
+    ;(async () => {
+      try {
+        const order = await OrderService.getOrderById(orderId)
+        setReturnOrder(order as Order)
+      } catch (error) {
+        console.error('Failed to load order for return request', error)
+        showToast('Failed to load order details for return', 'error', 4000)
+        setReturnOpen(false)
+      } finally {
+        setReturnLoading(false)
+      }
+    })()
   }
 
   const confirmCancel = async () => {
@@ -502,6 +519,19 @@ export default function OrdersPage() {
         loading={detailLoading}
         order={selectedOrder}
         onClose={() => setDetailsOpen(false)}
+      />
+      <ReturnRequestModal
+        open={returnOpen}
+        order={returnOrder}
+        onClose={() => {
+          if (returnLoading) return
+          setReturnOpen(false)
+          setReturnOrder(null)
+        }}
+        onSubmitted={async () => {
+          showToast('Return request submitted', 'success', 3000)
+          await refreshOrders({ force: true })
+        }}
       />
     </div>
   )

@@ -88,3 +88,4 @@ export default function OrderRow({ order, onDelete }: OrderRowProps) {
     </div>
   );
 }
+

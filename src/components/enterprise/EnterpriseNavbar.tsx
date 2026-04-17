@@ -92,14 +92,49 @@ function findNavLabel(pathname: string): {
   sectionHref?: string;
   pageHref?: string;
 } {
-  const p = normalizePath(pathname);
+  const normalizedPath = normalizePath(pathname);
   // Home == Dashboard in this app
-  if (p === "/enterprise" || p === "/enterprise/dashboard") {
+  if (normalizedPath === "/enterprise" || normalizedPath === "/enterprise/dashboard") {
     return {};
   }
+
+  // Order Cancellation:
+  // - List: Home > Order Cancellation
+  // - Detail: Home > Order Cancellation > Order Details
+  if (normalizedPath === "/enterprise/orders/order-cancellation") {
+    return {
+      pageLabel: "Order Cancellation",
+      pageHref: "/enterprise/orders/order-cancellation",
+    };
+  }
+  if (normalizedPath.startsWith("/enterprise/orders/order-cancellation/")) {
+    return {
+      sectionLabel: "Order Cancellation",
+      pageLabel: "Order Details",
+      sectionHref: "/enterprise/orders/order-cancellation",
+    };
+  }
+
+  // Return / Refund:
+  // - List: Home > Return / Refund
+  // - Detail: Home > Return / Refund > Order Details
+  if (normalizedPath === "/enterprise/orders/returns-refunds") {
+    return {
+      pageLabel: "Return / Refund",
+      pageHref: "/enterprise/orders/returns-refunds",
+    };
+  }
+  if (normalizedPath.startsWith("/enterprise/orders/returns-refunds/")) {
+    return {
+      sectionLabel: "Return / Refund",
+      pageLabel: "Order Details",
+      sectionHref: "/enterprise/orders/returns-refunds",
+    };
+  }
+
   // Order detail: /enterprise/orders/:orderId — not list sub-pages (returns, cancellation).
-  if (p.startsWith("/enterprise/orders/") && p !== "/enterprise/orders") {
-    const seg = p.replace(/^\/enterprise\/orders\//, "").split("/")[0];
+  if (normalizedPath.startsWith("/enterprise/orders/") && normalizedPath !== "/enterprise/orders") {
+    const seg = normalizedPath.replace(/^\/enterprise\/orders\//, "").split("/")[0];
     if (seg && !ORDERS_SUBPAGE_SEGMENTS.has(seg)) {
       return {
         sectionLabel: "Orders",
@@ -114,7 +149,7 @@ function findNavLabel(pathname: string): {
     );
     for (const child of sortedChildren) {
       const base = normalizePath(child.href);
-      if (p === base || p.startsWith(base + "/")) {
+      if (normalizedPath === base || normalizedPath.startsWith(base + "/")) {
         const sectionHref = section.children[0]?.href;
         return {
           sectionLabel: titleCase(section.label.toLowerCase()),
@@ -246,30 +281,32 @@ export default function EnterpriseNavbar() {
             />
 
             {(() => {
-              const b = findNavLabel(pathname);
-              const parts: Array<{ label: string; href?: string }> = [
+              const navInfo = findNavLabel(pathname);
+              const crumbs: Array<{ label: string; href?: string }> = [
                 { label: "Home", href: "/enterprise/dashboard" },
-                ...(b.sectionLabel
-                  ? [{ label: b.sectionLabel, href: b.sectionHref }]
+                ...(navInfo.sectionLabel
+                  ? [{ label: navInfo.sectionLabel, href: navInfo.sectionHref }]
                   : []),
-                ...(b.pageLabel ? [{ label: b.pageLabel, href: b.pageHref }] : []),
+                ...(navInfo.pageLabel
+                  ? [{ label: navInfo.pageLabel, href: navInfo.pageHref }]
+                  : []),
               ];
-              const lastIdx = parts.length - 1;
+              const lastIdx = crumbs.length - 1;
               return (
                 <nav
                   className="flex min-w-0 items-center gap-2 text-sm leading-snug sm:text-[15px] sm:gap-2.5"
                   aria-label="Breadcrumb"
                 >
-                  {parts.map((it, idx) => {
+                  {crumbs.map((crumb, idx) => {
                     const isLast = idx === lastIdx;
-                    const clickable = !!it.href && !isLast;
+                    const clickable = !!crumb.href && !isLast;
                     const cls = `truncate ${
                       isLast
                         ? "font-semibold text-slate-900"
                         : "font-medium text-slate-500 hover:text-slate-800"
                     }`;
                     return (
-                      <React.Fragment key={`${it.label}-${idx}`}>
+                      <React.Fragment key={`${crumb.label}-${idx}`}>
                         {idx > 0 ? (
                           <ChevronBreadcrumb
                             className="h-3.5 w-3.5 shrink-0 text-slate-300 sm:h-4 sm:w-4"
@@ -277,12 +314,12 @@ export default function EnterpriseNavbar() {
                           />
                         ) : null}
                         {clickable ? (
-                          <Link href={it.href!} className={cls} title={it.label}>
-                            {it.label}
+                          <Link href={crumb.href!} className={cls} title={crumb.label}>
+                            {crumb.label}
                           </Link>
                         ) : (
-                          <span className={cls} title={it.label}>
-                            {it.label}
+                          <span className={cls} title={crumb.label}>
+                            {crumb.label}
                           </span>
                         )}
                       </React.Fragment>

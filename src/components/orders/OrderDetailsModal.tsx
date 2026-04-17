@@ -2,7 +2,8 @@
 
 import { Button } from '@/components/ui/button'
 import { formatPrice, formatDate } from '@/lib/utils'
-import type { Order } from '@/services/order.service'
+import type { Order, ReturnRequestStatus, ReturnRequestSummary } from '@/services/order.service'
+import { OrderService } from '@/services/order.service'
 import { ChevronDown, ChevronUp, MapPin, Phone } from 'lucide-react'
 import Image from 'next/image'
 import { useEffect, useState } from 'react'
@@ -75,6 +76,9 @@ export function OrderDetailsModal({ open, loading, order, onClose }: OrderDetail
 
   const [copied, setCopied] = useState(false)
   const [metaExpanded, setMetaExpanded] = useState(false)
+  const [returnStatus, setReturnStatus] = useState<ReturnRequestStatus | null>(null)
+  const [returnDetail, setReturnDetail] = useState<ReturnRequestSummary | null>(null)
+  const [returnLoading, setReturnLoading] = useState(false)
   useEffect(() => {
     if (open) {
       setMounted(true)
@@ -82,6 +86,8 @@ export function OrderDetailsModal({ open, loading, order, onClose }: OrderDetail
       window.requestAnimationFrame(() => setAnimateIn(true))
       setCopied(false)
       setMetaExpanded(false)
+      setReturnStatus(null)
+      setReturnDetail(null)
       return
     }
 
@@ -91,7 +97,77 @@ export function OrderDetailsModal({ open, loading, order, onClose }: OrderDetail
     return () => window.clearTimeout(t)
   }, [open])
 
+  useEffect(() => {
+    if (!open) return
+    if (!order?.id) return
+    let cancelled = false
+    const run = async () => {
+      try {
+        setReturnLoading(true)
+        const res = await OrderService.getReturnRequest(order.id)
+        const rr = (res as any)?.returnRequest ?? null
+        if (!cancelled) {
+          setReturnStatus(rr?.status ?? null)
+          setReturnDetail(rr)
+        }
+      } catch {
+        if (!cancelled) {
+          setReturnStatus(null)
+          setReturnDetail(null)
+        }
+      } finally {
+        if (!cancelled) setReturnLoading(false)
+      }
+    }
+    void run()
+    return () => {
+      cancelled = true
+    }
+  }, [open, order?.id])
+
   if (!mounted) return null
+
+  const timeline = (() => {
+    const items: Array<{ label: string; at: string | null }> = []
+    if (order?.createdAt) items.push({ label: 'Placed', at: order.createdAt })
+    const hist = Array.isArray(order?.statusHistory) ? order!.statusHistory! : []
+    const labelMap: Record<string, string> = {
+      Pending: 'Pending',
+      Confirmed: 'Confirmed',
+      Preparing: 'Preparing',
+      ReadyForPickup: 'Ready for pickup',
+      OutForDelivery: 'Out for delivery',
+      Delivered: 'Delivered',
+      Completed: 'Completed',
+      Cancelled: 'Cancelled',
+      Refunded: 'Refunded',
+    }
+    for (const h of hist) {
+      const st = typeof (h as any)?.status === 'string' ? (h as any).status : ''
+      const at = typeof (h as any)?.at === 'string' ? (h as any).at : null
+      if (!st || !at) continue
+      items.push({ label: labelMap[st] ?? st, at })
+    }
+    // Ensure DeliveredAt is visible even if history missing.
+    if (order?.deliveredAt) items.push({ label: 'Delivered', at: order.deliveredAt })
+    if (order?.cancelledAt) items.push({ label: 'Cancelled', at: order.cancelledAt })
+
+    // Deduplicate by label+time.
+    const seen = new Set<string>()
+    const out: Array<{ label: string; at: string | null }> = []
+    for (const it of items) {
+      const k = `${it.label}|${it.at ?? ''}`
+      if (seen.has(k)) continue
+      seen.add(k)
+      out.push(it)
+    }
+    // Sort by time when possible.
+    return out.sort((a, b) => {
+      const ta = a.at ? new Date(a.at).getTime() : 0
+      const tb = b.at ? new Date(b.at).getTime() : 0
+      return ta - tb
+    })
+  })()
 
   const copyOrderId = async () => {
     if (!order?.id) return
@@ -133,6 +209,13 @@ export function OrderDetailsModal({ open, loading, order, onClose }: OrderDetail
               <div className="text-xs text-white/90 truncate">
                 {order?.restaurantName || '—'}
               </div>
+              {returnStatus ? (
+                <div className="mt-1 text-[11px] text-white/90">
+                  Return request: <span className="font-semibold text-white">{returnStatus}</span>
+                </div>
+              ) : returnLoading ? (
+                <div className="mt-1 text-[11px] text-white/80">Checking return status…</div>
+              ) : null}
             </div>
             <div className={`shrink-0 px-2.5 py-1 rounded-full text-[11px] font-medium border ${statusBadgeClasses(order?.status)}`}>
               {fmtStatus(order?.status)}
@@ -246,6 +329,97 @@ export function OrderDetailsModal({ open, loading, order, onClose }: OrderDetail
                 <div className="px-4 py-3 border-t border-gray-100 flex items-center justify-between">
                   <div className="text-sm text-gray-700">Order Total</div>
                   <div className="text-sm font-bold text-gray-900">{formatPrice(order.totalAmount)}</div>
+                </div>
+              </div>
+
+              {/* Activity timeline (Order + Return) */}
+              <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                <div className="px-4 py-3 border-b border-gray-100">
+                  <div className="text-sm font-semibold">Activity</div>
+                  <div className="text-xs text-gray-500">Order progress and return updates.</div>
+                </div>
+
+                <div className="px-4 py-3 text-xs text-gray-700">
+                  {(() => {
+                    const events: Array<{
+                      at: string | null;
+                      title: string;
+                      detail?: React.ReactNode;
+                    }> = [];
+
+                    for (const t of timeline) {
+                      events.push({
+                        at: t.at,
+                        title: `Order: ${t.label}`,
+                      });
+                    }
+
+                    if (returnDetail) {
+                      events.push({
+                        at: returnDetail.requestedAt,
+                        title: 'Return: Requested',
+                        detail: (
+                          <div className="mt-1 space-y-1 text-[11px] text-gray-600">
+                            <div>
+                              <span className="text-gray-500">Reason:</span>{' '}
+                              <span className="font-medium text-gray-900">{returnDetail.reasonCode}</span>
+                            </div>
+                            {returnDetail.reasonText ? (
+                              <div className="break-words">{returnDetail.reasonText}</div>
+                            ) : null}
+                          </div>
+                        ),
+                      });
+                      events.push({
+                        at: returnDetail.updatedAt,
+                        title: `Return: ${returnDetail.status}`,
+                        detail: returnDetail.enterpriseResponseNote ? (
+                          <div className="mt-1 text-[11px] text-gray-600 break-words">
+                            <span className="text-gray-500">Enterprise:</span>{' '}
+                            {returnDetail.enterpriseResponseNote}
+                          </div>
+                        ) : undefined,
+                      });
+                    }
+
+                    const sorted = events
+                      .filter((e) => e.at)
+                      .sort((a, b) => new Date(a.at!).getTime() - new Date(b.at!).getTime());
+
+                    if (sorted.length === 0) {
+                      return <div className="text-gray-500">No activity data available yet.</div>;
+                    }
+
+                    return (
+                      <ol className="space-y-3">
+                        {sorted.map((e, idx) => {
+                          const isLast = idx === sorted.length - 1;
+                          return (
+                            <li key={`${e.title}-${idx}`} className="flex gap-3">
+                              <div className="relative pt-[2px]">
+                                <div className="h-2.5 w-2.5 rounded-full bg-orange-500" aria-hidden />
+                                {!isLast ? (
+                                  <div
+                                    className="absolute left-[5px] top-[14px] bottom-[-12px] w-px bg-gray-200"
+                                    aria-hidden
+                                  />
+                                ) : null}
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-start justify-between gap-3">
+                                  <div className="font-medium text-gray-900">{e.title}</div>
+                                  <div className="shrink-0 tabular-nums text-gray-600">
+                                    {e.at ? formatDate(e.at) : '—'}
+                                  </div>
+                                </div>
+                                {e.detail}
+                              </div>
+                            </li>
+                          );
+                        })}
+                      </ol>
+                    );
+                  })()}
                 </div>
               </div>
 

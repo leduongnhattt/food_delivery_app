@@ -7,14 +7,14 @@ import {
   orderManagementService,
   type Order,
 } from "@/services/order-management.service";
-import DeleteOrderPopup from "@/components/enterprise/orders/DeleteOrderPopup";
-import { EnterpriseOrdersPrimaryTabs } from "@/components/enterprise/orders/EnterpriseOrdersPrimaryTabs";
-import { EnterpriseOrdersTable } from "@/components/enterprise/orders/EnterpriseOrdersTable";
+import DeleteOrderPopup from "@/components/enterprise/orders/shared/DeleteOrderPopup";
+import { EnterpriseOrdersPrimaryTabs } from "@/components/enterprise/orders/list/EnterpriseOrdersPrimaryTabs";
+import { EnterpriseOrdersTable } from "@/components/enterprise/orders/list/EnterpriseOrdersTable";
 import {
   ArrangeShipmentModal,
   type DeliveryMethod,
-} from "@/components/enterprise/orders/ArrangeShipmentModal";
-import { getDeliveryMethodFromMetadata } from "@/components/enterprise/orders/order-actions";
+} from "@/components/enterprise/orders/shared/ArrangeShipmentModal";
+import { getDeliveryMethodFromMetadata } from "@/components/enterprise/orders/detail/order-actions";
 import {
   matchesEnterpriseTab,
   parseTabFromQuery,
@@ -25,7 +25,7 @@ import {
 import {
   EnterpriseMenuSelect,
   type EnterpriseMenuSelectOption,
-} from "@/components/enterprise/orders/EnterpriseMenuSelect";
+} from "@/components/enterprise/orders/shared/EnterpriseMenuSelect";
 import { EnterprisePageHeader, ENTERPRISE_PANEL_CLASS } from "@/components/enterprise/EnterprisePageHeader";
 
 type SearchField = "product" | "buyer_name" | "order_id" | "tracking_number";
