@@ -45,13 +45,28 @@ function norm(s: string | null | undefined): string {
   return (s || "").trim().toLowerCase();
 }
 
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === "object" && !Array.isArray(value);
+}
+
+export function hasReturnRefund(order: EnterpriseOrderListItem): boolean {
+  const metadata = order.metadata;
+  if (!isPlainObject(metadata)) return false;
+  const returnRequestIdRaw = (metadata as any).returnRequestId;
+  const refundPendingRaw = (metadata as any).refundPending;
+  return (
+    (typeof returnRequestIdRaw === "string" && returnRequestIdRaw.trim().length > 0) ||
+    refundPendingRaw === true
+  );
+}
+
 /**
  * Whether this order belongs to the "Unpaid" bucket (pending checkout / not paid).
  */
 export function isUnpaidBucket(order: EnterpriseOrderListItem): boolean {
-  const st = norm(order.status);
-  const ps = norm(order.paymentStatus);
-  return st === "pending" && (ps === "pending" || ps === "" || ps === "failed");
+  const statusNorm = norm(order.status);
+  const paymentStatusNorm = norm(order.paymentStatus);
+  return statusNorm === "pending" && (paymentStatusNorm === "pending" || paymentStatusNorm === "" || paymentStatusNorm === "failed");
 }
 
 export function matchesEnterpriseTab(
@@ -59,7 +74,7 @@ export function matchesEnterpriseTab(
   tab: EnterpriseOrderTab,
   toShipSub: EnterpriseToShipSubTab,
 ): boolean {
-  const st = norm(order.status);
+  const statusNorm = norm(order.status);
 
   switch (tab) {
     case "all":
@@ -67,20 +82,21 @@ export function matchesEnterpriseTab(
     case "unpaid":
       return isUnpaidBucket(order);
     case "to_ship": {
-      if (!["confirmed", "preparing", "readyforpickup"].includes(st)) {
+      if (!["confirmed", "preparing", "readyforpickup"].includes(statusNorm)) {
         return false;
       }
       if (toShipSub === "all") return true;
-      if (toShipSub === "to_process") return st === "confirmed";
-      if (toShipSub === "processed") return st === "readyforpickup";
+      if (toShipSub === "to_process") return statusNorm === "confirmed";
+      if (toShipSub === "processed") return statusNorm === "readyforpickup";
       return true;
     }
     case "shipping":
-      return st === "outfordelivery";
+      return statusNorm === "outfordelivery";
     case "completed":
-      return st === "delivered" || st === "completed";
+      return statusNorm === "delivered" || statusNorm === "completed";
     case "return_refund":
-      return st === "cancelled" || st === "refunded";
+      // Includes real cancellation/refund statuses AND delivered orders with return/refund metadata.
+      return statusNorm === "cancelled" || statusNorm === "refunded" || hasReturnRefund(order);
     default:
       return true;
   }
@@ -104,7 +120,7 @@ export const TOSHIP_SUB_LABELS: Record<EnterpriseToShipSubTab, string> = {
 export function parseTabFromQuery(
   raw: string | null | undefined,
 ): EnterpriseOrderTab {
-  const v = (raw || "all").toLowerCase().replace(/-/g, "_");
+  const normalized = (raw || "all").toLowerCase().replace(/-/g, "_");
   const allowed: EnterpriseOrderTab[] = [
     "all",
     "unpaid",
@@ -113,17 +129,17 @@ export function parseTabFromQuery(
     "completed",
     "return_refund",
   ];
-  return (allowed.includes(v as EnterpriseOrderTab)
-    ? v
+  return (allowed.includes(normalized as EnterpriseOrderTab)
+    ? normalized
     : "all") as EnterpriseOrderTab;
 }
 
 export function parseToShipSubFromQuery(
   raw: string | null | undefined,
 ): EnterpriseToShipSubTab {
-  const v = (raw || "all").toLowerCase().replace(/-/g, "_");
+  const normalized = (raw || "all").toLowerCase().replace(/-/g, "_");
   const allowed: EnterpriseToShipSubTab[] = ["all", "to_process", "processed"];
-  return (allowed.includes(v as EnterpriseToShipSubTab)
-    ? v
+  return (allowed.includes(normalized as EnterpriseToShipSubTab)
+    ? normalized
     : "all") as EnterpriseToShipSubTab;
 }

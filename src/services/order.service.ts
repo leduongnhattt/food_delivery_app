@@ -24,6 +24,10 @@ export interface Order {
     status: 'pending' | 'confirmed' | 'preparing' | 'out_for_delivery' | 'delivered' | 'completed' | 'cancelled' | 'refunded'
     cancelReason?: string | null
     refundPending?: boolean
+    deliveredAt?: string | null
+    returnRequestStatus?: ReturnRequestStatus | null
+    statusHistory?: Array<{ status: string; at: string; actor?: string }> | null
+    cancelledAt?: string | null
     deliveryAddress: string
     deliveryInstructions?: string
     paymentMethod: string
@@ -32,6 +36,56 @@ export interface Order {
     updatedAt: string
     estimatedDeliveryTime?: string
     expiresAt?: string | null
+}
+
+export type ReturnRequestStatus =
+    | 'PendingReview'
+    | 'Approved'
+    | 'Rejected'
+    | 'CancelledByCustomer'
+    | 'Completed'
+
+export type ReturnReasonCode =
+    | 'missing_items'
+    | 'wrong_item'
+    | 'quality_issue'
+    | 'damaged_spill'
+    | 'late_delivery'
+    | 'other'
+
+export type ReturnRequestedSolution = 'RefundOnly' | 'Replace' | 'StoreCredit'
+
+export interface ReturnRequestItem {
+    id: string
+    orderDetailId: string
+    foodId: string
+    foodName: string
+    imageUrl: string | null
+    quantity: number
+    lineAmount: number
+}
+
+export interface ReturnRequestSummary {
+    id: string
+    orderId: string
+    status: ReturnRequestStatus
+    reasonCode: ReturnReasonCode
+    reasonText: string | null
+    requestedSolution: ReturnRequestedSolution
+    requestedAmount: number
+    requestedAt: string
+    updatedAt: string
+    enterpriseResponseNote?: string | null
+    items: ReturnRequestItem[]
+}
+
+export interface CreateReturnRequestBody {
+    items: Array<{ orderDetailId: string; quantity: number }>
+    reasonCode: ReturnReasonCode
+    reasonText?: string | null
+    requestedSolution?: ReturnRequestedSolution
+    metadata?: unknown
+    evidenceImages?: Array<{ file: File }>
 }
 
 export interface OrderListResponse {
@@ -160,6 +214,65 @@ export class OrderService {
                 driverPhone?: string
             }
         }>(`${base}/orders/track/${orderId}`, {
+            headers: buildHeaders(),
+        })
+    }
+
+    static async createReturnRequest(orderId: string, body: CreateReturnRequestBody): Promise<{
+        success: boolean
+        returnRequest: {
+            id: string
+            orderId: string
+            status: ReturnRequestStatus
+            requestedAmount: number
+            requestedAt: string
+        }
+    }> {
+        const base = getServerApiBase()
+        const evidence = Array.isArray((body as any)?.evidenceImages) ? (body as any).evidenceImages as Array<{ file: File }> : []
+        if (evidence.length > 0) {
+            const form = new FormData()
+            form.append('items', JSON.stringify(body.items))
+            form.append('reasonCode', body.reasonCode)
+            form.append('reasonText', body.reasonText ?? '')
+            form.append('requestedSolution', body.requestedSolution ?? '')
+            if (body.metadata !== undefined) {
+                form.append('metadata', JSON.stringify(body.metadata))
+            }
+            for (const x of evidence.slice(0, 3)) {
+                if (x?.file) form.append('evidenceImages', x.file)
+            }
+
+            const headers = buildHeaders() as Record<string, string>
+            delete headers['Content-Type']
+
+            const res = await fetch(`${base}/orders/${encodeURIComponent(orderId)}/returns`, {
+                method: 'POST',
+                headers,
+                body: form,
+            })
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({} as any))
+                const e: any = new Error(err?.message || err?.error || 'Failed to submit return request')
+                ;(e as any).status = res.status
+                throw e
+            }
+            return (await res.json()) as any
+        }
+
+        const jsonBody = { ...body } as any
+        delete jsonBody.evidenceImages
+        return requestJson(`${base}/orders/${encodeURIComponent(orderId)}/returns`, {
+            method: 'POST',
+            headers: buildHeaders({ 'Content-Type': 'application/json' }),
+            body: JSON.stringify(jsonBody),
+        })
+    }
+
+    static async getReturnRequest(orderId: string): Promise<{ success: boolean; returnRequest: ReturnRequestSummary | null }> {
+        const base = getServerApiBase()
+        return requestJson(`${base}/orders/${encodeURIComponent(orderId)}/returns`, {
+            method: 'GET',
             headers: buildHeaders(),
         })
     }

@@ -1,7 +1,7 @@
 import { Suspense } from "react";
-import { EnterpriseReturnsRefundsPageClient } from "@/components/enterprise/orders/returns-refunds/EnterpriseReturnsRefundsPageClient";
+import { EnterpriseOrderCancellationDetailPageClient } from "@/components/enterprise/orders/cancellation/EnterpriseOrderCancellationDetailPageClient";
 
-export default function EnterpriseReturnsRefundsPage() {
+export default function EnterpriseOrderCancellationDetailPage() {
   return (
     <Suspense
       fallback={
@@ -9,13 +9,14 @@ export default function EnterpriseReturnsRefundsPage() {
           <div className="text-center">
             <div className="mx-auto mb-3 h-10 w-10 animate-spin rounded-full border-2 border-slate-200 border-t-sky-600" />
             <p className="text-[13px] leading-[18px] font-medium text-[oklch(0.551_0.027_264.364)]">
-              Loading return requests…
+              Loading order…
             </p>
           </div>
         </div>
       }
     >
-      <EnterpriseReturnsRefundsPageClient />
+      <EnterpriseOrderCancellationDetailPageClient />
     </Suspense>
-  )
+  );
 }
+

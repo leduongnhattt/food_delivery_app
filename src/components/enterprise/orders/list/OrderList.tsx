@@ -2,7 +2,7 @@
 
 import { Search } from "lucide-react";
 import { Order } from "@/services/order-management.service";
-import OrderRow from "./OrderRow";
+import OrderRow from "@/components/enterprise/orders/list/OrderRow";
 
 interface OrderListProps {
   orders: Order[];
@@ -41,3 +41,4 @@ export default function OrderList({ orders, onDelete, searchTerm, statusFilter }
     </div>
   );
 }
+

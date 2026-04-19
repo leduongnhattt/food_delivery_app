@@ -5,7 +5,8 @@ import Link from "next/link";
 import { MessageCircle } from "lucide-react";
 import { orderStatusLabel } from "@/lib/order-status.labels";
 import { orderManagementService } from "@/services/order-management.service";
-import { buildEnterpriseOrderActions } from "@/components/enterprise/orders/order-actions";
+import { buildEnterpriseOrderActions } from "@/components/enterprise/orders/detail/order-actions";
+import { hasReturnRefund } from "@/lib/enterprise-order-buckets";
 
 interface Props {
   orders: Order[];
@@ -61,6 +62,14 @@ function formatShipBy(iso: string | null | undefined): string | null {
   })}`;
 }
 
+function pickMetaString(meta: unknown, key: string): string | null {
+  if (!meta || typeof meta !== "object" || Array.isArray(meta)) return null;
+  const rawValue = (meta as any)[key];
+  if (typeof rawValue !== "string") return null;
+  const trimmed = rawValue.trim();
+  return trimmed ? trimmed : null;
+}
+
 export function EnterpriseOrdersTable({
   orders,
   onDelete,
@@ -95,18 +104,26 @@ export function EnterpriseOrdersTable({
 
       <div className="space-y-3 pb-6">
         {orders.map((order) => {
-          const st = order.status.trim();
-          const stNorm = st.toLowerCase();
-          const pendingDelete =
-            stNorm === "pending" && typeof onDelete === "function";
-          const showConfirm =
-            stNorm === "pending" && typeof onConfirm === "function";
-          const confirmBusy = confirmingOrderId === order.id;
-          const actionBusy = actionLoadingOrderId === order.id;
-          const qty = order.orderDetails.reduce((s, d) => s + d.quantity, 0);
-          const firstLine = order.orderDetails[0];
-          const secondary = productSecondaryLine(order);
-          const shipBy = formatShipBy(order.estimatedDeliveryTime);
+          const statusRaw = order.status.trim();
+          const statusNorm = statusRaw.toLowerCase();
+          const isReturnRefund = hasReturnRefund(order);
+          const metadataObj = (order.metadata && typeof order.metadata === "object" && !Array.isArray(order.metadata))
+            ? (order.metadata as any)
+            : null;
+          const refundPending = metadataObj?.refundPending === true;
+          const canDeletePending = statusNorm === "pending" && typeof onDelete === "function";
+          const canConfirmPending = statusNorm === "pending" && typeof onConfirm === "function";
+          const isConfirmingThisOrder = confirmingOrderId === order.id;
+          const isActionLoadingThisOrder = actionLoadingOrderId === order.id;
+          const totalQuantity = order.orderDetails.reduce((sum, line) => sum + line.quantity, 0);
+          const firstOrderLine = order.orderDetails[0];
+          const secondaryLine = productSecondaryLine(order);
+          const shipByLabel =
+            statusNorm === "cancelled" || statusNorm === "confirmed"
+              ? null
+              : formatShipBy(order.estimatedDeliveryTime);
+          const cancelledAt = pickMetaString(order.metadata, "cancelledAt");
+          const confirmedAt = pickMetaString(order.metadata, "confirmedAt");
           const buyerName = order.customerName || "Buyer";
           const actionModel = buildEnterpriseOrderActions(order);
 
@@ -138,10 +155,10 @@ export function EnterpriseOrdersTable({
                 <div className="col-span-4">
                   <div className="flex items-start gap-3">
                     <div className="h-14 w-14 shrink-0 overflow-hidden rounded-md border border-gray-200 bg-gray-100">
-                      {firstLine?.imageUrl ? (
+                      {firstOrderLine?.imageUrl ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
-                          src={firstLine.imageUrl}
+                          src={firstOrderLine.imageUrl}
                           alt=""
                           className="h-full w-full object-cover"
                         />
@@ -151,9 +168,9 @@ export function EnterpriseOrdersTable({
                       <p className="line-clamp-2 text-sm font-medium leading-snug text-gray-900">
                         {productTitle(order)}
                       </p>
-                      {secondary ? (
+                      {secondaryLine ? (
                         <p className="mt-1 text-xs leading-normal text-gray-500">
-                          {secondary}
+                          {secondaryLine}
                         </p>
                       ) : null}
                     </div>
@@ -162,22 +179,44 @@ export function EnterpriseOrdersTable({
 
                 <div className="col-span-2 min-w-0">
                   <div className="inline-grid grid-cols-[auto_auto] items-baseline gap-x-2 gap-y-0.5">
-                    <span className="text-xs text-gray-500">x{qty}</span>
+                    <span className="text-xs text-gray-500">x{totalQuantity}</span>
                     <span className="text-base font-semibold text-[#0070f0] tabular-nums whitespace-nowrap">
                       {orderManagementService.formatCurrency(order.totalAmount)}
                     </span>
                     <span className="col-start-2 row-start-2 text-xs text-gray-500">
-                      {orderStatusLabel(st)}
+                      {orderStatusLabel(statusRaw)}
                     </span>
                   </div>
                 </div>
 
                 <div className="col-span-2">
-                  <p className="text-sm font-medium text-gray-900">
-                    {orderStatusLabel(st)}
-                  </p>
-                  {shipBy ? (
-                    <p className="mt-1 text-xs text-gray-600">{shipBy}</p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="text-sm font-medium text-gray-900">
+                      {orderStatusLabel(statusRaw)}
+                    </p>
+                    {isReturnRefund ? (
+                      <span className="inline-flex items-center rounded-full border border-blue-200 bg-blue-50 px-2 py-0.5 text-[11px] font-semibold text-blue-700">
+                        Return / Refund
+                      </span>
+                    ) : null}
+                    {refundPending ? (
+                      <span className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700">
+                        Refund pending
+                      </span>
+                    ) : null}
+                  </div>
+                  {shipByLabel ? (
+                    <p className="mt-1 text-xs text-gray-600">{shipByLabel}</p>
+                  ) : statusNorm === "cancelled" ? (
+                    <p className="mt-1 text-xs text-gray-600">
+                      Cancelled at{" "}
+                      {orderManagementService.formatDate(cancelledAt || order.createdAt)}
+                    </p>
+                  ) : statusNorm === "confirmed" ? (
+                    <p className="mt-1 text-xs text-gray-600">
+                      Confirmed at{" "}
+                      {orderManagementService.formatDate(confirmedAt || order.createdAt)}
+                    </p>
                   ) : (
                     <p className="mt-1 text-xs text-gray-600">
                       {orderManagementService.formatDate(order.createdAt)}
@@ -191,102 +230,108 @@ export function EnterpriseOrdersTable({
 
                 <div className="col-span-2">
                   <div className="flex flex-col items-start gap-2">
-                    {actionModel.actions.map((a) => {
-                      if (a.key === "confirm" && showConfirm) {
+                    {actionModel.actions.map((action) => {
+                      if (action.key === "confirm" && canConfirmPending) {
                         return (
                           <button
-                            key={a.key}
+                            key={action.key}
                             type="button"
-                            disabled={confirmBusy}
+                            disabled={isConfirmingThisOrder}
                             onClick={() => onConfirm?.(order.id)}
                             className={`text-sm font-medium ${
-                              confirmBusy
+                              isConfirmingThisOrder
                                 ? "text-gray-400 cursor-not-allowed"
                                 : "text-[#0070f0] hover:text-[#0050c0] hover:underline"
                             }`}
                           >
-                            {confirmBusy ? "Confirming…" : a.label}
+                            {isConfirmingThisOrder ? "Confirming…" : action.label}
                           </button>
                         );
                       }
 
-                      if (a.key === "arrange_shipment") {
+                      if (action.key === "arrange_shipment") {
                         const disabled = typeof onArrangeShipment !== "function";
                         if (disabled) return null;
                         return (
                           <button
-                            key={a.key}
+                            key={action.key}
                             type="button"
-                            disabled={actionBusy}
+                            disabled={isActionLoadingThisOrder}
                             onClick={() => onArrangeShipment?.(order.id)}
                             className={`text-sm ${
-                              actionBusy
+                              isActionLoadingThisOrder
                                 ? "text-gray-400 cursor-not-allowed"
                                 : "text-[#0070f0] hover:text-[#0050c0] hover:underline"
                             }`}
                           >
-                            {a.label}
+                            {action.label}
                           </button>
                         );
                       }
 
-                      if (a.key === "start_preparing") {
-                        const disabled = a.disabled || typeof onStartPreparing !== "function";
+                      if (action.key === "start_preparing") {
+                        const disabled = action.disabled || typeof onStartPreparing !== "function";
                         if (typeof onStartPreparing !== "function") return null;
                         return (
                           <button
-                            key={a.key}
+                            key={action.key}
                             type="button"
-                            disabled={disabled || actionBusy}
+                            disabled={disabled || isActionLoadingThisOrder}
                             onClick={() => onStartPreparing?.(order.id)}
-                            title={a.disabledReason || undefined}
+                            title={action.disabledReason || undefined}
                             className={`text-sm ${
-                              disabled || actionBusy
+                              disabled || isActionLoadingThisOrder
                                 ? "text-gray-400 cursor-not-allowed"
                                 : "text-[#0070f0] hover:text-[#0050c0] hover:underline"
                             }`}
                           >
-                            {a.label}
+                            {action.label}
                           </button>
                         );
                       }
 
-                      if (a.key === "start_delivery") {
+                      if (action.key === "start_delivery") {
                         return null;
                       }
 
-                      if (a.key === "mark_delivered") {
-                        const disabled = a.disabled || typeof onMarkDelivered !== "function";
+                      if (action.key === "mark_delivered") {
+                        const disabled = action.disabled || typeof onMarkDelivered !== "function";
                         if (typeof onMarkDelivered !== "function") return null;
                         return (
                           <button
-                            key={a.key}
+                            key={action.key}
                             type="button"
-                            disabled={disabled || actionBusy}
+                            disabled={disabled || isActionLoadingThisOrder}
                             onClick={() => onMarkDelivered?.(order.id)}
-                            title={a.disabledReason || undefined}
+                            title={action.disabledReason || undefined}
                             className={`text-sm ${
-                              disabled || actionBusy
+                              disabled || isActionLoadingThisOrder
                                 ? "text-gray-400 cursor-not-allowed"
                                 : "text-[#0070f0] hover:text-[#0050c0] hover:underline"
                             }`}
                           >
-                            {a.label}
+                            {action.label}
                           </button>
                         );
                       }
 
                       return null;
                     })}
-                    {stNorm !== "pending" ? (
+                    {statusNorm !== "pending" ? (
                       <Link
-                        href={`/enterprise/orders/${encodeURIComponent(order.id)}`}
+                        href={
+                          statusNorm === "cancelled"
+                            ? `/enterprise/orders/order-cancellation/${encodeURIComponent(order.id)}`
+                            : isReturnRefund
+                              ? `/enterprise/orders/returns-refunds/${encodeURIComponent(order.id)}`
+                            : `/enterprise/orders/${encodeURIComponent(order.id)}`
+                        }
                         className="text-sm text-[#0070f0] hover:text-[#0050c0] hover:underline"
                       >
                         Check Details
                       </Link>
                     ) : null}
-                    {pendingDelete && (
+                    {canDeletePending && (
                       <button
                         type="button"
                         onClick={() => onDelete?.(order.id)}
@@ -305,3 +350,4 @@ export function EnterpriseOrdersTable({
     </div>
   );
 }
+
