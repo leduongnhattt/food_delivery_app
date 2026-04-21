@@ -13,6 +13,7 @@ type CartContextType = {
     updateQuantity: (menuItemId: string, quantity: number) => void
     removeFromCart: (menuItemId: string) => void
     clearCart: () => void
+    refreshCartFromServer: (immediate?: boolean) => Promise<void>
     getTotalItems: () => number
     getTotalAmount: () => number
     openCart: () => void
@@ -171,6 +172,13 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         await updateCartFromServer(true) // Use immediate fetch for logout
     }, [updateCartFromServer])
 
+    const refreshCartFromServer = useCallback(
+        async (immediate = false) => {
+            await updateCartFromServer(immediate)
+        },
+        [updateCartFromServer],
+    )
+
     // Count unique items (not total quantities)
     const getTotalItems = useCallback(() => cartItems.length, [cartItems])
     const getTotalAmount = useCallback(
@@ -186,6 +194,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         updateQuantity,
         removeFromCart,
         clearCart,
+        refreshCartFromServer,
         resetAfterLogout,
         getTotalItems,
         getTotalAmount,
@@ -199,6 +208,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         updateQuantity,
         removeFromCart,
         clearCart,
+        refreshCartFromServer,
         resetAfterLogout,
         getTotalItems,
         getTotalAmount

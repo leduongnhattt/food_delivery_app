@@ -54,7 +54,7 @@ const NAV_SECTIONS: NavSection[] = [
     label: "FINANCE",
     defaultOpen: true,
     children: [
-      { href: "/enterprise/analytics", label: "My Income" },
+      { href: "/enterprise/income", label: "My Income" },
       { href: "/enterprise/bank-accounts", label: "Bank Accounts" },
     ],
   },
@@ -334,10 +334,15 @@ export default function EnterpriseNavbar() {
           <div className="relative" data-enterprise-user-menu>
             <button
               type="button"
-              onClick={() => setUserMenuOpen((v) => !v)}
+              onMouseDown={(ev) => ev.stopPropagation()}
+              onClick={(ev) => {
+                ev.stopPropagation();
+                setUserMenuOpen((v) => !v);
+              }}
               className="flex items-center gap-2 rounded-md px-2 py-1 hover:bg-gray-50"
               aria-haspopup="menu"
               aria-expanded={userMenuOpen}
+              aria-label="Open profile menu"
             >
               {logoUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -357,7 +362,14 @@ export default function EnterpriseNavbar() {
                 </p>
                 <p className="text-xs text-gray-500">Enterprise</p>
               </div>
-              <ChevronDown className="h-4 w-4 text-gray-400" />
+              <ChevronDown
+                className="h-4 w-4 shrink-0 text-gray-400 ml-1"
+                aria-hidden
+                style={{
+                  transform: userMenuOpen ? "rotate(180deg)" : "rotate(0deg)",
+                  transition: "transform 200ms ease-out",
+                }}
+              />
             </button>
 
             {userMenuOpen ? (

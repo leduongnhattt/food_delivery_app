@@ -18,13 +18,15 @@ import { useToast } from '@/contexts/toast-context'
 import { OrderService } from '@/services/order.service'
 import type { Order } from '@/services/order.service'
 import { useRouter } from 'next/navigation'
-import { addItemToCart } from '@/services/cart.service'
+import { prepareCheckoutFromPreviousOrder } from '@/services/cart.service'
+import { useCart } from '@/hooks/use-cart'
 import { ConfirmCancelModal } from '@/components/orders/ConfirmCancelModal'
 import { OrderDetailsModal } from '@/components/orders/OrderDetailsModal'
 import { ReturnRequestModal } from '@/components/orders/ReturnRequestModal'
 
 export default function OrdersPage() {
   const router = useRouter()
+  const { refreshCartFromServer } = useCart()
   const { orders, loading, error, hasMore, loadMore, refreshOrders, filterOrders } = useOrders()
   const [filters, setFilters] = useState<OrderFiltersType>({})
   const [pageSize, setPageSize] = useState<12 | 24 | 48>(12)
@@ -61,16 +63,14 @@ export default function OrdersPage() {
   const handleReorder = async (orderId: string) => {
     try {
       setSubmitting(true)
-      const order = await OrderService.getOrderById(orderId)
-      const items = (order as Order).items || []
-      for (const it of items) {
-        await addItemToCart({ foodId: it.foodId, quantity: it.quantity })
-      }
-      showToast('Items added to cart. Redirecting to checkout...', 'success', 2500)
-      router.push('/checkout')
+      await prepareCheckoutFromPreviousOrder(orderId)
+      await refreshCartFromServer(true)
+      showToast('Opening checkout with your previous items…', 'success', 2500)
+      router.push(`/checkout?reorder=${encodeURIComponent(orderId)}`)
     } catch (error) {
       console.error('Failed to reorder items', error)
-      showToast('Failed to reorder items', 'error', 4000)
+      const message = error instanceof Error ? error.message : 'Failed to reorder items'
+      showToast(message, 'error', 4000)
     } finally {
       setSubmitting(false)
     }

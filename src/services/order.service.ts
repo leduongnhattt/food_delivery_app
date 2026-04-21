@@ -182,17 +182,6 @@ export class OrderService {
     }
 
     /**
-     * Reorder items from a previous order
-     */
-    static async reorderItems(orderId: string): Promise<{ success: boolean; message: string }> {
-        const base = getServerApiBase()
-        return requestJson<{ success: boolean; message: string }>(`${base}/orders/${orderId}/reorder`, {
-            method: 'POST',
-            headers: buildHeaders({ 'Content-Type': 'application/json' }),
-        })
-    }
-
-    /**
      * Track order status
      */
     static async trackOrder(orderId: string): Promise<{

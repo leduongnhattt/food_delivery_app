@@ -118,13 +118,19 @@ export function formatCurrency(amount: number): string {
     }).format(amount)
 }
 
+/** Align with server `POST /cart/from-order` (Delivered | Completed). */
+export function canReorderCustomerStatus(status: string): boolean {
+    const s = status.toLowerCase()
+    return s === 'delivered' || s === 'completed'
+}
+
 export function getOrderActions(order: Order) {
     const status = order.status.toLowerCase()
 
     return {
         canCancel: ['pending', 'confirmed'].includes(status),
         canTrack: ['preparing', 'outfordelivery', 'out_for_delivery'].includes(status),
-        canReorder: status === 'delivered' || status === 'completed',
+        canReorder: canReorderCustomerStatus(status),
         canViewDetails: true
     }
 }

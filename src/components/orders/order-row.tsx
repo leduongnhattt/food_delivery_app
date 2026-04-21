@@ -3,6 +3,7 @@
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { formatPrice, formatDate } from '@/lib/utils'
+import { canReorderCustomerStatus } from '@/lib/order-utils'
 import { Order } from '@/services/order.service'
 import { 
   Clock, 
@@ -73,7 +74,7 @@ export function OrderRow({ order, onViewDetails, onReorder, onTrack, onCancel, o
 
   const canCancel = order.status === 'pending'
   const canTrack = order.status === 'out_for_delivery'
-  const canReorder = order.status === 'delivered' || order.status === 'completed'
+  const canReorder = canReorderCustomerStatus(order.status)
   const canRequestRefund = (() => {
     if (order.returnRequestStatus) return false
     if (order.status !== 'delivered') return false
@@ -194,7 +195,7 @@ export function OrderCard({ order, onViewDetails, onReorder, onTrack, onCancel, 
 
   const canCancel = order.status === 'pending'
   const canTrack = order.status === 'out_for_delivery'
-  const canReorder = order.status === 'delivered' || order.status === 'completed'
+  const canReorder = canReorderCustomerStatus(order.status)
   const canRequestRefund = (() => {
     if (order.returnRequestStatus) return false
     if (order.status !== 'delivered') return false

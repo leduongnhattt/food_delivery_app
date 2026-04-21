@@ -5,7 +5,6 @@ import { useToast } from "@/contexts/toast-context";
 import { Activity } from "lucide-react";
 import StatsCards from "@/components/enterprise/dashboard/StatsCards";
 import RecentOrders from "@/components/enterprise/dashboard/RecentOrders";
-import QuickActions from "@/components/enterprise/dashboard/QuickActions";
 import { getServerApiBase } from "@/lib/http-client";
 import { buildAuthHeader } from "@/lib/auth-helpers";
 import { EnterprisePageHeader } from "@/components/enterprise/EnterprisePageHeader";
@@ -115,7 +114,6 @@ export default function EnterpriseDashboardPage() {
 
       <StatsCards stats={stats} />
       <RecentOrders orders={recentOrders} />
-      <QuickActions />
     </div>
   );
 }

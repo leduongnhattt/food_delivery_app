@@ -53,7 +53,10 @@ export interface OrderFilters {
 }
 
 export interface OrderManagementService {
-  fetchOrders(): Promise<Order[]>;
+  fetchOrders(params?: {
+    searchField?: string;
+    search?: string;
+  }): Promise<Order[]>;
   fetchOrderById(orderId: string): Promise<EnterpriseOrderDetail>;
   updateDeliveryMethod(
     orderId: string,
@@ -78,11 +81,20 @@ export interface OrderManagementService {
 }
 
 class OrderManagementServiceImpl implements OrderManagementService {
-  async fetchOrders(): Promise<Order[]> {
+  async fetchOrders(params?: {
+    searchField?: string;
+    search?: string;
+  }): Promise<Order[]> {
     try {
       const base = getServerApiBase();
+      const qs = new URLSearchParams();
+      qs.set("force", "1");
+      const searchField = (params?.searchField ?? "").trim();
+      const searchQuery = (params?.search ?? "").trim();
+      if (searchField) qs.set("searchField", searchField);
+      if (searchQuery) qs.set("search", searchQuery);
       const response = await requestJson<{ orders: Order[] }>(
-        `${base}/enterprise/orders?force=1`,
+        `${base}/enterprise/orders?${qs.toString()}`,
         {
           method: "GET",
           cache: "no-store",
