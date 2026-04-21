@@ -5,6 +5,7 @@
 import { API_BASE_URL } from '@/services/api'
 
 const TOKEN_KEY = 'access_token';
+const FINANCE_VERIFY_PREFIX = 'enterprise_finance_verified:';
 
 export interface AuthUser {
     id: string;
@@ -39,6 +40,20 @@ export function getAuthToken(): string | null {
 export function removeAuthToken(): void {
     if (typeof window !== 'undefined') {
         localStorage.removeItem(TOKEN_KEY);
+    }
+}
+
+function clearFinanceVerifySession(): void {
+    if (typeof window === 'undefined') return;
+    try {
+        for (let i = sessionStorage.length - 1; i >= 0; i--) {
+            const k = sessionStorage.key(i);
+            if (k && k.startsWith(FINANCE_VERIFY_PREFIX)) {
+                sessionStorage.removeItem(k);
+            }
+        }
+    } catch {
+        // ignore storage errors
     }
 }
 
@@ -199,6 +214,7 @@ export async function logoutUser(): Promise<void> {
     } finally {
         // Always remove token from localStorage
         removeAuthToken();
+        clearFinanceVerifySession();
     }
 }
 
@@ -207,6 +223,7 @@ export async function logoutUser(): Promise<void> {
  */
 export function clearAuthData(): void {
     removeAuthToken();
+    clearFinanceVerifySession();
 }
 
 // Server-side authentication helpers

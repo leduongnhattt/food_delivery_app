@@ -49,6 +49,7 @@ export function EnterpriseMenuSelect({
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const [menuPos, setMenuPos] = useState<{
     left: number;
     top: number;
@@ -59,7 +60,10 @@ export function EnterpriseMenuSelect({
 
   useEffect(() => {
     const onDown = (e: MouseEvent) => {
-      if (!rootRef.current?.contains(e.target as Node)) setOpen(false);
+      const target = e.target as Node;
+      const clickedTrigger = !!rootRef.current?.contains(target);
+      const clickedMenu = !!menuRef.current?.contains(target);
+      if (!clickedTrigger && !clickedMenu) setOpen(false);
     };
     document.addEventListener("mousedown", onDown);
     return () => document.removeEventListener("mousedown", onDown);
@@ -131,6 +135,7 @@ export function EnterpriseMenuSelect({
             ? createPortal(
                 <div
                   role="listbox"
+                  ref={menuRef}
                   className={`fixed z-[100] max-h-72 overflow-auto rounded-xl border border-slate-200 bg-white shadow-lg ${menuClassName}`}
                   style={{
                     left: menuPos.left,
@@ -167,6 +172,7 @@ export function EnterpriseMenuSelect({
         ) : (
           <div
             role="listbox"
+            ref={menuRef}
             className={`absolute z-[100] mt-2 max-h-72 overflow-auto rounded-xl border border-slate-200 bg-white shadow-lg ${
               alignMenu === "right" ? "right-0" : "left-0"
             } min-w-full ${menuClassName}`}

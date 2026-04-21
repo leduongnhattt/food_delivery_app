@@ -7,12 +7,16 @@ interface DeliveryFormProps {
   phone: string
   address: string
   isLoading?: boolean
+  reorderHint?: string | null
+  deliveryInstructions?: string | null
 }
 
 export function DeliveryForm({
   phone,
   address,
   isLoading = false,
+  reorderHint = null,
+  deliveryInstructions = null,
 }: DeliveryFormProps) {
   return (
     <Card className="shadow-xl border-0 bg-white/80 backdrop-blur-sm">
@@ -28,6 +32,11 @@ export function DeliveryForm({
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
+        {reorderHint ? (
+          <p className="text-sm text-orange-700 bg-orange-50 border border-orange-100 rounded-md px-3 py-2">
+            {reorderHint}
+          </p>
+        ) : null}
         <div>
           <label className="block text-sm font-medium mb-2 text-gray-700">Phone Number</label>
           <div className="w-full px-3 py-2 border border-gray-200 rounded-md bg-gray-50 text-gray-700">
@@ -40,8 +49,16 @@ export function DeliveryForm({
             {address || 'Not provided'}
           </div>
         </div>
+        {deliveryInstructions ? (
+          <div>
+            <label className="block text-sm font-medium mb-2 text-gray-700">Delivery instructions</label>
+            <div className="w-full px-3 py-2 border border-gray-200 rounded-md bg-gray-50 text-gray-700 whitespace-pre-wrap">
+              {deliveryInstructions}
+            </div>
+          </div>
+        ) : null}
         <div className="text-sm text-gray-500 mt-2">
-          <p>To update your delivery information, please go to your <a href="/profile" className="text-orange-500 hover:text-orange-600 underline">profile page</a>.</p>
+          <p>To update your default delivery information, go to your <a href="/profile" className="text-orange-500 hover:text-orange-600 underline">profile page</a>.</p>
         </div>
       </CardContent>
     </Card>

@@ -1,7 +1,6 @@
 "use client"
 
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import type { OrderFilters } from '@/services/order.service'
 import { Filter, X } from 'lucide-react'
 import { useState } from 'react'
@@ -87,6 +86,12 @@ export function OrderFilters({ onFilterChange, currentFilters }: OrderFiltersPro
     onFilterChange({})
   }
 
+  /** "All" clears status to undefined — compare must treat missing status as All selected. */
+  const isStatusChipActive = (optionValue: string) =>
+    optionValue === ''
+      ? currentFilters.status == null || currentFilters.status === ''
+      : currentFilters.status === optionValue
+
   const hasActiveFilters = currentFilters.status || currentFilters.startDate || currentFilters.endDate
 
   return (
@@ -95,11 +100,6 @@ export function OrderFilters({ onFilterChange, currentFilters }: OrderFiltersPro
         <div className="flex items-center space-x-2">
           <Filter className="w-4 h-4 text-gray-600" />
           <h3 className="font-medium text-gray-900 text-sm">Filters</h3>
-          {hasActiveFilters && (
-            <Badge variant="secondary" className="bg-orange-100 text-orange-800 text-xs px-2 py-1">
-              Active
-            </Badge>
-          )}
         </div>
         <div className="flex items-center space-x-2">
           {hasActiveFilters && (
@@ -122,12 +122,12 @@ export function OrderFilters({ onFilterChange, currentFilters }: OrderFiltersPro
         <div className="flex flex-wrap gap-1">
           {statusOptions.map((option) => (
             <Button
-              key={option.value}
-              variant={currentFilters.status === option.value ? "default" : "outline"}
+              key={option.value || 'all'}
+              variant={isStatusChipActive(option.value) ? "default" : "outline"}
               size="sm"
               onClick={() => handleStatusChange(option.value)}
               className={`text-xs px-2 py-1 h-6 ${
-                currentFilters.status === option.value
+                isStatusChipActive(option.value)
                   ? "bg-orange-600 hover:bg-orange-700 text-white"
                   : "border-gray-300 text-gray-700 hover:bg-gray-50"
               }`}

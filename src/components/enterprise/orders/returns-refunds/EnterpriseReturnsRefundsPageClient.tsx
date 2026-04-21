@@ -10,12 +10,15 @@ import {
 } from "@/services/enterprise-returns.service";
 import { ConfirmActionModal } from "@/components/enterprise/ConfirmActionModal";
 import { compactId, initials, shortId } from "@/lib/enterprise-ui-helpers";
+import {
+  EnterpriseMenuSelect,
+  type EnterpriseMenuSelectOption,
+} from "@/components/enterprise/orders/shared/EnterpriseMenuSelect";
 
-type TabKey = "All" | "PendingReview" | "Approved" | "Rejected" | "Completed";
+type TabKey = "All" | "Approved" | "Rejected" | "Completed";
 
 const TABS: Array<{ key: TabKey; label: string }> = [
   { key: "All", label: "All" },
-  { key: "PendingReview", label: "Under Review" },
   { key: "Approved", label: "Approved" },
   { key: "Rejected", label: "Rejected" },
   { key: "Completed", label: "Completed" },
@@ -59,14 +62,31 @@ function solutionLabel(s: string): string {
   return "Refund only";
 }
 
-function matchesSearch(r: EnterpriseReturnRequestRow, q: string): boolean {
+type ReturnsSearchField = "order_id" | "buyer_name";
+
+const RETURNS_SEARCH_OPTIONS: EnterpriseMenuSelectOption[] = [
+  { value: "order_id", label: "Order ID" },
+  { value: "buyer_name", label: "Buyer name" },
+];
+
+const RETURNS_SEARCH_PLACEHOLDER: Record<ReturnsSearchField, string> = {
+  order_id: "Input order ID",
+  buyer_name: "Input buyer name",
+};
+
+function matchesSearch(
+  r: EnterpriseReturnRequestRow,
+  field: ReturnsSearchField,
+  q: string,
+): boolean {
   const t = q.trim().toLowerCase();
   if (!t) return true;
-  return (
-    r.orderId.toLowerCase().includes(t) ||
-    r.id.toLowerCase().includes(t) ||
-    (r.customer?.name ?? "").toLowerCase().includes(t)
-  );
+  switch (field) {
+    case "order_id":
+      return r.orderId.toLowerCase().includes(t);
+    case "buyer_name":
+      return (r.customer?.name ?? "").toLowerCase().includes(t);
+  }
 }
 
 export function EnterpriseReturnsRefundsPageClient() {
@@ -74,9 +94,8 @@ export function EnterpriseReturnsRefundsPageClient() {
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<TabKey>("All");
   const [rows, setRows] = useState<EnterpriseReturnRequestRow[]>([]);
-  const [committedSearch, setCommittedSearch] = useState("");
-  const [committedRefundPendingOnly, setCommittedRefundPendingOnly] = useState(false);
 
+  const [pendingSearchField, setPendingSearchField] = useState<ReturnsSearchField>("order_id");
   const [pendingSearch, setPendingSearch] = useState("");
   const [pendingRefundPendingOnly, setPendingRefundPendingOnly] = useState(false);
   const [sortBy, setSortBy] = useState<
@@ -136,9 +155,7 @@ export function EnterpriseReturnsRefundsPageClient() {
     try {
       setLoading(true);
       const res = await EnterpriseReturnsService.list({
-        // Fetch all statuses for tab counts; apply only date range + search (broad).
         status: "All",
-        search: committedSearch || undefined,
       });
       setRows(Array.isArray(res?.returns) ? res.returns : []);
     } catch (e) {
@@ -148,7 +165,7 @@ export function EnterpriseReturnsRefundsPageClient() {
     } finally {
       setLoading(false);
     }
-  }, [committedSearch, showToast]);
+  }, [showToast]);
 
   useEffect(() => {
     void fetchList();
@@ -156,8 +173,8 @@ export function EnterpriseReturnsRefundsPageClient() {
 
   const visible = useMemo(() => {
     const base = rows.filter((r) => {
-      if (committedRefundPendingOnly && !r.order?.refundPending) return false;
-      if (!matchesSearch(r, committedSearch)) return false;
+      if (pendingRefundPendingOnly && !r.order?.refundPending) return false;
+      if (!matchesSearch(r, pendingSearchField, pendingSearch)) return false;
       return true;
     });
     const tabbed = tab === "All" ? base : base.filter((r) => r.status === tab);
@@ -177,23 +194,22 @@ export function EnterpriseReturnsRefundsPageClient() {
       return toMs(a.requestedAt) - toMs(b.requestedAt);
     });
     return sorted;
-  }, [committedRefundPendingOnly, committedSearch, rows, sortBy, tab]);
+  }, [pendingRefundPendingOnly, pendingSearch, pendingSearchField, rows, sortBy, tab]);
 
   const counts = useMemo(() => {
     const base = rows.filter((r) => {
-      if (committedRefundPendingOnly && !r.order?.refundPending) return false;
-      if (!matchesSearch(r, committedSearch)) return false;
+      if (pendingRefundPendingOnly && !r.order?.refundPending) return false;
+      if (!matchesSearch(r, pendingSearchField, pendingSearch)) return false;
       return true;
     });
     const c: Record<TabKey, number> = {
       All: base.length,
-      PendingReview: base.filter((r) => r.status === "PendingReview").length,
       Approved: base.filter((r) => r.status === "Approved").length,
       Rejected: base.filter((r) => r.status === "Rejected").length,
       Completed: base.filter((r) => r.status === "Completed").length,
     };
     return c;
-  }, [committedRefundPendingOnly, committedSearch, rows]);
+  }, [pendingRefundPendingOnly, pendingSearch, pendingSearchField, rows]);
 
   const openConfirmFromRow = (r: EnterpriseReturnRequestRow, status: "Approved" | "Rejected") => {
     if (saving) return;
@@ -260,47 +276,30 @@ export function EnterpriseReturnsRefundsPageClient() {
             })}
           </div>
 
-          <div className="flex flex-wrap items-center justify-end gap-2">
-            <button
-              type="button"
-              className="h-9 rounded border border-[#2563FF] bg-white px-4 text-sm text-[#2563FF] hover:bg-[#2563FF] hover:text-white"
-              onClick={() => {
-                setCommittedSearch(pendingSearch);
-                setCommittedRefundPendingOnly(pendingRefundPendingOnly);
-                void fetchList();
-              }}
-            >
-              Apply
-            </button>
-            <button
-              type="button"
-              className="h-9 rounded border border-gray-300 bg-white px-4 text-sm text-gray-900 hover:bg-gray-50"
-              onClick={() => {
-                setPendingSearch("");
-                setPendingRefundPendingOnly(false);
-                setCommittedSearch("");
-                setCommittedRefundPendingOnly(false);
-                void fetchList();
-              }}
-            >
-              Reset
-            </button>
-          </div>
-
-          {/* Search row + sort */}
+          {/* Search row + sort (search filters as you type, like My Orders) */}
           <div className="flex flex-wrap items-center gap-3">
-            <div className="flex min-w-[260px] flex-1 items-stretch rounded border border-slate-200 bg-white focus-within:ring-2 focus-within:ring-inset focus-within:ring-sky-300">
+            <div className="flex min-w-0 flex-1 items-stretch rounded border border-slate-200 bg-white focus-within:ring-2 focus-within:ring-inset focus-within:ring-sky-300">
+              <EnterpriseMenuSelect
+                value={pendingSearchField}
+                onChange={(v) => setPendingSearchField(v as ReturnsSearchField)}
+                options={RETURNS_SEARCH_OPTIONS}
+                className="w-40 shrink-0"
+                borderlessTrigger
+                triggerClassName="rounded-none rounded-l-md rounded-r-none"
+                aria-label="Search by field"
+              />
               <input
                 value={pendingSearch}
                 onChange={(e) => setPendingSearch(e.target.value)}
-                placeholder="Search request (Order ID, Request ID, Buyer Name)"
-                className="h-9 min-w-0 flex-1 border-0 bg-white px-3 text-sm text-gray-900 placeholder:text-slate-400 focus:outline-none"
+                placeholder={RETURNS_SEARCH_PLACEHOLDER[pendingSearchField]}
+                className="h-9 min-h-9 min-w-0 flex-1 rounded-none rounded-r-md border-0 border-l border-slate-200 bg-white px-3 text-sm text-gray-900 placeholder:text-slate-400 focus:outline-none focus:ring-0"
               />
             </div>
 
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-gray-600">Sort by:</span>
-              <div ref={sortWrapRef} className="relative">
+            <div className="flex flex-wrap items-center justify-end gap-2 sm:ml-auto sm:gap-3">
+              <div className="flex min-w-0 items-center gap-2 sm:min-w-[260px]">
+              <span className="shrink-0 text-sm text-gray-600">Sort by:</span>
+              <div ref={sortWrapRef} className="relative min-w-0 flex-1">
                 <button
                   type="button"
                   onClick={() => setSortOpen((v) => !v)}
@@ -376,10 +375,28 @@ export function EnterpriseReturnsRefundsPageClient() {
                   </div>
                 ) : null}
               </div>
-            </div>
+              </div>
 
-            <div className="ml-auto text-sm text-gray-600">
-              {loading ? "Loading…" : `${visible.length} Requests`}
+              <div className="flex shrink-0 items-center gap-2">
+                <button
+                  type="button"
+                  className="h-9 rounded border border-[#2563FF] bg-white px-4 text-sm text-[#2563FF] hover:bg-[#2563FF] hover:text-white"
+                  onClick={() => void fetchList()}
+                >
+                  Apply
+                </button>
+                <button
+                  type="button"
+                  className="h-9 rounded border border-gray-300 bg-white px-4 text-sm text-gray-900 hover:bg-gray-50"
+                  onClick={() => {
+                    setPendingSearchField("order_id");
+                    setPendingSearch("");
+                    setPendingRefundPendingOnly(false);
+                  }}
+                >
+                  Reset
+                </button>
+              </div>
             </div>
           </div>
         </div>

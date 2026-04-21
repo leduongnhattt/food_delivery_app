@@ -4,6 +4,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { formatPrice, formatDate } from '@/lib/utils'
+import { canReorderCustomerStatus } from '@/lib/order-utils'
 import { Order } from '@/services/order.service'
 import { 
   Clock, 
@@ -85,7 +86,7 @@ export function OrderCard({ order, onViewDetails, onReorder, onTrack, onCancel }
 
   const canCancel = ['pending', 'confirmed'].includes(order.status)
   const canTrack = ['preparing', 'out_for_delivery'].includes(order.status)
-  const canReorder = order.status === 'delivered'
+  const canReorder = canReorderCustomerStatus(order.status)
 
   return (
     <Card className="hover:shadow-md transition-all duration-200 border border-gray-200 bg-white h-full">

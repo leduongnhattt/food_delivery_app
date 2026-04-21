@@ -45,6 +45,32 @@ export function formatPriceCompact(price: number): string {
   }).format(roundedPrice)
 }
 
+// Finance pages sometimes need fixed-precision currency display (2 decimals).
+export function formatCurrency(value: number, currency: string = 'USD'): string {
+  const roundedValue = Math.round(value * 100) / 100
+  try {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency,
+      maximumFractionDigits: 2,
+      minimumFractionDigits: 2,
+    }).format(roundedValue)
+  } catch {
+    return `${roundedValue.toFixed(2)} ${currency}`
+  }
+}
+
+export function formatDateShort(iso: string): string {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return iso
+  return d.toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: '2-digit' })
+}
+
+export function clampISODate(s: string): string {
+  const t = (s || '').trim()
+  return /^\d{4}-\d{2}-\d{2}$/.test(t) ? t : ''
+}
+
 /**
  * Safely calculate price to avoid floating point precision issues
  * @param price Base price

@@ -167,3 +167,11 @@ export async function clearCart(): Promise<void> {
     return debouncedCartService.clearCart()
 }
 
+/** Replaces the server cart with items from a delivered/completed order (single request). */
+export async function prepareCheckoutFromPreviousOrder(orderId: string): Promise<CartSnapshot> {
+    return requestJson<CartSnapshot>(`${getCartApiBase()}/from-order/${encodeURIComponent(orderId)}`, {
+        method: 'POST',
+        headers: buildHeaders({ 'Content-Type': 'application/json' }),
+    })
+}
+
