@@ -3,7 +3,6 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import React, { useState, useEffect, useCallback } from "react";
-import { apiClient } from "@/services/api";
 import { useToast } from "@/contexts/toast-context";
 import { useAccountHeader } from "@/hooks/use-account-header";
 import { buildAuthHeader, getAuthToken } from "@/lib/auth-helpers";
