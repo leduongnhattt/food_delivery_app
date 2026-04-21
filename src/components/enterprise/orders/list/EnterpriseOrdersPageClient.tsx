@@ -47,20 +47,51 @@ function defaultCommittedFilters(): CommittedFilters {
   };
 }
 
+function jsonMetaPickString(meta: unknown, keys: string[]): string {
+  if (!meta || typeof meta !== "object" || Array.isArray(meta)) return "";
+  const o = meta as Record<string, unknown>;
+  for (const k of keys) {
+    const v = o[k];
+    if (typeof v === "string" && v.trim()) return v.trim();
+  }
+  return "";
+}
+
+function orderTrackingHaystack(metadata: unknown): string {
+  return jsonMetaPickString(metadata, [
+    "trackingNumber",
+    "trackingNo",
+    "tracking_no",
+    "carrierTrackingNumber",
+    "CarrierTrackingNumber",
+    "TrackingNumber",
+  ]);
+}
+
 function matchesSearch(order: Order, searchField: SearchField, q: string): boolean {
   const t = q.trim().toLowerCase();
   if (!t) return true;
   switch (searchField) {
-    case "buyer_name":
-      return order.customerName.toLowerCase().includes(t);
+    case "buyer_name": {
+      const name = order.customerName.toLowerCase();
+      const u = (order.customerUsername ?? "").toLowerCase();
+      return name.includes(t) || u.includes(t);
+    }
     case "order_id":
       return order.id.toLowerCase().includes(t);
-    case "tracking_number":
-      // Not available in current API; keep deterministic.
-      return false;
+    case "tracking_number": {
+      const hay = orderTrackingHaystack(order.metadata).toLowerCase();
+      return hay.includes(t);
+    }
     case "product":
     default:
-      return order.orderDetails.some((d) => d.dishName.toLowerCase().includes(t));
+      return order.orderDetails.some((d) => {
+        const dn = d.dishName.toLowerCase();
+        const fid = (d.foodId ?? "").toLowerCase();
+        const sku = (d.sku ?? "").toLowerCase();
+        const ps = (d.parentSku ?? "").toLowerCase();
+        return dn.includes(t) || fid.includes(t) || sku.includes(t) || ps.includes(t);
+      });
   }
 }
 
@@ -78,6 +109,13 @@ const SEARCH_FIELD_OPTIONS: EnterpriseMenuSelectOption[] = [
   { value: "order_id", label: "Order ID" },
   { value: "tracking_number", label: "Tracking Number" },
 ];
+
+const SEARCH_FIELD_PLACEHOLDER: Record<SearchField, string> = {
+  product: "Input product name, parent SKU, SKU or food ID",
+  buyer_name: "Input buyer name or username",
+  order_id: "Input order ID",
+  tracking_number: "Input tracking number",
+};
 
 const SHIPPING_CHANNEL_OPTIONS: EnterpriseMenuSelectOption[] = [
   { value: "all", label: "All Channels" },
@@ -140,7 +178,7 @@ export function EnterpriseOrdersPageClient() {
     return_refund: defaultCommittedFilters(),
   }));
 
-  // pending (UI) values — only applied when click Apply
+  // pending: search updates the list as you type; Apply persists filters (incl. search) per tab.
   const committed = committedByTab[tab] ?? defaultCommittedFilters();
   const [pendingSearchField, setPendingSearchField] = useState<SearchField>(committed.searchField);
   const [pendingSearchInput, setPendingSearchInput] = useState<string>(committed.searchInput);
@@ -204,6 +242,7 @@ export function EnterpriseOrdersPageClient() {
       if (isFetchingRef.current) return;
       isFetchingRef.current = true;
       if (!opts?.silent) setLoading(true);
+      // Full list: search runs on the client from pending input (live) and Apply only persists per tab.
       const data = await orderManagementService.fetchOrders();
       setOrders(data);
     } catch (error) {
@@ -250,9 +289,10 @@ export function EnterpriseOrdersPageClient() {
   }, [orders, tab, toShipSub]);
 
   const searched = useMemo(() => {
-    const c = committedByTab[tab] ?? defaultCommittedFilters();
-    return bucketFiltered.filter((o) => matchesSearch(o, c.searchField, c.searchInput));
-  }, [bucketFiltered, committedByTab, tab]);
+    return bucketFiltered.filter((o) =>
+      matchesSearch(o, pendingSearchField, pendingSearchInput),
+    );
+  }, [bucketFiltered, pendingSearchField, pendingSearchInput]);
 
   const sortedOrders = useMemo(() => {
     return orderManagementService.sortOrders(searched, sortBy);
@@ -261,7 +301,7 @@ export function EnterpriseOrdersPageClient() {
   // Reset paging when the result set changes (tab, search, sort, etc.)
   useEffect(() => {
     setPage(1);
-  }, [tab, toShipSub, committedByTab, sortBy, pageSize]);
+  }, [tab, toShipSub, pendingSearchField, pendingSearchInput, sortBy, pageSize]);
 
   const totalPages = useMemo(() => {
     return Math.max(1, Math.ceil(sortedOrders.length / pageSize));
@@ -536,7 +576,7 @@ export function EnterpriseOrdersPageClient() {
               <input
                 value={pendingSearchInput}
                 onChange={(e) => setPendingSearchInput(e.target.value)}
-                placeholder="Input Product Name/Parent SKU/SKU"
+                placeholder={SEARCH_FIELD_PLACEHOLDER[pendingSearchField]}
                 className="h-9 min-h-9 min-w-0 flex-1 rounded-none rounded-r-md border-0 border-l border-slate-200 bg-white px-3 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-0"
               />
             </div>
@@ -576,7 +616,7 @@ export function EnterpriseOrdersPageClient() {
         <div className="mt-6 mb-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="text-xl font-medium text-gray-900">
-              {bucketFiltered.length} Orders
+              {searched.length} Orders
             </span>
           </div>
           <div className="flex items-center gap-3">

@@ -15,6 +15,10 @@ import {
 } from "@/lib/enterprise-ui-helpers";
 import { useDismissablePopover } from "@/hooks/useDismissablePopover";
 import { CopyToClipboardButton } from "@/components/enterprise/CopyToClipboardButton";
+import {
+  EnterpriseMenuSelect,
+  type EnterpriseMenuSelectOption,
+} from "@/components/enterprise/orders/shared/EnterpriseMenuSelect";
 
 function norm(s: string | null | undefined): string {
   return (s || "").trim().toLowerCase();
@@ -67,11 +71,34 @@ function matchesReasonFilter(reasonCode: string, filter: ReasonFilterKey): boole
   return reasonCode === filter;
 }
 
-function matchesCancellationSearch(order: Order, q: string): boolean {
+type CancellationSearchField = "order_id" | "buyer_name";
+
+const CANCELLATION_SEARCH_OPTIONS: EnterpriseMenuSelectOption[] = [
+  { value: "order_id", label: "Order ID" },
+  { value: "buyer_name", label: "Buyer name" },
+];
+
+const CANCELLATION_SEARCH_PLACEHOLDER: Record<CancellationSearchField, string> = {
+  order_id: "Input order ID",
+  buyer_name: "Input buyer name or username",
+};
+
+function matchesCancellationSearch(
+  order: Order,
+  field: CancellationSearchField,
+  q: string,
+): boolean {
   const needle = q.trim().toLowerCase();
   if (!needle) return true;
-  const hay = `${order.id} ${order.customerName ?? ""} ${order.customerUsername ?? ""}`.toLowerCase();
-  return hay.includes(needle);
+  switch (field) {
+    case "order_id":
+      return order.id.toLowerCase().includes(needle);
+    case "buyer_name":
+      return (
+        (order.customerName ?? "").toLowerCase().includes(needle) ||
+        (order.customerUsername ?? "").toLowerCase().includes(needle)
+      );
+  }
 }
 
 export function EnterpriseOrderCancellationPageClient() {
@@ -80,6 +107,7 @@ export function EnterpriseOrderCancellationPageClient() {
   const [loading, setLoading] = useState(true);
   const [allOrders, setAllOrders] = useState<Order[]>([]);
 
+  const [searchField, setSearchField] = useState<CancellationSearchField>("order_id");
   const [searchQuery, setSearchQuery] = useState("");
   const [dateRangeKey, setDateRangeKey] = useState<DateRangeKey>("all");
   const [isDateMenuOpen, setIsDateMenuOpen] = useState(false);
@@ -136,11 +164,11 @@ export function EnterpriseOrderCancellationPageClient() {
       if (start && when < start) return false;
       if (end && when > end) return false;
 
-      if (!matchesCancellationSearch(o, searchQuery)) return false;
+      if (!matchesCancellationSearch(o, searchField, searchQuery)) return false;
 
       return true;
     });
-  }, [cancelledOnlyOrders, dateRangeKey, reasonFilterKey, searchQuery]);
+  }, [cancelledOnlyOrders, dateRangeKey, reasonFilterKey, searchField, searchQuery]);
 
   return (
     <div className="w-full space-y-6">
@@ -151,14 +179,25 @@ export function EnterpriseOrderCancellationPageClient() {
 
       <div className={`${ENTERPRISE_PANEL_CLASS} px-3 py-3 sm:px-4`}>
         <div className="flex flex-wrap items-end gap-3 border-b border-gray-200 pb-4">
-          <div className="flex min-w-[240px] flex-1 flex-col gap-1">
+          <div className="flex min-w-0 flex-1 flex-col gap-1">
             <label className="text-xs font-medium text-gray-600">Search</label>
-            <input
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Order ID or customer"
-              className="h-9 rounded border border-slate-200 bg-white px-3 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-300"
-            />
+            <div className="flex min-w-0 items-stretch rounded border border-slate-200 bg-white focus-within:ring-2 focus-within:ring-inset focus-within:ring-sky-300">
+              <EnterpriseMenuSelect
+                value={searchField}
+                onChange={(v) => setSearchField(v as CancellationSearchField)}
+                options={CANCELLATION_SEARCH_OPTIONS}
+                className="w-40 shrink-0"
+                borderlessTrigger
+                triggerClassName="rounded-none rounded-l-md rounded-r-none"
+                aria-label="Search by field"
+              />
+              <input
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder={CANCELLATION_SEARCH_PLACEHOLDER[searchField]}
+                className="h-9 min-h-9 min-w-0 flex-1 rounded-none rounded-r-md border-0 border-l border-slate-200 bg-white px-3 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-0"
+              />
+            </div>
           </div>
 
           <div className="flex flex-col gap-1">

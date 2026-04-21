@@ -22,6 +22,8 @@ import { useToast } from '@/contexts/toast-context'
 import { useTranslations } from '@/lib/i18n'
 import { exceedsItemValueLimit, getOrderLimitLabel } from '@/lib/order-limit'
 import { CHECKOUT_PAYMENT_METHOD, getCheckoutPrimaryButtonLabel, type CheckoutPaymentMethod } from '@/lib/payment-method'
+import { OrderService } from '@/services/order.service'
+import type { Order } from '@/services/order.service'
 
 // Constants
 const DEFAULT_COMMISSION_FEE = 0.5
@@ -97,6 +99,29 @@ export default function CheckoutPage() {
   const [commissionFee, setCommissionFee] = useState<number>(DEFAULT_COMMISSION_FEE)
   const [isPlacingOrder, setIsPlacingOrder] = useState(false)
   const hasLoadedVouchersRef = useRef(false)
+  const [reorderSourceOrder, setReorderSourceOrder] = useState<Order | null>(null)
+
+  const reorderFromQuery = searchParams.get('reorder')
+
+  useEffect(() => {
+    if (!reorderFromQuery) return
+    let cancelled = false
+    void (async () => {
+      try {
+        const o = await OrderService.getOrderById(reorderFromQuery)
+        if (cancelled) return
+        setReorderSourceOrder(o as Order)
+        router.replace('/checkout', { scroll: false })
+      } catch {
+        if (!cancelled) {
+          showToast('Could not load previous order for delivery details', 'warning', 4000)
+        }
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [reorderFromQuery, router, showToast])
 
   useEffect(() => {
     const stored = safeLocalStorageGet('cartSelectedRestaurantId')
@@ -144,6 +169,21 @@ export default function CheckoutPage() {
   const voucherDiscount = appliedVoucher?.discount || 0
   const total = Math.max(0, subtotal + commissionFee - voucherDiscount)
 
+  const effectivePhone = useMemo(
+    () =>
+      reorderSourceOrder?.recipientPhone?.trim() ||
+      deliveryData.phone?.trim() ||
+      '',
+    [reorderSourceOrder, deliveryData.phone],
+  )
+  const effectiveAddress = useMemo(
+    () =>
+      reorderSourceOrder?.deliveryAddress?.trim() ||
+      deliveryData.address?.trim() ||
+      '',
+    [reorderSourceOrder, deliveryData.address],
+  )
+
   // Get restaurant info from API (includes deliveryTime/address). Fallback to cart item name.
   useEffect(() => {
     const first = selectedCartItems[0]?.menuItem
@@ -154,7 +194,7 @@ export default function CheckoutPage() {
 
     const destLat = deliveryData.lat ?? undefined
     const destLng = deliveryData.lng ?? undefined
-    const destAddress = deliveryData.address?.trim()
+    const destAddress = effectiveAddress || deliveryData.address?.trim()
 
     const timeoutId = setTimeout(() => {
       RestaurantService.getRestaurantById(first.restaurantId, {
@@ -181,9 +221,15 @@ export default function CheckoutPage() {
     }, RESTAURANT_LOGO_DEBOUNCE_MS)
 
     return () => clearTimeout(timeoutId)
-  }, [selectedCartItems, deliveryData.lat, deliveryData.lng, deliveryData.address])
+  }, [
+    selectedCartItems,
+    deliveryData.lat,
+    deliveryData.lng,
+    deliveryData.address,
+    effectiveAddress,
+  ])
 
-  const hasDeliveryInfo = Boolean(deliveryData.phone?.trim() && deliveryData.address?.trim())
+  const hasDeliveryInfo = Boolean(effectivePhone && effectiveAddress)
 
   // restaurantLogo is handled by restaurantInfo fetch above
 
@@ -342,8 +388,8 @@ export default function CheckoutPage() {
         return
       }
 
-      const trimmedPhone = deliveryData.phone?.trim()
-      const trimmedAddress = deliveryData.address?.trim()
+      const trimmedPhone = effectivePhone
+      const trimmedAddress = effectiveAddress
 
       if (!trimmedPhone || !trimmedAddress) {
         showToast(
@@ -564,9 +610,15 @@ export default function CheckoutPage() {
             {/* Right - Checkout Form */}
             <div className="space-y-6">
               <DeliveryForm 
-                phone={deliveryData.phone} 
-                address={deliveryData.address} 
+                phone={effectivePhone} 
+                address={effectiveAddress} 
                 isLoading={isDeliveryLoading}
+                reorderHint={
+                  reorderSourceOrder
+                    ? `Using delivery details from order #${reorderSourceOrder.id.slice(0, 8)}…`
+                    : null
+                }
+                deliveryInstructions={reorderSourceOrder?.deliveryInstructions ?? null}
               />
 
               <PromoOffers

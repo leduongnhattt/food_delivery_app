@@ -28,11 +28,14 @@ export interface EnterpriseOrderListItem {
   metadata?: unknown;
   orderDetails: Array<{
     dishName: string;
+    foodId?: string;
     quantity: number;
     subTotal: number;
     imageUrl?: string | null;
     /** If your API adds product options later, show as "Variation: …". */
     variantLabel?: string | null;
+    sku?: string | null;
+    parentSku?: string | null;
   }>;
   /** ISO datetime for "Ship by …" line (optional). */
   estimatedDeliveryTime?: string | null;

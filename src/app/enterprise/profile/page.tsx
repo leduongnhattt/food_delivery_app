@@ -8,7 +8,7 @@ import { useToast } from "@/contexts/toast-context";
 import { useAccountHeader } from "@/hooks/use-account-header";
 import { buildAuthHeader, getAuthToken } from "@/lib/auth-helpers";
 import { getServerApiBase } from "@/lib/http-client";
-import { User, Camera, Lock, Save } from "lucide-react";
+import { User, Camera, Save } from "lucide-react";
 import Image from "next/image";
 import { EnterprisePageHeader } from "@/components/enterprise/EnterprisePageHeader";
 import { cn } from "@/lib/utils";
@@ -36,13 +36,6 @@ export default function EnterpriseProfile() {
   const [avatar, setAvatar] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
-  const [showPasswordForm, setShowPasswordForm] = useState(false);
-  
-  // Password change states
-  const [currentPassword, setCurrentPassword] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [isChangingPassword, setIsChangingPassword] = useState(false);
 
   const { showToast } = useToast();
   const accountHeader = useAccountHeader();
@@ -152,93 +145,6 @@ export default function EnterpriseProfile() {
       showToast(error instanceof Error ? error.message : "Failed to upload avatar", "error");
     } finally {
       setIsUploadingAvatar(false);
-    }
-  };
-
-  // Handle password change
-  const handlePasswordChange = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    // Validation
-    if (!currentPassword.trim()) {
-      showToast("Current password is required", "error");
-      return;
-    }
-
-    if (!newPassword.trim()) {
-      showToast("New password is required", "error");
-      return;
-    }
-
-    if (newPassword !== confirmPassword) {
-      showToast("New passwords do not match", "error");
-      return;
-    }
-
-    if (newPassword.length < 6) {
-      showToast("Password must be at least 6 characters", "error");
-      return;
-    }
-
-    if (currentPassword === newPassword) {
-      showToast("New password must be different from current password", "error");
-      return;
-    }
-
-    setIsChangingPassword(true);
-    try {
-      const response = await apiClient.post("/auth/change-password", {
-        currentPassword,
-        newPassword,
-      }) as any;
-      
-      // Check if response indicates success or error
-      if (response.success === false) {
-        // Handle API error response
-        let errorMessage = "Failed to change password";
-        
-        if (response.error) {
-          if (response.error.includes("Current password is incorrect")) {
-            errorMessage = "Current password is incorrect. Please check and try again.";
-          } else if (response.error.includes("New password must be different")) {
-            errorMessage = "New password must be different from your current password.";
-          } else if (response.error.includes("Password must be at least 6 characters")) {
-            errorMessage = "Password must be at least 6 characters long.";
-          } else if (response.error.includes("User account has no password set")) {
-            errorMessage = "Your account doesn't have a password set. Please contact support.";
-          } else if (response.error.includes("Current password and new password are required")) {
-            errorMessage = "Please fill in all password fields.";
-          } else if (response.error.includes("Unauthorized")) {
-            errorMessage = "Session expired. Please log in again.";
-          } else {
-            errorMessage = response.error;
-          }
-        }
-        
-        showToast(errorMessage, "error");
-        
-        // Clear current password field if it's incorrect to force re-entry
-        if (response.error?.includes("Current password is incorrect")) {
-          setCurrentPassword("");
-        }
-      } else {
-        // Success case
-        showToast("Password changed successfully! Please log in again.", "success");
-        setCurrentPassword("");
-        setNewPassword("");
-        setConfirmPassword("");
-        setShowPasswordForm(false);
-        
-        // Redirect to login after successful password change
-        setTimeout(() => {
-          window.location.href = '/signin';
-        }, 2000);
-      }
-    } catch (error: any) {
-      console.error("Unexpected error:", error);
-      showToast("An unexpected error occurred. Please try again.", "error");
-    } finally {
-      setIsChangingPassword(false);
     }
   };
 
@@ -458,136 +364,8 @@ export default function EnterpriseProfile() {
               </>
             )}
           </Button>
-
-          <Button
-            type="button"
-            onClick={() => setShowPasswordForm(!showPasswordForm)}
-            className="h-8 shrink-0 rounded-md border border-slate-600 bg-slate-700 px-3 text-[12px] font-semibold text-white shadow-sm hover:bg-slate-600"
-          >
-            <Lock className="mr-1.5 h-3.5 w-3.5" />
-            Change Password
-          </Button>
         </div>
       </form>
-
-      {showPasswordForm && (
-        <div className="space-y-6 border-t border-slate-200 pt-8">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h3 className="text-[15px] font-semibold text-slate-900">Change Password</h3>
-            <div className="flex items-center text-[12px] text-slate-500">
-              <Lock className="mr-1 inline h-4 w-4" />
-              Secure password change
-            </div>
-          </div>
-
-          <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
-            <div className="flex items-start">
-              <div className="flex-shrink-0">
-                <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
-                  <path
-                    fillRule="evenodd"
-                    d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-              </div>
-              <div className="ml-3">
-                <p className="text-sm text-yellow-800">
-                  <strong>Security Notice:</strong> After changing your password, you will be logged out and need to sign in again with your new password.
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <form onSubmit={handlePasswordChange} className="space-y-4">
-            <div>
-              <label className="mb-1.5 block text-[13px] font-semibold text-slate-800">Current Password *</label>
-              <Input
-                type="password"
-                value={currentPassword}
-                onChange={(e) => setCurrentPassword(e.target.value)}
-                className={profileFieldClass}
-                placeholder="Enter your current password"
-                required
-              />
-              <p className="mt-1 text-[12px] text-slate-500">Enter your current password to verify your identity</p>
-            </div>
-
-            <div>
-              <label className="mb-1.5 block text-[13px] font-semibold text-slate-800">New Password *</label>
-              <Input
-                type="password"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                className={profileFieldClass}
-                placeholder="Enter new password (min 6 characters)"
-                required
-                minLength={6}
-              />
-              <p className="mt-1 text-[12px] text-slate-500">Password must be at least 6 characters long</p>
-            </div>
-
-            <div>
-              <label className="mb-1.5 block text-[13px] font-semibold text-slate-800">Confirm New Password *</label>
-              <Input
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                className={profileFieldClass}
-                placeholder="Confirm your new password"
-                required
-                minLength={6}
-              />
-              {confirmPassword && newPassword && confirmPassword !== newPassword && (
-                <p className="mt-1 text-[12px] text-red-600">Passwords do not match</p>
-              )}
-              {confirmPassword && newPassword && confirmPassword === newPassword && (
-                <p className="mt-1 text-[12px] text-emerald-600">Passwords match</p>
-              )}
-            </div>
-
-            <div className="flex flex-col gap-3 pt-2 sm:flex-row">
-              <Button
-                type="submit"
-                disabled={
-                  isChangingPassword ||
-                  !currentPassword ||
-                  !newPassword ||
-                  !confirmPassword ||
-                  newPassword !== confirmPassword
-                }
-                className="h-9 flex-1 rounded-lg bg-sky-600 px-4 text-[13px] font-medium text-white hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {isChangingPassword ? (
-                  <>
-                    <div className="mr-2 h-4 w-4 animate-spin rounded-full border-b-2 border-white" />
-                    Changing Password...
-                  </>
-                ) : (
-                  <>
-                    <Lock className="mr-2 h-4 w-4" />
-                    Change Password
-                  </>
-                )}
-              </Button>
-
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => {
-                  setShowPasswordForm(false);
-                  setCurrentPassword("");
-                  setNewPassword("");
-                  setConfirmPassword("");
-                }}
-                className="h-9 flex-1 rounded-lg border-slate-200 text-[13px] font-medium"
-              >
-                Cancel
-              </Button>
-            </div>
-          </form>
-        </div>
-      )}
     </div>
   );
 }

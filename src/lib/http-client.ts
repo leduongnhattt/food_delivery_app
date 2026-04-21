@@ -131,26 +131,34 @@ export async function requestJson<T>(
         }
 
         if (response.status === 401) {
-            const refreshed = await refreshAccessToken()
-            if (refreshed) {
-                response = await performFetch()
+            const headersAny = (options.headers || {}) as any
+            const skipRefresh =
+                headersAny['x-skip-refresh'] === '1' ||
+                headersAny['X-Skip-Refresh'] === '1'
+            if (!skipRefresh) {
+                const refreshed = await refreshAccessToken()
+                if (refreshed) {
+                    response = await performFetch()
+                }
             }
         }
 
         if (!response.ok) {
             let errorMessage = `Request failed with status ${response.status}`
+            let errorData: any = undefined
 
             try {
-                const errorData = await response.json()
+                errorData = await response.json()
                 errorMessage = errorData.error || errorData.message || errorMessage
             } catch {
                 // If response is not JSON, use status text or default message
                 errorMessage = response.statusText || errorMessage
             }
 
-            const error = new Error(errorMessage) as Error & { status: number; url: string }
+            const error = new Error(errorMessage) as Error & { status: number; url: string; data?: any }
             error.status = response.status
             error.url = url
+            if (errorData !== undefined) error.data = errorData
             throw error
         }
 
