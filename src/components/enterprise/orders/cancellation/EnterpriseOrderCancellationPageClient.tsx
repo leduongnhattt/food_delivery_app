@@ -12,8 +12,8 @@ import {
   initials,
   pickMetaBool,
   pickMetaString,
-} from "@/lib/enterprise-ui-helpers";
-import { useDismissablePopover } from "@/hooks/useDismissablePopover";
+} from "@/lib/enterprise-orders";
+import { useDismissablePopover } from "@/hooks/ui-hooks";
 import { CopyToClipboardButton } from "@/components/enterprise/CopyToClipboardButton";
 import {
   EnterpriseMenuSelect,

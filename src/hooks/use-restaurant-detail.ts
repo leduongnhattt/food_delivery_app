@@ -4,7 +4,7 @@ import type { Restaurant, MenuItem } from '@/types/models'
 import { RestaurantService } from '@/services/restaurant.service'
 import { FoodService } from '@/services/food.service'
 import { mapRestaurantToVM, mapFoodToMenuItem } from '@/lib/mappers/restaurant'
-import { CATALOG_REFETCH_INTERVAL_MS } from '@/hooks/catalog-refetch'
+import { CATALOG_REFETCH_INTERVAL_MS } from '@/hooks/catalog-hooks'
 import { useDeliveryDestination } from '@/contexts/delivery-destination-context'
 
 interface UseRestaurantResult {

@@ -5,7 +5,7 @@ import { Check, ChevronDown, Lock, Search, Unlock } from "lucide-react"
 import { Pagination } from "@/components/ui/pagination"
 import { ADMIN_MENU_TRIGGER_CLASS } from "@/components/admin/shared/admin-field-classes"
 import { EnterpriseMenuSelect } from "@/components/enterprise/orders/shared/EnterpriseMenuSelect"
-import { useAdminCustomersPage } from "@/hooks/use-admin-customers-page"
+import { useAdminCustomersPage } from "@/hooks/admin-hooks"
 
 export default function CustomersAdminPage() {
   const {

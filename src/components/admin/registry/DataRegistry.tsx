@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loading } from '@/components/ui/loading';
-import { getServerApiBase } from '@/lib/http-client';
+import { getServerApiBase } from '@/lib/http';
 
 interface RegistryStatus {
   success: boolean;

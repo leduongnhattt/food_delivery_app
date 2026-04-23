@@ -1,4 +1,4 @@
-import { getServerApiBase, requestJson, buildQueryString } from '@/lib/http-client'
+import { getServerApiBase, requestJson, buildQueryString } from '@/lib/http'
 
 const GET_OPTIONS: RequestInit = { method: 'GET', cache: 'no-store' }
 

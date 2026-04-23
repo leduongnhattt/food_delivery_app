@@ -3,10 +3,10 @@
 import type { Order } from "@/services/order-management.service";
 import Link from "next/link";
 import { MessageCircle } from "lucide-react";
-import { orderStatusLabel } from "@/lib/order-status.labels";
+import { orderStatusLabel } from "@/lib/orders";
 import { orderManagementService } from "@/services/order-management.service";
 import { buildEnterpriseOrderActions } from "@/components/enterprise/orders/detail/order-actions";
-import { hasReturnRefund } from "@/lib/enterprise-order-buckets";
+import { hasReturnRefund } from "@/lib/enterprise-orders";
 
 interface Props {
   orders: Order[];

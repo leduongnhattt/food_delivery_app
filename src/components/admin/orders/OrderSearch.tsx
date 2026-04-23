@@ -8,7 +8,7 @@ import {
   Search,
   X,
 } from "lucide-react";
-import { useAdminSearchInput } from "@/hooks/use-admin-search-input";
+import { useAdminSearchInput } from "@/hooks/admin-hooks";
 import { DateTimePickerField } from "@/components/ui/date-time-picker";
 import {
   EnterpriseMenuSelect,
@@ -73,8 +73,6 @@ export default function OrderSearch({
   useEffect(() => {
     setQModeState(qModeParam);
   }, [qModeParam]);
-
-  const qModeLabel = useMemo(() => (qMode === "orderId" ? "Order ID" : "Name"), [qMode]);
 
   const searchModeOptions = useMemo<EnterpriseMenuSelectOption[]>(
     () => [

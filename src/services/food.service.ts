@@ -1,7 +1,5 @@
 import { Food } from '@/types/models'
-import { BaseService } from '@/lib/base-service'
-import { buildQueryString, requestJson } from '@/lib/http-client'
-import { createDebouncedApiCall } from '@/lib/debounce'
+import { BaseService, buildQueryString, requestJson, createDebouncedApiCall } from '@/lib/http'
 import { API_BASE_URL } from '@/services/api'
 
 /** Base URL for foods APIs, derived from the shared API_BASE_URL. */

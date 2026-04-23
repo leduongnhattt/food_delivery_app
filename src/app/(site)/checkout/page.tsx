@@ -3,8 +3,8 @@ import { Button } from '@/components/ui/button'
 import { formatPrice, calculatePrice } from '@/lib/utils'
 import { CartItem } from '@/types/models'
 import { useCart } from '@/hooks/use-cart'
-import { useDeliveryData } from '@/hooks/use-delivery-data'
-import { useAuth } from '@/hooks/use-auth'
+import { useDeliveryData } from '@/hooks/account-hooks'
+import { useAuth } from '@/hooks/auth-hooks'
 import { useRouter } from 'next/navigation'
 import { PaymentService } from '@/services/payment.service'
 import { useSearchParams } from 'next/navigation'
@@ -20,8 +20,13 @@ import { PaymentSelector } from '@/components/checkout/PaymentSelector'
 import { OrderSummary } from '@/components/checkout/OrderSummary'
 import { useToast } from '@/contexts/toast-context'
 import { useTranslations } from '@/lib/i18n'
-import { exceedsItemValueLimit, getOrderLimitLabel } from '@/lib/order-limit'
-import { CHECKOUT_PAYMENT_METHOD, getCheckoutPrimaryButtonLabel, type CheckoutPaymentMethod } from '@/lib/payment-method'
+import {
+  exceedsItemValueLimit,
+  getOrderLimitLabel,
+  CHECKOUT_PAYMENT_METHOD,
+  getCheckoutPrimaryButtonLabel,
+  type CheckoutPaymentMethod,
+} from '@/lib/orders'
 import { OrderService } from '@/services/order.service'
 import type { Order } from '@/services/order.service'
 

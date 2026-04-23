@@ -8,7 +8,7 @@ import { Calendar, Percent, Tag, Plus, Sparkles } from "lucide-react";
 import VoucherSearch from "@/components/enterprise/VoucherSearch";
 import TabsVouchers from "@/components/enterprise/TabsVouchers";
 import { useSearchParams } from "next/navigation";
-import { getServerApiBase } from "@/lib/http-client";
+import { getServerApiBase } from "@/lib/http";
 import { buildAuthHeader } from "@/lib/auth-helpers";
 import { EnterprisePageHeader, ENTERPRISE_PANEL_CLASS } from "@/components/enterprise/EnterprisePageHeader";
 

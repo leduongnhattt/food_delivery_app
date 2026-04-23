@@ -4,7 +4,7 @@ import { Menu, MenuList } from "./MenuList";
 import { useEffect, useState } from "react";
 import AddNewMenuPopup from "./AddNewMenuPopup";
 import EditMenuPopup from "./EditMenuPopup";
-import { getServerApiBase } from "@/lib/http-client";
+import { getServerApiBase } from "@/lib/http";
 import { buildAuthHeader } from "@/lib/auth-helpers";
 import { EnterprisePageHeader } from "@/components/enterprise/EnterprisePageHeader";
 

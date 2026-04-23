@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { CheckCircle, Clock, MapPin, Phone, Home, AlertTriangle } from 'lucide-react'
-import { CHECKOUT_PAYMENT_METHOD } from '@/lib/payment-method'
+import { CHECKOUT_PAYMENT_METHOD } from '@/lib/orders'
 import { OrderService } from '@/services/order.service'
 import type { Order } from '@/services/order.service'
 

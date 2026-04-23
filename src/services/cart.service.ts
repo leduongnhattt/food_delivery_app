@@ -1,5 +1,5 @@
 import { CartItemPayload, CartSnapshot } from "@/types/models"
-import { buildHeaders, requestJson } from '@/lib/http-client'
+import { buildHeaders, requestJson } from '@/lib/http'
 import { API_BASE_URL } from '@/services/api'
 
 function getCartApiBase(): string {

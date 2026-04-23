@@ -1,4 +1,4 @@
-import { buildHeaders, getServerApiBase } from "@/lib/http-client";
+import { buildHeaders, getServerApiBase } from "@/lib/http";
 import { useState } from "react";
 
 interface UploadResponse {

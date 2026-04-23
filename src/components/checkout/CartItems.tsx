@@ -8,7 +8,7 @@ import { formatPrice, calculatePrice } from '@/lib/utils'
 import { CartItem } from '@/types/models'
 import { StockValidationPopup, useStockValidationPopup } from '@/components/ui/stock-validation-popup'
 import { validateFoodStock } from '@/lib/stock-validation'
-import { exceedsItemValueLimit, getOrderLimitLabel } from '@/lib/order-limit'
+import { exceedsItemValueLimit, getOrderLimitLabel } from '@/lib/orders'
 import { useTranslations } from '@/lib/i18n'
 import { useState, useRef, useEffect } from 'react'
 

@@ -1,4 +1,4 @@
-import { getServerApiBase, requestJson } from "@/lib/http-client";
+import { getServerApiBase, requestJson } from "@/lib/http";
 
 export class EnterpriseFinanceService {
   static async verifyPassword(body: { password: string }): Promise<{ success: boolean }> {

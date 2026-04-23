@@ -10,7 +10,7 @@ import type { AdminOrderListItem } from "@/types/admin-api.types";
 import OrderStatusSelect from "./OrderStatusSelect";
 import OrderSearch from "./OrderSearch";
 import { formatPrice } from "@/lib/utils";
-import { getActionMenuPosition } from "@/components/admin/enterprises/enterprise-list-utils";
+import { getActionMenuPosition } from "@/components/admin/enterprises/list/utils";
 import { Pagination } from "@/components/ui/pagination";
 
 const statusColorMap: Record<string, string> = {

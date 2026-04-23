@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { ErrorDisplay } from "@/components/ui/error-display";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { usePasswordToggle } from "@/hooks/use-password-toggle";
+import { usePasswordToggle } from "@/hooks/ui-hooks";
 import { useTranslations } from "@/lib/i18n";
 import { PasswordService } from "@/services/password.service";
 import { validatePasswordStrength, validatePasswordConfirmation } from "@/lib/auth-validation";

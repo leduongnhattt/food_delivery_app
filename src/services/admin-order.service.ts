@@ -6,7 +6,7 @@ import {
   buildQueryString,
   getServerApiBase,
   requestJson,
-} from '@/lib/http-client'
+} from '@/lib/http'
 import { AdminOrderDetailResponse, AdminOrdersListResponse } from '@/types/admin-api.types'
 
 export type AdminOrdersListQuery = {

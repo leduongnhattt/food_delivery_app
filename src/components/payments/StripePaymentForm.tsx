@@ -4,8 +4,7 @@ import { useStripe, useElements, CardElement } from '@stripe/react-stripe-js'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { CreditCard, Lock, AlertCircle } from 'lucide-react'
-import { buildHeaders } from '@/lib/http-client'
-import { getServerApiBase } from '@/lib/http-client'
+import { buildHeaders, getServerApiBase } from '@/lib/http'
 
 interface StripePaymentFormProps {
   amount: number

@@ -1,5 +1,5 @@
 import { Food } from '@/types/models'
-import { requestJson } from '@/lib/http-client'
+import { requestJson } from '@/lib/http'
 import { API_BASE_URL } from '@/services/api'
 
 export interface SearchResult {

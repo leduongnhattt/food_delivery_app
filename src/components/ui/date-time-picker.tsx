@@ -203,7 +203,6 @@ export function DateTimePickerField({
   }
 
   const today = new Date()
-  const todayKey = toDateKey(today)
   const selectedKey = selectedDate ? toDateKey(selectedDate) : ""
 
   return (

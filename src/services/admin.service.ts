@@ -10,7 +10,7 @@ import {
   buildQueryString,
   getServerApiBase,
   requestJson,
-} from '@/lib/http-client'
+} from '@/lib/http'
 import type {
   AdminCustomersListResponse,
   AdminEnterprisesListResponse,

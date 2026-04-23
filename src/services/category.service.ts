@@ -1,6 +1,4 @@
-import { BaseService } from '@/lib/base-service'
-import { requestJson, getServerApiBase } from '@/lib/http-client'
-import { createDebouncedApiCall } from '@/lib/debounce'
+import { BaseService, requestJson, getServerApiBase, createDebouncedApiCall } from '@/lib/http'
 
 export interface CategoryDto {
     id: string

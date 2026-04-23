@@ -26,7 +26,6 @@ import {
 } from "@/components/support/support-ui"
 import { useToast } from "@/contexts/toast-context"
 import {
-  ADMIN_FIELD_BASE_CLASS,
   ADMIN_MENU_TRIGGER_CLASS,
 } from "@/components/admin/shared/admin-field-classes"
 

@@ -6,7 +6,7 @@ import { Building2, Users, Tag, Wallet, Activity } from 'lucide-react'
 import RangeSelect from '@/components/admin/shared/range-select'
 import { fetchAdminDashboardSummary } from '@/services/admin.service'
 import type { AdminDashboardSummaryResponse } from '@/types/admin-api.types'
-import { formatCurrency } from '@/lib/order-utils'
+import { formatCurrency } from '@/lib/orders'
 import { formatDate } from '@/lib/utils'
 
 export default function AdminDashboardPage() {

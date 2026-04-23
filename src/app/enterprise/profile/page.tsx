@@ -4,9 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import React, { useState, useEffect, useCallback } from "react";
 import { useToast } from "@/contexts/toast-context";
-import { useAccountHeader } from "@/hooks/use-account-header";
+import { useAccountHeader } from "@/hooks/account-hooks";
 import { buildAuthHeader, getAuthToken } from "@/lib/auth-helpers";
-import { getServerApiBase } from "@/lib/http-client";
+import { getServerApiBase } from "@/lib/http";
 import { User, Camera, Save } from "lucide-react";
 import Image from "next/image";
 import { EnterprisePageHeader } from "@/components/enterprise/EnterprisePageHeader";
@@ -41,13 +41,11 @@ export default function EnterpriseProfile() {
 
   // Validation functions
   const validateEnterpriseName = (name: string) => {
-    // Chỉ cho phép chữ cái, số, khoảng trắng và một số ký tự đặc biệt cơ bản
     const regex = /^[a-zA-ZÀ-ỹ0-9\s&.,()-]+$/;
     return regex.test(name);
   };
 
   const validatePhoneNumber = (phone: string) => {
-    // Chỉ cho phép số và dấu +, -, (), khoảng trắng
     const regex = /^[\d\s+()-]+$/;
     return regex.test(phone);
   };
@@ -74,7 +72,6 @@ export default function EnterpriseProfile() {
       setDescription(enterprise.Description || "");
       setOpenHours(enterprise.OpenHours || "");
       setCloseHours(enterprise.CloseHours || "");
-      // Use database avatar as primary source, accountHeader as fallback
       const avatarUrl = enterprise.account.Avatar || accountHeader.avatar || "";
       setAvatar(avatarUrl);
     } catch (error) {

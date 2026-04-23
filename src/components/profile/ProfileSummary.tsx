@@ -2,7 +2,7 @@ import { Button } from '@/components/ui/button'
 import { Camera, Edit } from 'lucide-react'
 import { useRef, useState, useEffect } from 'react'
 import { getAuthToken } from '@/lib/auth-helpers'
-import { getServerApiBase } from '@/lib/http-client'
+import { getServerApiBase } from '@/lib/http'
 import { useToast } from '@/contexts/toast-context'
 
 interface ProfileSummaryProps {

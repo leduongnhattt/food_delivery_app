@@ -14,7 +14,7 @@ export async function validateFoodStock(
     requestedQuantity: number
 ): Promise<StockValidationResult> {
     try {
-        const { getServerApiBase } = await import('@/lib/http-client')
+        const { getServerApiBase } = await import('@/lib/http')
         const base = getServerApiBase()
         const response = await fetch(`${base}/stock/validate`, {
             method: 'POST',

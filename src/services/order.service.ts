@@ -1,4 +1,4 @@
-import { buildHeaders, getServerApiBase, requestJson } from '@/lib/http-client'
+import { buildHeaders, getServerApiBase, requestJson } from '@/lib/http'
 
 export interface OrderItem {
     id: string

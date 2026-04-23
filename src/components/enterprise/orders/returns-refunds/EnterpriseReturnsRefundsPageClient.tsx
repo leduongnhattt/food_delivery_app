@@ -9,7 +9,7 @@ import {
   type ReturnRequestStatus,
 } from "@/services/enterprise-returns.service";
 import { ConfirmActionModal } from "@/components/enterprise/ConfirmActionModal";
-import { compactId, initials, shortId } from "@/lib/enterprise-ui-helpers";
+import { compactId, initials, shortId } from "@/lib/enterprise-orders";
 import {
   EnterpriseMenuSelect,
   type EnterpriseMenuSelectOption,

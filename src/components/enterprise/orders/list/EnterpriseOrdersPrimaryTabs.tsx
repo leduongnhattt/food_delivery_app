@@ -1,10 +1,10 @@
 "use client";
 
-import type { EnterpriseOrderTab, EnterpriseToShipSubTab } from "@/lib/enterprise-order-buckets";
+import type { EnterpriseOrderTab, EnterpriseToShipSubTab } from "@/lib/enterprise-orders";
 import {
   ENTERPRISE_TAB_LABELS,
   TOSHIP_SUB_LABELS,
-} from "@/lib/enterprise-order-buckets";
+} from "@/lib/enterprise-orders";
 
 const TAB_ORDER: EnterpriseOrderTab[] = [
   "all",
