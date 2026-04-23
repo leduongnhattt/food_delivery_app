@@ -174,6 +174,8 @@ function adminBreadcrumbs(pathname: string): AdminBreadcrumbCrumb[] {
   if (rest === "send") tail = "Send invitation";
   else if (base.href === "/admin/enterprises/invitations" && rest) tail = "Invitation details";
   else if (base.href === "/admin/support" && rest) tail = "Ticket details";
+  else if (base.href === "/admin/finance/commission-fees" && rest === "new") tail = "Create New Commission Rule";
+  else if (base.href === "/admin/finance/transaction-fees" && rest === "new") tail = "Create New Transaction Fee";
   else if (
     rest &&
     (base.href.startsWith("/admin/finance/") ||

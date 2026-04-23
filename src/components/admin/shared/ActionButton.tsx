@@ -1,7 +1,7 @@
 "use client"
 
 import { useFormStatus } from 'react-dom'
-import { cn } from '@/lib/utils'
+import { mergeClasses } from '@/lib/utils'
 
 export default function ActionButton({
   children,
@@ -18,7 +18,7 @@ export default function ActionButton({
       type="submit"
       aria-busy={pending}
       disabled={pending}
-      className={cn(
+      className={mergeClasses(
         'relative h-8 px-3 text-xs rounded-md border transition-all duration-150 flex items-center justify-center gap-2',
         'border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-60 disabled:cursor-not-allowed',
         pending && 'animate-pulse',

@@ -13,6 +13,7 @@ import {
 import { formatDate } from "@/lib/utils"
 import { Ban, Check, ChevronDown, Eye, MoreVertical, Send, Search } from "lucide-react"
 import { useToast } from "@/contexts/toast-context"
+import { Pagination } from "@/components/ui/pagination"
 
 type Tab = "all" | "pending" | "accepted" | "expired" | "revoked"
 
@@ -31,8 +32,6 @@ export default function EnterprisesInvitationsAdminPage() {
   const [pendingId, setPendingId] = useState<string | null>(null)
   const [openStatusMenu, setOpenStatusMenu] = useState(false)
   const statusMenuRef = useRef<HTMLDivElement | null>(null)
-  const [openLimitMenu, setOpenLimitMenu] = useState(false)
-  const limitMenuRef = useRef<HTMLDivElement | null>(null)
   const [actionMenu, setActionMenu] = useState<{
     invitationId: string
     email: string
@@ -80,16 +79,10 @@ export default function EnterprisesInvitationsAdminPage() {
         return
       }
       setOpenStatusMenu(false)
-
-      if (openLimitMenu && limitMenuRef.current && target) {
-        if (!limitMenuRef.current.contains(target)) setOpenLimitMenu(false)
-        return
-      }
-      setOpenLimitMenu(false)
     }
     document.addEventListener("click", onDocClick)
     return () => document.removeEventListener("click", onDocClick)
-  }, [openStatusMenu, openLimitMenu, actionMenu])
+  }, [openStatusMenu, actionMenu])
 
   function navigateInvitationsList(overrides: {
     status?: Tab
@@ -327,14 +320,14 @@ export default function EnterprisesInvitationsAdminPage() {
 
         {/* Table (framed like CMS) */}
         <div className="rounded-lg border border-slate-200 bg-white">
-          <div className="overflow-x-auto px-4">
+          <div className="overflow-x-auto">
             {loading ? (
               <div className="text-center text-slate-500 py-10">Loading…</div>
             ) : (
               <table className="min-w-full text-[13px]">
                 <thead>
                   <tr className="bg-[#f9fbfc] text-left text-slate-500 border-b border-slate-200">
-                    <th className="py-2 pr-4 text-xs leading-4 font-semibold text-[oklch(0.21_0.034_264.665)]">
+                    <th className="py-2 pr-4 pl-4 text-xs leading-4 font-semibold text-[oklch(0.21_0.034_264.665)]">
                       Invitation ID
                     </th>
                     <th className="py-2 pr-4 text-xs leading-4 font-semibold text-[oklch(0.21_0.034_264.665)]">
@@ -355,7 +348,7 @@ export default function EnterprisesInvitationsAdminPage() {
                     <th className="py-2 pr-4 text-xs leading-4 font-semibold text-[oklch(0.21_0.034_264.665)]">
                       Status
                     </th>
-                    <th className="py-2 pr-0 text-right w-20 text-xs leading-4 font-semibold text-[oklch(0.21_0.034_264.665)]">
+                    <th className="py-2 pr-4 text-right w-20 text-xs leading-4 font-semibold text-[oklch(0.21_0.034_264.665)]">
                       Actions
                     </th>
                   </tr>
@@ -363,7 +356,7 @@ export default function EnterprisesInvitationsAdminPage() {
                 <tbody className="divide-y divide-slate-100">
                   {visibleRows.map((it) => (
                     <tr key={it.InvitationID}>
-                      <td className="py-2 pr-4 text-[12px] leading-4 font-medium text-[oklch(0.21_0.034_264.665)]">
+                      <td className="py-2 pr-4 pl-4 text-[12px] leading-4 font-medium text-[oklch(0.21_0.034_264.665)]">
                         {String(it.InvitationID).slice(0, 10)}
                       </td>
                       <td className="py-2 pr-4 text-[12px] leading-4 font-medium text-[oklch(0.21_0.034_264.665)]">
@@ -385,7 +378,7 @@ export default function EnterprisesInvitationsAdminPage() {
                           return <span className={b.className}>{b.label}</span>
                         })()}
                       </td>
-                      <td className="py-2 pr-0 text-right w-20">
+                      <td className="py-2 pr-4 text-right w-20">
                         <button
                           type="button"
                           onClick={(ev) => {
@@ -431,110 +424,15 @@ export default function EnterprisesInvitationsAdminPage() {
             )}
           </div>
 
-          {/* Table footer pagination (UI like CMS) */}
           {!loading && totalRows > 0 && (
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 px-4 py-3 border-t border-slate-100">
-              <div className="text-[13px] font-medium text-slate-500">
-                Showing <span className="font-medium text-slate-700">{pageEnd - pageStart}</span> of{" "}
-                <span className="font-medium text-slate-700">{totalRows}</span> invitations
-              </div>
-
-              <div className="flex items-center gap-2">
-                <div className="flex items-center gap-1">
-                  {Array.from({ length: Math.min(7, totalPages) }).map((_, idx) => {
-                    const n = idx + 1
-                    const active = n === safePage
-                    return (
-                      <button
-                        key={n}
-                        type="button"
-                        onClick={() => navigateInvitationsList({ page: n })}
-                        className={`h-7 w-7 rounded border text-[13px] font-medium transition ${
-                          active
-                            ? "bg-blue-600 text-white border-blue-600"
-                            : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
-                        }`}
-                      >
-                        {n}
-                      </button>
-                    )
-                  })}
-                  {totalPages > 7 && (
-                    <>
-                      <span className="px-1 text-[13px] text-slate-500">…</span>
-                      <button
-                        type="button"
-                        onClick={() => navigateInvitationsList({ page: totalPages })}
-                        className={`h-7 w-7 rounded border text-[13px] font-medium transition ${
-                          totalPages === safePage
-                            ? "bg-blue-600 text-white border-blue-600"
-                            : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
-                        }`}
-                      >
-                        {totalPages}
-                      </button>
-                    </>
-                  )}
-                  <button
-                    type="button"
-                    disabled={safePage >= totalPages}
-                    onClick={() => navigateInvitationsList({ page: Math.min(totalPages, safePage + 1) })}
-                    className="h-7 w-7 rounded border text-[13px] font-medium bg-white text-slate-700 border-slate-200 hover:bg-slate-50 disabled:opacity-50"
-                    aria-label="Next page"
-                  >
-                    ›
-                  </button>
-                </div>
-
-                <div ref={limitMenuRef} className="relative">
-                  <button
-                    type="button"
-                    onMouseDown={(ev) => ev.stopPropagation()}
-                    onClick={(ev) => {
-                      ev.stopPropagation()
-                      setOpenLimitMenu((v) => !v)
-                    }}
-                    className="relative inline-flex items-center justify-between h-7 min-w-14 rounded border border-slate-200 bg-white px-2 text-xs leading-4 text-slate-700 hover:bg-slate-50"
-                    aria-label="Rows per page"
-                  >
-                    <span>{limit}</span>
-                    <ChevronDown
-                      className={`w-3 h-3 ml-1 text-slate-500 transition-transform duration-150 ${
-                        openLimitMenu ? "rotate-180" : ""
-                      }`}
-                    />
-                  </button>
-
-                  {openLimitMenu && (
-                    <div className="absolute right-0 mt-2 w-14 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg z-50 p-1">
-                      {[10, 20, 50].map((n) => {
-                        const active = n === limit
-                        return (
-                          <button
-                            key={n}
-                            type="button"
-                            onClick={() => {
-                              setOpenLimitMenu(false)
-                              navigateInvitationsList({ limit: n, page: 1 })
-                            }}
-                            className={`w-full px-2 py-1.5 text-left text-[11px] leading-4 rounded-md transition ${
-                              active
-                                ? "bg-slate-100 text-slate-900"
-                                : "text-slate-700 hover:bg-slate-50"
-                            }`}
-                          >
-                            <span className="flex items-center justify-between">
-                              <span>{n}</span>
-                              {active && <Check className="w-3.5 h-3.5 text-slate-700" />}
-                            </span>
-                          </button>
-                        )
-                      })}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
+            <Pagination
+              page={safePage}
+              pageSize={limit}
+              total={totalRows}
+              pageSizeOptions={[10, 20, 50]}
+              onPageChange={(p) => navigateInvitationsList({ page: p })}
+              onPageSizeChange={(n) => navigateInvitationsList({ limit: n, page: 1 })}
+            />
           )}
         </div>
 

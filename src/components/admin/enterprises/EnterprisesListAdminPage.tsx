@@ -44,14 +44,8 @@ export default function EnterprisesListAdminPage() {
           error={ctx.error}
           visibleRows={ctx.visibleRows}
           totalRows={ctx.totalRows}
-          pageStart={ctx.pageStart}
-          pageEnd={ctx.pageEnd}
           safePage={ctx.safePage}
-          totalPages={ctx.totalPages}
           limit={ctx.limit}
-          openLimitMenu={ctx.openLimitMenu}
-          setOpenLimitMenu={ctx.setOpenLimitMenu}
-          limitMenuRef={ctx.limitMenuRef}
           setQuery={ctx.setQuery}
           setActionMenu={ctx.setActionMenu}
         />

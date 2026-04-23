@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { ArrowLeft, Check, ChevronDown } from "lucide-react"
-import { cn } from "@/lib/utils"
+import { mergeClasses } from "@/lib/utils"
 import { getAdminEnterpriseDetail, updateAdminEnterprise } from "@/services/admin.service"
 import type { AdminEnterpriseDetailResponse } from "@/types/admin-api.types"
 import { useToast } from "@/contexts/toast-context"
@@ -28,7 +28,7 @@ function SectionCard({
  * Compact CMS-style control (~32px tall): slim border, subtle inset gradient, small radius — matches
  * typical admin “small” input density (not the tall h-11 mobile-first default).
  */
-const cmsInputClassName = cn(
+const cmsInputClassName = mergeClasses(
   "block h-8 w-full rounded border border-slate-300 bg-gradient-to-b from-slate-100/35 to-white px-2.5 text-[13px] leading-8 text-slate-900",
   "shadow-[inset_0_1px_0_rgba(255,255,255,0.65)]",
   "placeholder:text-slate-400",

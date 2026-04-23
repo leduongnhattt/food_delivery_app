@@ -10,10 +10,10 @@ import { getServerApiBase } from "@/lib/http-client";
 import { User, Camera, Save } from "lucide-react";
 import Image from "next/image";
 import { EnterprisePageHeader } from "@/components/enterprise/EnterprisePageHeader";
-import { cn } from "@/lib/utils";
+import { mergeClasses } from "@/lib/utils";
 
 /** Match admin Edit Enterprise field density. Resets shadcn Input ring/offset so focus is a single ring, not stacked on defaults. */
-const profileFieldClass = cn(
+const profileFieldClass = mergeClasses(
   "block h-8 w-full rounded border border-slate-300 bg-gradient-to-b from-slate-100/35 to-white px-2.5 text-[13px] leading-8 text-slate-900",
   "shadow-[inset_0_1px_0_rgba(255,255,255,0.65)]",
   "placeholder:text-slate-400",
@@ -334,7 +334,7 @@ export default function EnterpriseProfile() {
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className={cn(
+              className={mergeClasses(
                 "min-h-[8rem] w-full resize-y rounded border border-slate-300 bg-gradient-to-b from-slate-100/35 to-white px-2.5 py-2 text-[13px] leading-snug text-slate-900 shadow-[inset_0_1px_0_rgba(255,255,255,0.65)] placeholder:text-slate-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/35"
               )}
               rows={5}

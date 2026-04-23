@@ -37,7 +37,7 @@ export function useEnterpriseListPage() {
   const tab = parseEnterpriseListTab(statusRaw)
   const search = searchParams.get("search")?.trim() || ""
   const page = Math.max(1, Number(searchParams.get("page") || "1") || 1)
-  const limit = Math.min(50, Math.max(5, Number(searchParams.get("limit") || "10") || 10))
+  const limit = Math.min(50, Math.max(10, Number(searchParams.get("limit") || "10") || 10))
 
   const [enterprises, setEnterprises] = useState<AdminEnterpriseListItem[]>([])
   const [loading, setLoading] = useState(true)
@@ -136,11 +136,11 @@ export function useEnterpriseListPage() {
       const s = (next.status ?? tab) || "all"
       const q = (next.search ?? search).trim()
       const nextPage = Math.max(1, Number(next.page ?? page) || 1)
-      const nextLimit = Math.min(50, Math.max(5, Number(next.limit ?? limit) || 10))
+      const clampedLimit = Math.min(50, Math.max(10, Number(next.limit ?? limit) || 10))
       if (s && s !== "all") p.set("status", s)
       if (q) p.set("search", q)
       if (nextPage !== 1) p.set("page", String(nextPage))
-      if (nextLimit !== 10) p.set("limit", String(nextLimit))
+      if (clampedLimit !== 10) p.set("limit", String(clampedLimit))
       const qs = p.toString()
       router.push(qs ? `${ENTERPRISE_LIST_PATH}?${qs}` : ENTERPRISE_LIST_PATH)
     },
