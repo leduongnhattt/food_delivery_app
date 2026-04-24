@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Check, ChevronDown, Search } from "lucide-react";
 import {
@@ -17,99 +17,16 @@ import {
 } from "@/components/admin/shared/finance-list-ui";
 import { DateTimePickerField } from "@/components/ui/date-time-picker";
 import { Pagination } from "@/components/ui/pagination";
+import type { AdminTransactionFeeChannelRuleItem } from "@/types/admin-api.types";
+import {
+  getTransactionFeesGlobal,
+  listTransactionFeeChannelRules,
+  updateTransactionFeeChannelRule,
+} from "@/services/admin.service";
+import { TRANSACTION_FEE_PAYMENT_CHANNEL_FILTER_MENU } from "@/lib/transaction-fee-channels";
+import type { TransactionFeePaymentChannelFilterId } from "@/lib/transaction-fee-channels";
 
 type FeeStatus = "Active" | "Inactive";
-type PaymentChannel =
-  | "Credit Card"
-  | "Stripe"
-  | "MoMo"
-  | "VNPay"
-  | "Cash"
-  | "Bank Transfer";
-
-type TransactionFeeRule = {
-  id: string;
-  name: string;
-  paymentChannel: PaymentChannel;
-  ratePct: number;
-  period: string;
-  status: FeeStatus;
-  createdDate: string;
-};
-
-type TransactionFeeGlobalDefault = {
-  ruleId: string;
-  ratePct: number;
-  effectiveFrom: string;
-  effectiveTo?: string;
-  isActive: boolean;
-};
-
-// UI-only mock: keep placeholder values to match CMS header design.
-const MOCK_GLOBAL_FEE: TransactionFeeGlobalDefault | null = {
-  ruleId: "00000000-0000-0000-0000-000000000002",
-  ratePct: 2.5,
-  effectiveFrom: "2026-03-20",
-  effectiveTo: undefined,
-  isActive: true,
-};
-
-const MOCK_FEES: TransactionFeeRule[] = [
-  {
-    id: "01KMCW2BFBH0Y0C7F488WS83NN",
-    name: "Test Fee 2",
-    paymentChannel: "Credit Card",
-    ratePct: 2,
-    period: "2026-03-23 to 2026-03-25",
-    status: "Inactive",
-    createdDate: "2026-03-23",
-  },
-  {
-    id: "01KSTRIPE000000000000000001",
-    name: "Stripe Card Fee",
-    paymentChannel: "Stripe",
-    ratePct: 2.9,
-    period: "2026-03-20 to Present",
-    status: "Active",
-    createdDate: "2026-03-20",
-  },
-  {
-    id: "01KMS1Z3AAM2ZEDH2CRAKNWHHF",
-    name: "New Fee Test",
-    paymentChannel: "Cash",
-    ratePct: 7,
-    period: "2026-03-29 to 2026-04-01",
-    status: "Active",
-    createdDate: "2026-03-29",
-  },
-  {
-    id: "01KMS12P9J5G3F2P6E94H9B855",
-    name: "mm",
-    paymentChannel: "MoMo",
-    ratePct: 6,
-    period: "2026-03-20 to Present",
-    status: "Active",
-    createdDate: "2026-03-20",
-  },
-  {
-    id: "01KMS00SQ8Y8N4NEXA8PF1CJW5",
-    name: "Credit Card Premium Fee",
-    paymentChannel: "Credit Card",
-    ratePct: 2.5,
-    period: "2026-03-20 to 2026-03-28",
-    status: "Inactive",
-    createdDate: "2026-03-20",
-  },
-  {
-    id: "01KMMFBY6Z6M7BK0CNRTSYWXY",
-    name: "GCash Promo Fee",
-    paymentChannel: "VNPay",
-    ratePct: 2,
-    period: "2026-03-20 to 2026-03-27",
-    status: "Inactive",
-    createdDate: "2026-03-20",
-  },
-];
 
 const PAGE_SIZE_OPTIONS = [12, 24, 48] as const;
 
@@ -118,27 +35,111 @@ function StatusPill({ status }: { status: FeeStatus }) {
     status === "Active"
       ? "bg-emerald-50 text-emerald-700 border-emerald-200"
       : "bg-slate-50 text-slate-700 border-slate-200";
-  return <span className={`inline-flex rounded px-2 py-1 text-[11px] leading-4 border ${cls}`}>{status}</span>;
+  return (
+    <span className={`inline-flex rounded px-2 py-1 text-[11px] leading-4 border ${cls}`}>
+      {status}
+    </span>
+  );
+}
+
+function formatRulePeriod(row: AdminTransactionFeeChannelRuleItem): string {
+  if (row.EffectiveTo) {
+    return `${row.EffectiveFrom} to ${row.EffectiveTo}`;
+  }
+  return `${row.EffectiveFrom} to Present`;
 }
 
 export function TransactionFeesPage() {
   const router = useRouter();
   const [q, setQ] = useState("");
-  const [channel, setChannel] = useState<"all" | PaymentChannel>("all");
+  const [channel, setChannel] = useState<"all" | TransactionFeePaymentChannelFilterId>("all");
   const [status, setStatus] = useState<"all" | FeeStatus>("all");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
-
   const [pageSize, setPageSize] = useState<(typeof PAGE_SIZE_OPTIONS)[number]>(12);
   const [page, setPage] = useState(1);
-
   const [openChannelMenu, setOpenChannelMenu] = useState(false);
   const [openStatusMenu, setOpenStatusMenu] = useState(false);
   const [openPeriod, setOpenPeriod] = useState(false);
-
   const channelMenuRef = useRef<HTMLDivElement | null>(null);
   const statusMenuRef = useRef<HTMLDivElement | null>(null);
   const periodRef = useRef<HTMLDivElement | null>(null);
+
+  const [globalRow, setGlobalRow] = useState<{
+    DefaultID: string;
+    RatePercent: number;
+    EffectiveFrom: string;
+  } | null>(null);
+  const [globalLoading, setGlobalLoading] = useState(true);
+  const [rows, setRows] = useState<AdminTransactionFeeChannelRuleItem[]>([]);
+  const [total, setTotal] = useState(0);
+  const [listLoading, setListLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [toggleBusyId, setToggleBusyId] = useState<string | null>(null);
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+
+  useEffect(() => {
+    const t = window.setTimeout(() => setDebouncedSearch(q.trim()), 350);
+    return () => window.clearTimeout(t);
+  }, [q]);
+
+  const loadGlobal = useCallback(async () => {
+    setGlobalLoading(true);
+    try {
+      const g = await getTransactionFeesGlobal();
+      setGlobalRow({
+        DefaultID: g.DefaultID,
+        RatePercent: g.RatePercent,
+        EffectiveFrom: g.EffectiveFrom,
+      });
+    } catch {
+      setGlobalRow(null);
+    } finally {
+      setGlobalLoading(false);
+    }
+  }, []);
+
+  const loadList = useCallback(async () => {
+    setListLoading(true);
+    setError(null);
+    try {
+      const isActiveParam = status === "all" ? undefined : status === "Active";
+      const res = await listTransactionFeeChannelRules({
+        page,
+        pageSize,
+        search: debouncedSearch || undefined,
+        paymentChannel: channel === "all" ? undefined : channel,
+        isActive: isActiveParam,
+        effectiveFrom: from.trim() || undefined,
+        effectiveTo: to.trim() || undefined,
+      });
+      setRows(res.items);
+      setTotal(res.total);
+    } catch (e) {
+      setRows([]);
+      setTotal(0);
+      setError(e instanceof Error ? e.message : "Failed to load transaction fees");
+    } finally {
+      setListLoading(false);
+    }
+  }, [page, pageSize, debouncedSearch, channel, status, from, to]);
+
+  useEffect(() => {
+    void loadGlobal();
+  }, [loadGlobal]);
+
+  useEffect(() => {
+    void loadList();
+  }, [loadList]);
+
+  const totalPages = Math.max(1, Math.ceil(total / pageSize) || 1);
+  const safePage = Math.min(Math.max(1, page), totalPages);
+
+  useEffect(() => {
+    if (page > totalPages) {
+      setPage(totalPages);
+    }
+  }, [page, totalPages]);
 
   useEffect(() => {
     function onDocMouseDown(ev: MouseEvent) {
@@ -154,32 +155,31 @@ export function TransactionFeesPage() {
     return () => document.removeEventListener("mousedown", onDocMouseDown);
   }, []);
 
-  const filtered = useMemo(() => {
-    const qq = q.trim().toLowerCase();
-    return MOCK_FEES.filter((r) => {
-      const okQ = !qq || r.name.toLowerCase().includes(qq);
-      const okChannel = channel === "all" || r.paymentChannel === channel;
-      const okStatus = status === "all" || r.status === status;
-      const okFrom = !from || r.createdDate >= from;
-      const okTo = !to || r.createdDate <= to;
-      return okQ && okChannel && okStatus && okFrom && okTo;
-    });
-  }, [q, channel, status, from, to]);
+  const channelLabel = useMemo(() => {
+    const found = TRANSACTION_FEE_PAYMENT_CHANNEL_FILTER_MENU.find((o) => o.filterId === channel);
+    return found?.label ?? "Payment channel";
+  }, [channel]);
 
-  const total = filtered.length;
-  const totalPages = Math.max(1, Math.ceil(total / pageSize));
-  const safePage = Math.min(Math.max(1, page), totalPages);
-  const startIdx = (safePage - 1) * pageSize;
-  const endIdx = Math.min(total, startIdx + pageSize);
-  const rows = filtered.slice(startIdx, endIdx);
-
-  const channelLabel = channel === "all" ? "All Payment Channels" : channel;
   const statusLabel = status === "all" ? "All Status" : status;
   const periodLabel =
     from && to ? `${from} to ${to}` : from ? `${from} onwards` : to ? `Until ${to}` : "Period";
 
   function resetPage() {
     setPage(1);
+  }
+
+  async function onToggleActive(row: AdminTransactionFeeChannelRuleItem) {
+    const id = row.FeeID;
+    setToggleBusyId(id);
+    setError(null);
+    try {
+      await updateTransactionFeeChannelRule(id, { isActive: !row.IsActive });
+      await loadList();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Update failed");
+    } finally {
+      setToggleBusyId(null);
+    }
   }
 
   return (
@@ -189,14 +189,26 @@ export function TransactionFeesPage() {
         description="Manage transaction fee rules based on payment channels."
       />
 
-      <FinanceGlobalDefaultCard
-        ruleId={MOCK_GLOBAL_FEE?.ruleId}
-        rateLabel="Transaction Fee Rule"
-        ratePct={MOCK_GLOBAL_FEE?.ratePct}
-        effectiveFrom={MOCK_GLOBAL_FEE?.effectiveFrom}
-        actionLabel="Edit Global Fee"
-        onAction={() => router.push("/admin/finance/transaction-fees/new?scope=global")}
-      />
+      {error ? (
+        <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-[13px] text-rose-800">
+          {error}
+        </div>
+      ) : null}
+
+      {globalLoading ? (
+        <div className="rounded-lg border border-slate-200 bg-white px-4 py-6 text-center text-[13px] text-slate-500">
+          Loading global fee…
+        </div>
+      ) : (
+        <FinanceGlobalDefaultCard
+          ruleId={globalRow?.DefaultID}
+          rateLabel="Transaction Fee Rule"
+          ratePct={globalRow?.RatePercent ?? null}
+          effectiveFrom={globalRow?.EffectiveFrom ?? null}
+          actionLabel="Edit Global Fee"
+          onAction={() => router.push("/admin/finance/transaction-fees/new?scope=global")}
+        />
+      )}
 
       <FinanceRulesListCardShell
         title="Transaction Fees"
@@ -324,29 +336,21 @@ export function TransactionFeesPage() {
                   onClick={(ev) => ev.stopPropagation()}
                   className="absolute left-0 right-0 z-50 mt-1 w-full overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg"
                 >
-                  {(
-                    [
-                      { id: "all" as const, label: "All Payment Channels" },
-                      { id: "Credit Card" as const, label: "Credit Card" },
-                      { id: "Stripe" as const, label: "Stripe" },
-                      { id: "MoMo" as const, label: "MoMo" },
-                      { id: "VNPay" as const, label: "VNPay" },
-                      { id: "Cash" as const, label: "Cash" },
-                      { id: "Bank Transfer" as const, label: "Bank Transfer" },
-                    ] as const
-                  ).map((opt) => (
+                  {TRANSACTION_FEE_PAYMENT_CHANNEL_FILTER_MENU.map((opt) => (
                     <button
-                      key={opt.id}
+                      key={opt.filterId}
                       type="button"
                       onClick={() => {
                         setOpenChannelMenu(false);
-                        setChannel(opt.id as any);
+                        setChannel(opt.filterId);
                         resetPage();
                       }}
                       className="w-full flex items-center justify-between px-3 py-2 text-[13px] md:text-[13px] text-slate-900 hover:bg-slate-50"
                     >
                       <span className="truncate">{opt.label}</span>
-                      {channel === opt.id && <Check className="w-4 h-4 shrink-0 text-slate-700" />}
+                      {channel === opt.filterId && (
+                        <Check className="w-4 h-4 shrink-0 text-slate-700" />
+                      )}
                     </button>
                   ))}
                 </div>
@@ -393,7 +397,7 @@ export function TransactionFeesPage() {
                       type="button"
                       onClick={() => {
                         setOpenStatusMenu(false);
-                        setStatus(opt.id as any);
+                        setStatus(opt.id);
                         resetPage();
                       }}
                       className="w-full flex items-center justify-between px-3 py-2 text-[13px] md:text-[13px] text-slate-900 hover:bg-slate-50"
@@ -415,101 +419,119 @@ export function TransactionFeesPage() {
             pageSizeOptions={PAGE_SIZE_OPTIONS}
             onPageChange={setPage}
             onPageSizeChange={(n) => {
-              setPageSize(n as any);
+              setPageSize(n as (typeof PAGE_SIZE_OPTIONS)[number]);
               setPage(1);
             }}
           />
         }
       >
         <div className="mt-2 overflow-x-auto">
-          <table className="min-w-full text-[12px] leading-4">
-            <thead>
-              <tr className="bg-[#f9fbfc] text-left border-y border-slate-200">
-                <th className="py-2 pr-4 pl-4 text-xs leading-4 font-semibold text-[oklch(0.21_0.034_264.665)]">
-                  Fee ID
-                </th>
-                <th className="py-2 pr-4 text-xs leading-4 font-semibold text-[oklch(0.21_0.034_264.665)]">
-                  Fee Name
-                </th>
-                <th className="py-2 pr-4 text-xs leading-4 font-semibold text-[oklch(0.21_0.034_264.665)]">
-                  Payment Channel
-                </th>
-                <th className="py-2 pr-4 text-xs leading-4 font-semibold text-[oklch(0.21_0.034_264.665)]">
-                  Rate (%)
-                </th>
-                <th className="py-2 pr-4 text-xs leading-4 font-semibold text-[oklch(0.21_0.034_264.665)]">
-                  Period
-                </th>
-                <th className="py-2 pr-4 text-xs leading-4 font-semibold text-[oklch(0.21_0.034_264.665)]">
-                  Status
-                </th>
-                <th className="py-2 pr-4 text-xs leading-4 font-semibold text-[oklch(0.21_0.034_264.665)]">
-                  Created Date
-                </th>
-                <th className="py-2 pr-4 text-xs leading-4 font-semibold text-[oklch(0.21_0.034_264.665)]">
-                  Actions
-                </th>
-              </tr>
-            </thead>
+          {listLoading ? (
+            <div className="py-12 text-center text-[13px] text-slate-500">Loading fees…</div>
+          ) : (
+            <table className="min-w-full text-[12px] leading-4">
+              <thead>
+                <tr className="bg-[#f9fbfc] text-left border-y border-slate-200">
+                  <th className="py-2 pr-4 pl-4 text-xs leading-4 font-semibold text-[oklch(0.21_0.034_264.665)]">
+                    Fee ID
+                  </th>
+                  <th className="py-2 pr-4 text-xs leading-4 font-semibold text-[oklch(0.21_0.034_264.665)]">
+                    Fee Name
+                  </th>
+                  <th className="py-2 pr-4 text-xs leading-4 font-semibold text-[oklch(0.21_0.034_264.665)]">
+                    Payment Channel
+                  </th>
+                  <th className="py-2 pr-4 text-xs leading-4 font-semibold text-[oklch(0.21_0.034_264.665)]">
+                    Rate (%)
+                  </th>
+                  <th className="py-2 pr-4 text-xs leading-4 font-semibold text-[oklch(0.21_0.034_264.665)]">
+                    Period
+                  </th>
+                  <th className="py-2 pr-4 text-xs leading-4 font-semibold text-[oklch(0.21_0.034_264.665)]">
+                    Status
+                  </th>
+                  <th className="py-2 pr-4 text-xs leading-4 font-semibold text-[oklch(0.21_0.034_264.665)]">
+                    Created Date
+                  </th>
+                  <th className="py-2 pr-4 text-xs leading-4 font-semibold text-[oklch(0.21_0.034_264.665)]">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
 
-            <tbody className="divide-y divide-slate-100">
-              {rows.map((r) => {
-                const primaryAction =
-                  r.status === "Active"
-                    ? { label: "Deactivate", cls: "text-rose-600" }
-                    : { label: "Activate", cls: "text-emerald-700" };
-                return (
-                  <tr key={r.id} className="hover:bg-slate-50/50 transition-colors">
-                    <td className="py-2 pr-4 pl-4 font-mono text-[11px] text-slate-600">
-                      {r.id.slice(0, 18)}
-                    </td>
-                    <td className="py-2 pr-4">
-                      <button
-                        type="button"
-                        className="text-[12px] font-medium text-[#2563FF] hover:underline underline-offset-2 text-left"
-                      >
-                        {r.name}
-                      </button>
-                    </td>
-                    <td className="py-2 pr-4 text-slate-600">{r.paymentChannel}</td>
-                    <td className="py-2 pr-4 text-slate-700">{r.ratePct.toFixed(2)}%</td>
-                    <td className="py-2 pr-4 text-slate-600 whitespace-nowrap">{r.period}</td>
-                    <td className="py-2 pr-4">
-                      <StatusPill status={r.status} />
-                    </td>
-                    <td className="py-2 pr-4 text-slate-600 whitespace-nowrap">{r.createdDate}</td>
-                    <td className="py-2 pr-4">
-                      <div className="flex items-center gap-3">
+              <tbody className="divide-y divide-slate-100">
+                {rows.map((r) => {
+                  const primaryAction =
+                    r.IsActive
+                      ? { label: "Deactivate", cls: "text-rose-600" }
+                      : { label: "Activate", cls: "text-emerald-700" };
+                  const statusUi: FeeStatus = r.IsActive ? "Active" : "Inactive";
+                  return (
+                    <tr key={r.FeeID} className="hover:bg-slate-50/50 transition-colors">
+                      <td className="py-2 pr-4 pl-4 font-mono text-[11px] text-slate-600">
+                        {r.FeeID.length > 18 ? `${r.FeeID.slice(0, 18)}…` : r.FeeID}
+                      </td>
+                      <td className="py-2 pr-4">
                         <button
                           type="button"
-                          className="text-[12px] font-medium text-[#2563FF] hover:underline underline-offset-2"
+                          onClick={() =>
+                            router.push(
+                              `/admin/finance/transaction-fees/${encodeURIComponent(r.FeeID)}/edit`,
+                            )
+                          }
+                          className="text-[12px] font-medium text-[#2563FF] hover:underline underline-offset-2 text-left"
                         >
-                          Edit
+                          {r.FeeName}
                         </button>
-                        <button
-                          type="button"
-                          className={`text-[12px] font-medium hover:underline underline-offset-2 ${primaryAction.cls}`}
-                        >
-                          {primaryAction.label}
-                        </button>
-                      </div>
+                      </td>
+                      <td className="py-2 pr-4 text-slate-600">{r.PaymentChannelLabel}</td>
+                      <td className="py-2 pr-4 text-slate-700">{r.RatePercent.toFixed(2)}%</td>
+                      <td className="py-2 pr-4 text-slate-600 whitespace-nowrap">
+                        {formatRulePeriod(r)}
+                      </td>
+                      <td className="py-2 pr-4">
+                        <StatusPill status={statusUi} />
+                      </td>
+                      <td className="py-2 pr-4 text-slate-600 whitespace-nowrap">{r.CreatedAt}</td>
+                      <td className="py-2 pr-4">
+                        <div className="flex items-center gap-3">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              router.push(
+                                `/admin/finance/transaction-fees/${encodeURIComponent(r.FeeID)}/edit`,
+                              )
+                            }
+                            className="text-[12px] font-medium text-[#2563FF] hover:underline underline-offset-2"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            type="button"
+                            disabled={toggleBusyId === r.FeeID}
+                            onClick={() => void onToggleActive(r)}
+                            className={`text-[12px] font-medium hover:underline underline-offset-2 disabled:opacity-50 ${primaryAction.cls}`}
+                          >
+                            {toggleBusyId === r.FeeID ? "…" : primaryAction.label}
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+
+                {rows.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="py-10 text-center text-slate-500">
+                      No fees
                     </td>
                   </tr>
-                );
-              })}
-
-              {rows.length === 0 ? (
-                <tr>
-                  <td colSpan={8} className="py-10 text-center text-slate-500">
-                    No fees
-                  </td>
-                </tr>
-              ) : null}
-            </tbody>
-          </table>
+                ) : null}
+              </tbody>
+            </table>
+          )}
         </div>
       </FinanceRulesListCardShell>
     </div>
   );
 }
-

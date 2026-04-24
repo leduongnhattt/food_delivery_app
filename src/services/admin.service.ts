@@ -26,6 +26,9 @@ import type {
   AdminCommissionFeeCategoryRuleItem,
   AdminCommissionFeeCategoryRulesListResponse,
   FoodCategoriesListResponse,
+  AdminTransactionFeesGlobalResponse,
+  AdminTransactionFeeChannelRuleItem,
+  AdminTransactionFeeChannelRulesListResponse,
 } from '@/types/admin-api.types'
 
 /** Body for `POST` enterprise onboarding on Nest. */
@@ -118,6 +121,10 @@ function urlAdminDashboardSummary(): string {
 
 function urlAdminCommissionFees(): string {
   return `${nestApiBase()}/admin/finance/commission-fees`
+}
+
+function urlAdminTransactionFees(): string {
+  return `${nestApiBase()}/admin/finance/transaction-fees`
 }
 
 /** Normalizes `HeadersInit` so `buildAuthHeader` can merge Bearer tokens. */
@@ -472,6 +479,118 @@ export async function updateCommissionFeeCategoryRule(
 ): Promise<{ success: boolean; item: AdminCommissionFeeCategoryRuleItem }> {
   return requestJson(
     `${urlAdminCommissionFees()}/category-rules/${encodeURIComponent(commissionDefaultId)}`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    },
+  )
+}
+
+export async function getTransactionFeesGlobal(): Promise<AdminTransactionFeesGlobalResponse> {
+  return requestJson<AdminTransactionFeesGlobalResponse>(
+    `${urlAdminTransactionFees()}/global`,
+    { method: 'GET' },
+  )
+}
+
+export async function updateTransactionFeesGlobal(payload: {
+  ruleName?: string | null
+  ratePercent?: number
+  isActive?: boolean
+  effectiveFrom?: string
+  effectiveTo?: string | null
+}): Promise<{ success: boolean; DefaultID: string; RatePercent: number }> {
+  return requestJson(`${urlAdminTransactionFees()}/global`, {
+    method: 'PATCH',
+    body: JSON.stringify({
+      ruleName: payload.ruleName ?? undefined,
+      ratePercent: payload.ratePercent,
+      isActive: payload.isActive,
+      effectiveFrom: payload.effectiveFrom,
+      effectiveTo: payload.effectiveTo,
+    }),
+  })
+}
+
+export type ListTransactionFeeChannelRulesParams = {
+  page?: number
+  pageSize?: number
+  search?: string
+  /** Cash | CreditCard | Stripe | MoMo | VNPay | BankTransfer */
+  paymentChannel?: string
+  isActive?: boolean
+  effectiveFrom?: string
+  effectiveTo?: string
+}
+
+export async function listTransactionFeeChannelRules(
+  params: ListTransactionFeeChannelRulesParams,
+): Promise<AdminTransactionFeeChannelRulesListResponse> {
+  const qs = buildQueryString({
+    page: params.page,
+    pageSize: params.pageSize,
+    search: params.search,
+    paymentChannel: params.paymentChannel,
+    isActive:
+      params.isActive === undefined
+        ? undefined
+        : params.isActive
+          ? 'true'
+          : 'false',
+    effectiveFrom: params.effectiveFrom,
+    effectiveTo: params.effectiveTo,
+  })
+  const url = qs
+    ? `${urlAdminTransactionFees()}/channel-rules?${qs}`
+    : `${urlAdminTransactionFees()}/channel-rules`
+  return requestJson<AdminTransactionFeeChannelRulesListResponse>(url, {
+    method: 'GET',
+  })
+}
+
+export async function getTransactionFeeChannelRule(
+  feeId: string,
+): Promise<AdminTransactionFeeChannelRuleItem> {
+  return requestJson(
+    `${urlAdminTransactionFees()}/channel-rules/${encodeURIComponent(feeId)}`,
+    { method: 'GET' },
+  )
+}
+
+export async function createTransactionFeeChannelRule(payload: {
+  paymentChannel: string
+  feeName: string
+  ratePercent: number
+  isActive?: boolean
+  effectiveFrom: string
+  effectiveTo?: string | null
+}): Promise<{ success: boolean; item: AdminTransactionFeeChannelRuleItem }> {
+  return requestJson(`${urlAdminTransactionFees()}/channel-rules`, {
+    method: 'POST',
+    body: JSON.stringify({
+      paymentChannel: payload.paymentChannel,
+      feeName: payload.feeName,
+      ratePercent: payload.ratePercent,
+      isActive: payload.isActive,
+      effectiveFrom: payload.effectiveFrom,
+      effectiveTo: payload.effectiveTo ?? undefined,
+    }),
+  })
+}
+
+export async function updateTransactionFeeChannelRule(
+  feeId: string,
+  payload: {
+    paymentChannel?: string
+    feeName?: string
+    ratePercent?: number
+    isActive?: boolean
+    effectiveFrom?: string
+    effectiveTo?: string | null
+  },
+): Promise<{ success: boolean; item: AdminTransactionFeeChannelRuleItem }> {
+  return requestJson(
+    `${urlAdminTransactionFees()}/channel-rules/${encodeURIComponent(feeId)}`,
     {
       method: 'PATCH',
       body: JSON.stringify(payload),

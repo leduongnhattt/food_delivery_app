@@ -302,3 +302,37 @@ export type FoodCategoriesListResponse = {
   categories: FoodCategoryListItem[];
   total: number;
 };
+
+/** `GET /admin/finance/transaction-fees/global` */
+export type AdminTransactionFeesGlobalResponse = {
+  DefaultID: string;
+  RuleName: string | null;
+  RatePercent: number;
+  IsActive: boolean;
+  EffectiveFrom: string;
+  EffectiveTo: string | null;
+  CreatedAt: string;
+  UpdatedAt: string | null;
+  UpdatedByLabel: string | null;
+};
+
+export type AdminTransactionFeeChannelRuleItem = {
+  FeeID: string;
+  FeeName: string;
+  PaymentMethod: string;
+  PaymentProviderCode: string | null;
+  PaymentChannelLabel: string;
+  RatePercent: number;
+  IsActive: boolean;
+  EffectiveFrom: string;
+  EffectiveTo: string | null;
+  CreatedAt: string;
+  UpdatedByLabel: string | null;
+};
+
+export type AdminTransactionFeeChannelRulesListResponse = {
+  items: AdminTransactionFeeChannelRuleItem[];
+  total: number;
+  page: number;
+  pageSize: number;
+};
