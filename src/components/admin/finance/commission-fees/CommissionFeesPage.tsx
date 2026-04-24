@@ -18,6 +18,7 @@ import {
 import { DateTimePickerField } from "@/components/ui/date-time-picker";
 import { Pagination } from "@/components/ui/pagination";
 import type { AdminCommissionFeeCategoryRuleItem } from "@/types/admin-api.types";
+import { useToast } from "@/contexts/toast-context";
 import {
   fetchFoodCategoriesList,
   getCommissionFeesGlobal,
@@ -25,17 +26,20 @@ import {
   updateCommissionFeeCategoryRule,
 } from "@/services/admin.service";
 
-type RuleStatus = "Active" | "Inactive";
+type RuleStatus = "Pending" | "Active" | "Inactive";
 
 const PAGE_SIZE_OPTIONS = [12, 24, 48] as const;
 
-function StatusPill({ active }: { active: boolean }) {
-  const cls = active
-    ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-    : "bg-slate-50 text-slate-700 border-slate-200";
+function StatusPill({ status }: { status: RuleStatus }) {
+  const cls =
+    status === "Active"
+      ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+      : status === "Pending"
+        ? "bg-amber-50 text-amber-800 border-amber-200"
+        : "bg-slate-50 text-slate-700 border-slate-200";
   return (
     <span className={`inline-flex rounded px-2 py-1 text-[11px] leading-4 border ${cls}`}>
-      {active ? "Active" : "Inactive"}
+      {status}
     </span>
   );
 }
@@ -48,6 +52,7 @@ function displayRuleName(row: AdminCommissionFeeCategoryRuleItem): string {
 
 export function CommissionFeesPage() {
   const router = useRouter();
+  const { showToast } = useToast();
   const [q, setQ] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<"all" | string>("all");
   const [status, setStatus] = useState<"all" | RuleStatus>("all");
@@ -65,13 +70,12 @@ export function CommissionFeesPage() {
   const [globalRow, setGlobalRow] = useState<{
     DefaultID: string;
     CommissionPercent: number;
-    EffectiveDisplayDate: string;
+    EffectiveFrom: string;
   } | null>(null);
   const [rows, setRows] = useState<AdminCommissionFeeCategoryRuleItem[]>([]);
   const [total, setTotal] = useState(0);
   const [listLoading, setListLoading] = useState(true);
   const [globalLoading, setGlobalLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [categoryOptions, setCategoryOptions] = useState<Array<{ id: string; name: string }>>([]);
   const [toggleBusyId, setToggleBusyId] = useState<string | null>(null);
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -99,7 +103,7 @@ export function CommissionFeesPage() {
       setGlobalRow({
         DefaultID: g.DefaultID,
         CommissionPercent: g.CommissionPercent,
-        EffectiveDisplayDate: g.EffectiveDisplayDate,
+        EffectiveFrom: g.EffectiveFrom,
       });
     } catch {
       setGlobalRow(null);
@@ -110,15 +114,14 @@ export function CommissionFeesPage() {
 
   const loadList = useCallback(async () => {
     setListLoading(true);
-    setError(null);
     try {
-      const isActiveParam =
-        status === "all" ? undefined : status === "Active";
+      const isActiveParam = undefined;
       const res = await listCommissionFeeCategoryRules({
         page,
         pageSize,
         search: debouncedSearch || undefined,
         foodCategoryId: categoryFilter === "all" ? undefined : categoryFilter,
+        status: status === "all" ? undefined : status,
         isActive: isActiveParam,
         effectiveFrom: from.trim() || undefined,
         effectiveTo: to.trim() || undefined,
@@ -128,7 +131,7 @@ export function CommissionFeesPage() {
     } catch (e) {
       setRows([]);
       setTotal(0);
-      setError(e instanceof Error ? e.message : "Failed to load commission rules");
+      // Intentionally keep the UI clean (no error banner per design).
     } finally {
       setListLoading(false);
     }
@@ -186,12 +189,23 @@ export function CommissionFeesPage() {
   async function onToggleActive(row: AdminCommissionFeeCategoryRuleItem) {
     const id = row.CommissionDefaultID;
     setToggleBusyId(id);
-    setError(null);
     try {
-      await updateCommissionFeeCategoryRule(id, { isActive: !row.IsActive });
-      await loadList();
+      const next = !row.IsActive;
+      const [res] = await Promise.all([
+        updateCommissionFeeCategoryRule(id, { isActive: next }),
+        new Promise<void>((r) => window.setTimeout(r, 450)),
+      ]);
+      setRows((prev) => {
+        const nextRows = prev.map((x) => (x.CommissionDefaultID === id ? res.item : x));
+        if (status === "all") return nextRows;
+        const nextStatus =
+          res.item.ActivatedAt ? (res.item.IsActive ? "Active" : "Inactive") : "Pending";
+        if (status === nextStatus) return nextRows;
+        return nextRows.filter((x) => x.CommissionDefaultID !== id);
+      });
+      showToast(next ? "Rule activated." : "Rule deactivated.", "success");
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Update failed");
+      showToast(e instanceof Error ? e.message : "Update failed", "error");
     } finally {
       setToggleBusyId(null);
     }
@@ -204,12 +218,6 @@ export function CommissionFeesPage() {
         description="Manage commission fee rules for your marketplace."
       />
 
-      {error ? (
-        <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-[13px] text-rose-800">
-          {error}
-        </div>
-      ) : null}
-
       {globalLoading ? (
         <div className="rounded-lg border border-slate-200 bg-white px-4 py-6 text-center text-[13px] text-slate-500">
           Loading global commission…
@@ -219,8 +227,9 @@ export function CommissionFeesPage() {
           ruleId={globalRow?.DefaultID}
           rateLabel="Global Commission"
           ratePct={globalRow?.CommissionPercent ?? null}
-          effectiveFrom={globalRow?.EffectiveDisplayDate ?? null}
+          effectiveFrom={globalRow?.EffectiveFrom ?? null}
           actionLabel="Edit Global Rule"
+          actionDisabled={!globalRow}
           onAction={() => router.push("/admin/finance/commission-fees/new?scope=global")}
         />
       )}
@@ -413,6 +422,7 @@ export function CommissionFeesPage() {
                   {(
                     [
                       { id: "all" as const, label: "All Status" },
+                      { id: "Pending" as const, label: "Pending" },
                       { id: "Active" as const, label: "Active" },
                       { id: "Inactive" as const, label: "Inactive" },
                     ] as const
@@ -506,7 +516,15 @@ export function CommissionFeesPage() {
                     <td className="py-2 pr-4 text-slate-700 font-medium">{r.CategoryName}</td>
                     <td className="py-2 pr-4 text-slate-700">{r.CommissionPercent}%</td>
                     <td className="py-2 pr-4">
-                      <StatusPill active={r.IsActive} />
+                      <StatusPill
+                        status={
+                          r.ActivatedAt
+                            ? r.IsActive
+                              ? "Active"
+                              : "Inactive"
+                            : "Pending"
+                        }
+                      />
                     </td>
                     <td className="py-2 pr-4 text-slate-600 whitespace-nowrap">
                       {r.EffectiveFrom}

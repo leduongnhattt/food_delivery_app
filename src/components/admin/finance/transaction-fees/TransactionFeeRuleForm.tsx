@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { CalendarDays, FileText } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { CalendarDays, Check, ChevronDown, FileText } from "lucide-react";
 import { ADMIN_FIELD_BASE_CLASS } from "@/components/admin/shared/admin-field-classes";
+import { adminFilterMenuTriggerClass } from "@/components/admin/shared/admin-filter-trigger";
+import { useToast } from "@/contexts/toast-context";
 import {
   FinanceCardTitle,
   FinanceCreateActions,
@@ -15,7 +17,7 @@ import { TRANSACTION_FEE_PAYMENT_CHANNELS } from "@/lib/transaction-fee-channels
 
 export type TransactionFeeRuleFormValues = {
   feeName: string;
-  /** `postValue` from TRANSACTION_FEE_PAYMENT_CHANNELS; ignored when variant is global. */
+  isGlobalRule: boolean;
   paymentChannelPostValue: string;
   ratePercent: string;
   isActive: boolean;
@@ -32,6 +34,9 @@ type TransactionFeeRuleFormProps = {
   subtitle: string;
   submitLabel: string;
   cancelLabel?: string;
+  initialGlobal?: boolean;
+  lockGlobal?: boolean;
+  allowGlobalToggle?: boolean;
   defaultValues: Partial<TransactionFeeRuleFormValues> | null;
   isSubmitting: boolean;
   errorMessage: string | null;
@@ -43,29 +48,47 @@ function todayDateString(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
+function addDays(dateStr: string, days: number): string {
+  const d = new Date(`${dateStr}T00:00:00.000Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+function isISODateOnly(s: string): boolean {
+  return /^\d{4}-\d{2}-\d{2}$/.test(s);
+}
+
 export function TransactionFeeRuleForm({
   variant,
   title,
   subtitle,
   submitLabel,
   cancelLabel,
+  initialGlobal,
+  lockGlobal,
+  allowGlobalToggle,
   defaultValues,
   isSubmitting,
   errorMessage,
   onCancel,
   onSubmit,
 }: TransactionFeeRuleFormProps) {
+  const { showToast } = useToast();
   const [feeName, setFeeName] = useState("");
+  const [isGlobalRule, setIsGlobalRule] = useState(Boolean(initialGlobal));
   const [paymentChannelPostValue, setPaymentChannelPostValue] = useState("");
   const [ratePercent, setRatePercent] = useState("");
-  const [isActive, setIsActive] = useState(true);
+  const [isActive, setIsActive] = useState(false);
   const [customPeriod, setCustomPeriod] = useState(false);
   const [effectiveFrom, setEffectiveFrom] = useState("");
   const [effectiveTo, setEffectiveTo] = useState("");
+  const [openPaymentMenu, setOpenPaymentMenu] = useState(false);
+  const paymentMenuRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (!defaultValues) return;
     if (defaultValues.feeName !== undefined) setFeeName(defaultValues.feeName);
+    if (defaultValues.isGlobalRule !== undefined) setIsGlobalRule(defaultValues.isGlobalRule);
     if (defaultValues.paymentChannelPostValue !== undefined) {
       setPaymentChannelPostValue(defaultValues.paymentChannelPostValue);
     }
@@ -76,50 +99,131 @@ export function TransactionFeeRuleForm({
     if (defaultValues.effectiveTo !== undefined) setEffectiveTo(defaultValues.effectiveTo ?? "");
   }, [defaultValues]);
 
+  useEffect(() => {
+    if (initialGlobal) setIsGlobalRule(true);
+  }, [initialGlobal]);
+
+  useEffect(() => {
+    function onDocMouseDown(ev: MouseEvent) {
+      const t = ev.target as Node | null;
+      const clicked = !!(paymentMenuRef.current && t && paymentMenuRef.current.contains(t));
+      if (!clicked) setOpenPaymentMenu(false);
+    }
+    function onKey(ev: KeyboardEvent) {
+      if (ev.key === "Escape") setOpenPaymentMenu(false);
+    }
+    document.addEventListener("mousedown", onDocMouseDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDocMouseDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, []);
+
   const summary = useMemo(() => {
     const rate = ratePercent.trim();
     const ch =
       TRANSACTION_FEE_PAYMENT_CHANNELS.find((c) => c.postValue === paymentChannelPostValue)
         ?.label ?? "—";
     const period =
-      variant === "global"
+      (lockGlobal || isGlobalRule || variant === "global")
         ? customPeriod
           ? "Custom"
           : "Indefinite (global dates below)"
         : customPeriod
           ? "Custom"
           : "Indefinite";
+    const global = lockGlobal || isGlobalRule || variant === "global";
+    const today = todayDateString();
+    const fromDisplay = customPeriod ? (effectiveFrom || "—") : today;
+    const toDisplay = customPeriod ? (effectiveTo || "—") : addDays(today, 1);
     return {
       feeName: feeName.trim() || "—",
-      paymentChannel: variant === "global" ? "Global default" : ch,
+      paymentChannel: global ? "Global default" : ch,
       rate: rate ? `${rate}%` : "—",
       period,
-      active: isActive ? "Active" : "Inactive",
+      effectiveFrom: fromDisplay,
+      effectiveTo: toDisplay,
+      status: isActive ? "Active" : "Pending",
     };
-  }, [feeName, variant, paymentChannelPostValue, ratePercent, customPeriod, isActive]);
+  }, [
+    feeName,
+    variant,
+    lockGlobal,
+    isGlobalRule,
+    paymentChannelPostValue,
+    ratePercent,
+    customPeriod,
+    isActive,
+    effectiveFrom,
+    effectiveTo,
+  ]);
+
+  const paymentLabel = useMemo(() => {
+    if (!paymentChannelPostValue) return "Select payment channel";
+    return (
+      TRANSACTION_FEE_PAYMENT_CHANNELS.find((c) => c.postValue === paymentChannelPostValue)
+        ?.label ?? "Select payment channel"
+    );
+  }, [paymentChannelPostValue]);
 
   async function handleSubmit() {
-    const global = variant === "global";
+    const global = lockGlobal || isGlobalRule || variant === "global";
+
+    const name = feeName.trim();
+    if (!name) {
+      showToast("Fee name is required.", "error");
+      return;
+    }
+
+    if (!global && !paymentChannelPostValue.trim()) {
+      showToast("Payment channel is required.", "error");
+      return;
+    }
+
+    const rateRaw = ratePercent.trim().replace(",", ".");
+    if (!rateRaw) {
+      showToast("Transaction fee rate is required.", "error");
+      return;
+    }
+    const rate = Number(rateRaw);
+    if (!Number.isFinite(rate) || rate < 0 || rate > 100) {
+      showToast("Transaction fee rate must be between 0 and 100.", "error");
+      return;
+    }
+
+    const today = todayDateString();
+    const from = customPeriod ? effectiveFrom.trim() : today;
+    const to = customPeriod ? effectiveTo.trim() : addDays(today, 1);
+
+    if (!isISODateOnly(from)) {
+      showToast("Start date is required.", "error");
+      return;
+    }
+    if (from < today) {
+      showToast("Start date cannot be in the past.", "error");
+      return;
+    }
+    if (to) {
+      if (!isISODateOnly(to)) {
+        showToast("End date is invalid.", "error");
+        return;
+      }
+      if (to < from) {
+        showToast("Start date cannot be after end date.", "error");
+        return;
+      }
+    }
+
     await onSubmit({
       feeName,
+      isGlobalRule: global,
       paymentChannelPostValue: global ? "" : paymentChannelPostValue,
       ratePercent,
       isActive,
       customPeriod,
-      effectiveFrom: global
-        ? customPeriod
-          ? effectiveFrom
-          : todayDateString()
-        : customPeriod
-          ? effectiveFrom
-          : todayDateString(),
-      effectiveTo: global
-        ? customPeriod
-          ? effectiveTo
-          : ""
-        : customPeriod
-          ? effectiveTo
-          : "",
+      effectiveFrom: from,
+      effectiveTo: to,
     });
   }
 
@@ -158,23 +262,86 @@ export function TransactionFeeRuleForm({
                 />
               </div>
 
-              {variant === "channel" ? (
+              {allowGlobalToggle ? (
+                <label className="flex items-center gap-2 text-[12px] text-slate-700">
+                  <input
+                    type="checkbox"
+                    checked={lockGlobal ? true : isGlobalRule}
+                    onChange={(e) => {
+                      if (lockGlobal) return;
+                      const next = e.target.checked;
+                      setIsGlobalRule(next);
+                      if (next) setPaymentChannelPostValue("");
+                    }}
+                    disabled={isSubmitting || lockGlobal}
+                    className="h-4 w-4 rounded border-slate-300 accent-[#2563FF]"
+                  />
+                  Global rule (default for all payments)
+                </label>
+              ) : null}
+
+              {!isGlobalRule && variant === "channel" ? (
                 <div className="space-y-2">
                   <FinanceFieldLabel required>Payment Channel</FinanceFieldLabel>
-                  <select
-                    value={paymentChannelPostValue}
-                    onChange={(e) => setPaymentChannelPostValue(e.target.value)}
-                    className={ADMIN_FIELD_BASE_CLASS}
-                    aria-label="Select payment channel"
-                    disabled={isSubmitting}
-                  >
-                    <option value="">Select payment channel</option>
-                    {TRANSACTION_FEE_PAYMENT_CHANNELS.map((c) => (
-                      <option key={c.filterId} value={c.postValue}>
-                        {c.label}
-                      </option>
-                    ))}
-                  </select>
+                  <div ref={paymentMenuRef} className="relative">
+                    <button
+                      type="button"
+                      onMouseDown={(ev) => ev.stopPropagation()}
+                      onClick={(ev) => {
+                        ev.stopPropagation();
+                        setOpenPaymentMenu((v) => !v);
+                      }}
+                      className={adminFilterMenuTriggerClass(openPaymentMenu)}
+                      aria-label="Payment Channel"
+                      aria-haspopup="menu"
+                      aria-expanded={openPaymentMenu}
+                      disabled={isSubmitting}
+                    >
+                      <span className="truncate">{paymentLabel}</span>
+                      <ChevronDown
+                        className={`w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 transition-transform duration-150 ${
+                          openPaymentMenu ? "rotate-180" : ""
+                        }`}
+                      />
+                    </button>
+
+                    {openPaymentMenu ? (
+                      <div
+                        onClick={(ev) => ev.stopPropagation()}
+                        className="absolute left-0 right-0 z-50 mt-1 w-full overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg"
+                      >
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setOpenPaymentMenu(false);
+                            setPaymentChannelPostValue("");
+                          }}
+                          className="w-full flex items-center justify-between px-3 py-2 text-[13px] md:text-[13px] text-slate-900 hover:bg-slate-50"
+                        >
+                          <span>Select payment channel</span>
+                          {!paymentChannelPostValue && (
+                            <Check className="w-4 h-4 text-slate-700" />
+                          )}
+                        </button>
+                        {TRANSACTION_FEE_PAYMENT_CHANNELS.map((c) => (
+                          <button
+                            key={c.filterId}
+                            type="button"
+                            onClick={() => {
+                              setOpenPaymentMenu(false);
+                              setPaymentChannelPostValue(c.postValue);
+                            }}
+                            className="w-full flex items-center justify-between px-3 py-2 text-[13px] md:text-[13px] text-slate-900 hover:bg-slate-50"
+                          >
+                            <span className="truncate">{c.label}</span>
+                            {paymentChannelPostValue === c.postValue && (
+                              <Check className="w-4 h-4 shrink-0 text-slate-700" />
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
                 </div>
               ) : null}
 
@@ -189,16 +356,6 @@ export function TransactionFeeRuleForm({
                 />
               </div>
 
-              <label className="flex items-center gap-2 text-[12px] text-slate-700">
-                <input
-                  type="checkbox"
-                  checked={isActive}
-                  onChange={(e) => setIsActive(e.target.checked)}
-                  disabled={isSubmitting}
-                  className="h-4 w-4 rounded border-slate-300 accent-[#2563FF]"
-                />
-                Rule is active
-              </label>
             </div>
           </div>
 
@@ -212,11 +369,6 @@ export function TransactionFeeRuleForm({
                 setEffectiveFrom={setEffectiveFrom}
                 effectiveTo={effectiveTo}
                 setEffectiveTo={setEffectiveTo}
-                emptyHint={
-                  variant === "global"
-                    ? "When off, effective-from defaults to today on save (end optional)."
-                    : "This fee has no custom period and will remain active indefinitely."
-                }
               />
             </div>
           </div>
@@ -237,7 +389,9 @@ export function TransactionFeeRuleForm({
             { label: "PAYMENT CHANNEL", value: summary.paymentChannel },
             { label: "TRANSACTION FEE RATE", value: summary.rate },
             { label: "PERIOD", value: summary.period },
-            { label: "STATUS", value: summary.active },
+            { label: "EFFECTIVE FROM", value: summary.effectiveFrom },
+            { label: "EFFECTIVE TO", value: summary.effectiveTo },
+            { label: "STATUS", value: summary.status },
           ]}
         />
       </div>

@@ -391,12 +391,18 @@ export async function getCommissionFeesGlobal(): Promise<AdminCommissionFeesGlob
 export async function updateCommissionFeesGlobal(payload: {
   ruleName?: string | null
   commissionPercent: number
+  isActive?: boolean
+  effectiveFrom?: string
+  effectiveTo?: string | null
 }): Promise<{ success: boolean; DefaultID: string; CommissionPercent: number }> {
   return requestJson(`${urlAdminCommissionFees()}/global`, {
     method: 'PATCH',
     body: JSON.stringify({
       ruleName: payload.ruleName ?? undefined,
       commissionPercent: payload.commissionPercent,
+      isActive: payload.isActive,
+      effectiveFrom: payload.effectiveFrom,
+      effectiveTo: payload.effectiveTo,
     }),
   })
 }
@@ -406,6 +412,7 @@ export type ListCommissionFeeCategoryRulesParams = {
   pageSize?: number
   search?: string
   foodCategoryId?: string
+  status?: 'Pending' | 'Active' | 'Inactive'
   isActive?: boolean
   effectiveFrom?: string
   effectiveTo?: string
@@ -419,6 +426,7 @@ export async function listCommissionFeeCategoryRules(
     pageSize: params.pageSize,
     search: params.search,
     foodCategoryId: params.foodCategoryId,
+    status: params.status,
     isActive:
       params.isActive === undefined
         ? undefined
@@ -518,6 +526,7 @@ export type ListTransactionFeeChannelRulesParams = {
   search?: string
   /** Cash | CreditCard | Stripe | MoMo | VNPay | BankTransfer */
   paymentChannel?: string
+  status?: 'Pending' | 'Active' | 'Inactive'
   isActive?: boolean
   effectiveFrom?: string
   effectiveTo?: string
@@ -531,6 +540,7 @@ export async function listTransactionFeeChannelRules(
     pageSize: params.pageSize,
     search: params.search,
     paymentChannel: params.paymentChannel,
+    status: params.status,
     isActive:
       params.isActive === undefined
         ? undefined

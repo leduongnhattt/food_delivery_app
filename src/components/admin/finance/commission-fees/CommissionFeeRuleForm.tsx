@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { CalendarDays, FileText } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { CalendarDays, Check, ChevronDown, FileText } from "lucide-react";
 import { ADMIN_FIELD_BASE_CLASS } from "@/components/admin/shared/admin-field-classes";
+import { adminFilterMenuTriggerClass } from "@/components/admin/shared/admin-filter-trigger";
+import { useToast } from "@/contexts/toast-context";
 import {
   FinanceCardTitle,
   FinanceCreateActions,
@@ -17,6 +19,7 @@ export type CommissionFeeRuleFormValues = {
   isGlobalRule: boolean;
   foodCategoryId: string;
   commissionPercent: string;
+  isActive: boolean;
   customPeriod: boolean;
   effectiveFrom: string;
   effectiveTo: string;
@@ -29,11 +32,8 @@ type CommissionFeeRuleFormProps = {
   subtitle: string;
   submitLabel: string;
   cancelLabel?: string;
-  /** When set, initializes global checkbox (create flow). */
   initialGlobal?: boolean;
-  /** When true, global checkbox stays on (create global from card). */
   lockGlobal?: boolean;
-  /** When false, category-only (edit); hides global toggle. */
   allowGlobalToggle: boolean;
   categoryOptions: FoodCategoryOption[];
   defaultValues: Partial<CommissionFeeRuleFormValues> | null;
@@ -45,6 +45,16 @@ type CommissionFeeRuleFormProps = {
 
 function todayDateString(): string {
   return new Date().toISOString().slice(0, 10);
+}
+
+function addDays(dateStr: string, days: number): string {
+  const d = new Date(`${dateStr}T00:00:00.000Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+function isISODateOnly(s: string): boolean {
+  return /^\d{4}-\d{2}-\d{2}$/.test(s);
 }
 
 export function CommissionFeeRuleForm({
@@ -62,13 +72,17 @@ export function CommissionFeeRuleForm({
   onCancel,
   onSubmit,
 }: CommissionFeeRuleFormProps) {
+  const { showToast } = useToast();
   const [ruleName, setRuleName] = useState("");
   const [isGlobalRule, setIsGlobalRule] = useState(Boolean(initialGlobal));
   const [foodCategoryId, setFoodCategoryId] = useState("");
   const [commissionPercent, setCommissionPercent] = useState("");
+  const [isActive, setIsActive] = useState(false);
   const [customPeriod, setCustomPeriod] = useState(false);
   const [effectiveFrom, setEffectiveFrom] = useState("");
   const [effectiveTo, setEffectiveTo] = useState("");
+  const [openCategoryMenu, setOpenCategoryMenu] = useState(false);
+  const categoryMenuRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (!defaultValues) return;
@@ -78,6 +92,7 @@ export function CommissionFeeRuleForm({
     if (defaultValues.commissionPercent !== undefined) {
       setCommissionPercent(defaultValues.commissionPercent);
     }
+    if (typeof defaultValues.isActive === "boolean") setIsActive(defaultValues.isActive);
     if (defaultValues.customPeriod !== undefined) setCustomPeriod(defaultValues.customPeriod);
     if (defaultValues.effectiveFrom !== undefined) setEffectiveFrom(defaultValues.effectiveFrom);
     if (defaultValues.effectiveTo !== undefined) setEffectiveTo(defaultValues.effectiveTo ?? "");
@@ -87,43 +102,113 @@ export function CommissionFeeRuleForm({
     if (initialGlobal) setIsGlobalRule(true);
   }, [initialGlobal]);
 
+  useEffect(() => {
+    function onDocMouseDown(ev: MouseEvent) {
+      const t = ev.target as Node | null;
+      const clicked = !!(categoryMenuRef.current && t && categoryMenuRef.current.contains(t));
+      if (!clicked) setOpenCategoryMenu(false);
+    }
+    function onKey(ev: KeyboardEvent) {
+      if (ev.key === "Escape") setOpenCategoryMenu(false);
+    }
+    document.addEventListener("mousedown", onDocMouseDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDocMouseDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, []);
+
   const summary = useMemo(() => {
     const rate = commissionPercent.trim();
     const cat =
       categoryOptions.find((c) => c.id === foodCategoryId)?.name ?? "—";
     const global = lockGlobal || isGlobalRule;
+    const today = todayDateString();
+    const fromDisplay = customPeriod ? (effectiveFrom || "—") : today;
+    const toDisplay = customPeriod ? (effectiveTo || "—") : addDays(today, 1);
     return {
       ruleName: ruleName.trim() || "—",
       category: global ? "Global default" : cat,
       commissionPercent: rate ? `${rate}%` : "—",
-      effectiveFrom: global ? "—" : effectiveFrom || "—",
-      effectiveTo: global ? "—" : effectiveTo || "—",
+      effectiveFrom: fromDisplay,
+      effectiveTo: toDisplay,
+      status: isActive ? "Active" : "Pending",
     };
   }, [
     ruleName,
     lockGlobal,
     isGlobalRule,
+    isActive,
     foodCategoryId,
     commissionPercent,
+    customPeriod,
     effectiveFrom,
     effectiveTo,
     categoryOptions,
   ]);
 
+  const categoryLabel = useMemo(() => {
+    if (!foodCategoryId) return "Select category";
+    return categoryOptions.find((c) => c.id === foodCategoryId)?.name ?? "Select category";
+  }, [foodCategoryId, categoryOptions]);
+
   async function handleSubmit() {
     const global = lockGlobal || isGlobalRule;
+
+    const name = ruleName.trim();
+    if (!name) {
+      showToast("Rule name is required.", "error");
+      return;
+    }
+    if (!global && !foodCategoryId.trim()) {
+      showToast("Food category is required.", "error");
+      return;
+    }
+
+    const pctRaw = commissionPercent.trim().replace(",", ".");
+    if (!pctRaw) {
+      showToast("Commission percent is required.", "error");
+      return;
+    }
+    const pct = Number(pctRaw);
+    if (!Number.isFinite(pct) || pct < 0 || pct > 100) {
+      showToast("Commission percent must be between 0 and 100.", "error");
+      return;
+    }
+
+    const today = todayDateString();
+    const from = customPeriod ? effectiveFrom.trim() : today;
+    const to = customPeriod ? effectiveTo.trim() : addDays(today, 1);
+
+    if (!isISODateOnly(from)) {
+      showToast("Start date is required.", "error");
+      return;
+    }
+    if (from < today) {
+      showToast("Start date cannot be in the past.", "error");
+      return;
+    }
+    if (to) {
+      if (!isISODateOnly(to)) {
+        showToast("End date is invalid.", "error");
+        return;
+      }
+      if (to < from) {
+        showToast("Start date cannot be after end date.", "error");
+        return;
+      }
+    }
+
     await onSubmit({
       ruleName,
       isGlobalRule: global,
       foodCategoryId,
       commissionPercent,
+      isActive,
       customPeriod,
-      effectiveFrom: global
-        ? ""
-        : customPeriod
-          ? effectiveFrom
-          : todayDateString(),
-      effectiveTo: global ? "" : customPeriod ? effectiveTo : "",
+      effectiveFrom: from,
+      effectiveTo: to,
     });
   }
 
@@ -183,20 +268,63 @@ export function CommissionFeeRuleForm({
               {!isGlobalRule && !lockGlobal ? (
                 <div className="space-y-2">
                   <FinanceFieldLabel required>Food Category</FinanceFieldLabel>
-                  <select
-                    value={foodCategoryId}
-                    onChange={(e) => setFoodCategoryId(e.target.value)}
-                    className={ADMIN_FIELD_BASE_CLASS}
-                    aria-label="Food category"
-                    disabled={isSubmitting}
-                  >
-                    <option value="">Select category</option>
-                    {categoryOptions.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name}
-                      </option>
-                    ))}
-                  </select>
+                  <div ref={categoryMenuRef} className="relative">
+                    <button
+                      type="button"
+                      onMouseDown={(ev) => ev.stopPropagation()}
+                      onClick={(ev) => {
+                        ev.stopPropagation();
+                        setOpenCategoryMenu((v) => !v);
+                      }}
+                      className={adminFilterMenuTriggerClass(openCategoryMenu)}
+                      aria-label="Food Category"
+                      aria-haspopup="menu"
+                      aria-expanded={openCategoryMenu}
+                      disabled={isSubmitting}
+                    >
+                      <span className="truncate">{categoryLabel}</span>
+                      <ChevronDown
+                        className={`w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 transition-transform duration-150 ${
+                          openCategoryMenu ? "rotate-180" : ""
+                        }`}
+                      />
+                    </button>
+
+                    {openCategoryMenu ? (
+                      <div
+                        onClick={(ev) => ev.stopPropagation()}
+                        className="absolute left-0 right-0 z-50 mt-1 w-full overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg"
+                      >
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setOpenCategoryMenu(false);
+                            setFoodCategoryId("");
+                          }}
+                          className="w-full flex items-center justify-between px-3 py-2 text-[13px] md:text-[13px] text-slate-900 hover:bg-slate-50"
+                        >
+                          <span>Select category</span>
+                          {!foodCategoryId && <Check className="w-4 h-4 text-slate-700" />}
+                        </button>
+                        {categoryOptions.map((c) => (
+                          <button
+                            key={c.id}
+                            type="button"
+                            onClick={() => {
+                              setOpenCategoryMenu(false);
+                              setFoodCategoryId(c.id);
+                            }}
+                            className="w-full flex items-center justify-between px-3 py-2 text-[13px] md:text-[13px] text-slate-900 hover:bg-slate-50"
+                          >
+                            <span className="truncate">{c.name}</span>
+                            {foodCategoryId === c.id && (
+                              <Check className="w-4 h-4 shrink-0 text-slate-700" />
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
                 </div>
               ) : null}
 
@@ -210,25 +338,25 @@ export function CommissionFeeRuleForm({
                   disabled={isSubmitting}
                 />
               </div>
+
             </div>
           </div>
 
-          {!isGlobalRule && !lockGlobal ? (
-            <div className="rounded-lg border border-slate-200 bg-white">
-              <FinanceCardTitle icon={<CalendarDays className="h-4 w-4" />}>Period</FinanceCardTitle>
-              <div className="border-t border-slate-100 px-4 py-3">
-                <FinancePeriodFields
-                  customPeriod={customPeriod}
-                  setCustomPeriod={setCustomPeriod}
-                  effectiveFrom={effectiveFrom}
-                  setEffectiveFrom={setEffectiveFrom}
-                  effectiveTo={effectiveTo}
-                  setEffectiveTo={setEffectiveTo}
-                  emptyHint="This rule has no custom period and will remain active indefinitely."
-                />
-              </div>
+          <div className="rounded-lg border border-slate-200 bg-white">
+            <FinanceCardTitle icon={<CalendarDays className="h-4 w-4" />}>Period</FinanceCardTitle>
+            <div className="border-t border-slate-100 px-4 py-3">
+              <FinancePeriodFields
+                customPeriod={customPeriod}
+                setCustomPeriod={setCustomPeriod}
+                effectiveFrom={effectiveFrom}
+                setEffectiveFrom={setEffectiveFrom}
+                effectiveTo={effectiveTo}
+                setEffectiveTo={setEffectiveTo}
+              />
             </div>
-          ) : null}
+          </div>
+
+          {/* (removed old conditional period card) */}
 
           <FinanceCreateActions
             createLabel={submitLabel}
@@ -247,6 +375,7 @@ export function CommissionFeeRuleForm({
             { label: "COMMISSION PERCENT", value: summary.commissionPercent },
             { label: "EFFECTIVE FROM", value: summary.effectiveFrom },
             { label: "EFFECTIVE TO", value: summary.effectiveTo },
+            { label: "STATUS", value: summary.status },
           ]}
         />
       </div>

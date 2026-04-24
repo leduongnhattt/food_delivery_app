@@ -144,6 +144,13 @@ export function FinancePeriodFields({
   setEffectiveTo: (next: string) => void;
   emptyHint?: string;
 }) {
+  const todayMin = new Date().toISOString().slice(0, 10);
+  const endMin = effectiveFrom && /^\d{4}-\d{2}-\d{2}$/.test(effectiveFrom)
+    ? effectiveFrom < todayMin
+      ? todayMin
+      : effectiveFrom
+    : todayMin;
+
   return (
     <div className="space-y-3">
       <label className="flex items-center gap-2 text-[12px] text-slate-700">
@@ -169,6 +176,7 @@ export function FinancePeriodFields({
               value={effectiveFrom}
               onChange={setEffectiveFrom}
               mode="date"
+              min={todayMin}
               align="start"
               triggerClassName={ADMIN_FIELD_BASE_CLASS}
             />
@@ -187,21 +195,21 @@ export function FinancePeriodFields({
               value={effectiveTo}
               onChange={setEffectiveTo}
               mode="date"
+              min={endMin}
               align="start"
               triggerClassName={ADMIN_FIELD_BASE_CLASS}
             />
           </div>
         </div>
       ) : (
-        <div className="rounded border border-blue-100 bg-blue-50 px-3 py-2 text-[12px] text-slate-600">
-          <div className="flex items-start gap-2">
-            <Info className="mt-0.5 h-4 w-4 text-blue-500" aria-hidden="true" />
-            <div>
-              {emptyHint ??
-                "This rule has no custom period and will remain active indefinitely."}
+        emptyHint ? (
+          <div className="rounded border border-blue-100 bg-blue-50 px-3 py-2 text-[12px] text-slate-600">
+            <div className="flex items-start gap-2">
+              <Info className="mt-0.5 h-4 w-4 text-blue-500" aria-hidden="true" />
+              <div>{emptyHint}</div>
             </div>
           </div>
-        </div>
+        ) : null
       )}
     </div>
   );

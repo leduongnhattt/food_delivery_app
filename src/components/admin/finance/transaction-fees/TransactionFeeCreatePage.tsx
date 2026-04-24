@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useToast } from "@/contexts/toast-context";
 import {
   TransactionFeeRuleForm,
   type TransactionFeeRuleFormValues,
@@ -16,6 +17,7 @@ export function TransactionFeeCreatePage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const scopeGlobal = searchParams.get("scope") === "global";
+  const { showToast } = useToast();
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -28,6 +30,7 @@ export function TransactionFeeCreatePage() {
       const g = await getTransactionFeesGlobal();
       setGlobalPrefill({
         feeName: g.RuleName ?? "",
+        isGlobalRule: true,
         ratePercent: String(g.RatePercent),
         isActive: g.IsActive,
         customPeriod: true,
@@ -38,6 +41,7 @@ export function TransactionFeeCreatePage() {
     } catch {
       setGlobalPrefill({
         feeName: "",
+        isGlobalRule: true,
         ratePercent: "0",
         isActive: true,
         customPeriod: false,
@@ -56,59 +60,38 @@ export function TransactionFeeCreatePage() {
   async function handleSubmit(values: TransactionFeeRuleFormValues) {
     setError(null);
     const rate = Number(values.ratePercent.trim().replace(",", "."));
-    if (!Number.isFinite(rate) || rate < 0 || rate > 100) {
-      setError("Transaction fee rate must be between 0 and 100.");
-      return;
-    }
     const name = values.feeName.trim();
-    if (!name) {
-      setError("Fee name is required.");
-      return;
-    }
+    if (!Number.isFinite(rate) || rate < 0 || rate > 100) return; // validated in form
+    if (!name) return; // validated in form
 
     setSubmitting(true);
     try {
-      if (scopeGlobal) {
-        const effectiveToTrim = values.customPeriod ? values.effectiveTo.trim() : "";
+      const global = scopeGlobal || values.isGlobalRule;
+      if (global) {
         await updateTransactionFeesGlobal({
           ruleName: name,
           ratePercent: rate,
           isActive: values.isActive,
-          effectiveFrom: values.customPeriod
-            ? values.effectiveFrom.trim()
-            : new Date().toISOString().slice(0, 10),
-          effectiveTo: values.customPeriod
-            ? effectiveToTrim
-              ? effectiveToTrim
-              : null
-            : null,
+          effectiveFrom: values.effectiveFrom.trim(),
+          effectiveTo: values.effectiveTo.trim() ? values.effectiveTo.trim() : null,
         });
       } else {
-        if (!values.paymentChannelPostValue.trim()) {
-          setError("Payment channel is required.");
-          setSubmitting(false);
-          return;
-        }
-        if (values.customPeriod && !values.effectiveFrom.trim()) {
-          setError("Start date is required when using a custom period.");
-          setSubmitting(false);
-          return;
-        }
+        if (!values.paymentChannelPostValue.trim()) return; // validated in form
         const effectiveToTrim = values.effectiveTo.trim();
         await createTransactionFeeChannelRule({
           paymentChannel: values.paymentChannelPostValue.trim(),
           feeName: name,
           ratePercent: rate,
           isActive: values.isActive,
-          effectiveFrom: values.customPeriod
-            ? values.effectiveFrom.trim()
-            : new Date().toISOString().slice(0, 10),
-          effectiveTo: values.customPeriod && effectiveToTrim ? effectiveToTrim : null,
+          effectiveFrom: values.effectiveFrom.trim(),
+          effectiveTo: effectiveToTrim ? effectiveToTrim : null,
         });
       }
+      showToast("Saved successfully.", "success");
       router.push("/admin/finance/transaction-fees");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Request failed");
+      showToast(e instanceof Error ? e.message : "Request failed", "error");
     } finally {
       setSubmitting(false);
     }
@@ -122,7 +105,7 @@ export function TransactionFeeCreatePage() {
 
   return (
     <TransactionFeeRuleForm
-      variant={scopeGlobal ? "global" : "channel"}
+      variant="channel"
       title={scopeGlobal ? "Edit Global Transaction Fee" : "Create New Transaction Fee"}
       subtitle={
         scopeGlobal
@@ -130,6 +113,9 @@ export function TransactionFeeCreatePage() {
           : "Set up a new transaction fee for a payment channel."
       }
       submitLabel={scopeGlobal ? "Save Global Fee" : "Create Fee"}
+      initialGlobal={scopeGlobal}
+      lockGlobal={scopeGlobal}
+      allowGlobalToggle={!scopeGlobal}
       defaultValues={scopeGlobal ? globalPrefill : null}
       isSubmitting={submitting}
       errorMessage={error}

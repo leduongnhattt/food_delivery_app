@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useToast } from "@/contexts/toast-context";
 import {
   CommissionFeeRuleForm,
   type CommissionFeeRuleFormValues,
@@ -18,6 +19,7 @@ export function CommissionFeeRuleCreatePage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const scopeGlobal = searchParams.get("scope") === "global";
+  const { showToast } = useToast();
 
   const [categoryOptions, setCategoryOptions] = useState<FoodCategoryOption[]>([]);
   const [categoriesLoaded, setCategoriesLoaded] = useState(false);
@@ -52,9 +54,10 @@ export function CommissionFeeRuleCreatePage() {
           isGlobalRule: true,
           foodCategoryId: "",
           commissionPercent: String(g.CommissionPercent),
-          customPeriod: false,
-          effectiveFrom: "",
-          effectiveTo: "",
+          isActive: g.IsActive,
+          customPeriod: true,
+          effectiveFrom: g.EffectiveFrom,
+          effectiveTo: g.EffectiveTo ?? "",
         });
       } catch {
         setGlobalPrefill({
@@ -62,6 +65,7 @@ export function CommissionFeeRuleCreatePage() {
           isGlobalRule: true,
           foodCategoryId: "",
           commissionPercent: "0",
+          isActive: true,
           customPeriod: false,
           effectiveFrom: "",
           effectiveTo: "",
@@ -73,28 +77,13 @@ export function CommissionFeeRuleCreatePage() {
   async function handleSubmit(values: CommissionFeeRuleFormValues) {
     setError(null);
     const pct = Number(values.commissionPercent.trim().replace(",", "."));
-    if (!Number.isFinite(pct) || pct < 0 || pct > 100) {
-      setError("Commission percent must be between 0 and 100.");
-      return;
-    }
     const name = values.ruleName.trim();
-    if (!name) {
-      setError("Rule name is required.");
-      return;
-    }
+    if (!Number.isFinite(pct) || pct < 0 || pct > 100) return; // validated in form
+    if (!name) return; // validated in form
 
     const global = scopeGlobal || values.isGlobalRule;
     if (!global) {
-      if (!values.foodCategoryId.trim()) {
-        setError("Food category is required.");
-        return;
-      }
-      if (values.customPeriod) {
-        if (!values.effectiveFrom.trim()) {
-          setError("Start date is required when using a custom period.");
-          return;
-        }
-      }
+      if (!values.foodCategoryId.trim()) return; // validated in form
     }
 
     setSubmitting(true);
@@ -103,6 +92,9 @@ export function CommissionFeeRuleCreatePage() {
         await updateCommissionFeesGlobal({
           ruleName: name,
           commissionPercent: pct,
+          isActive: values.isActive,
+          effectiveFrom: values.effectiveFrom.trim(),
+          effectiveTo: values.effectiveTo.trim() ? values.effectiveTo.trim() : null,
         });
       } else {
         const effectiveToTrim = values.effectiveTo.trim();
@@ -115,9 +107,11 @@ export function CommissionFeeRuleCreatePage() {
           effectiveTo: effectiveToTrim ? effectiveToTrim : null,
         });
       }
+      showToast("Saved successfully.", "success");
       router.push("/admin/finance/commission-fees");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Request failed");
+      showToast(e instanceof Error ? e.message : "Request failed", "error");
     } finally {
       setSubmitting(false);
     }

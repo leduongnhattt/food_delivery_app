@@ -264,9 +264,10 @@ export type AdminCommissionFeesGlobalResponse = {
   DefaultID: string;
   RuleName: string | null;
   CommissionPercent: number;
+  IsActive: boolean;
+  EffectiveFrom: string;
+  EffectiveTo: string | null;
   UpdatedAt: string;
-  /** Server maps platform row to a display date (see API). */
-  EffectiveDisplayDate: string;
   UpdatedByLabel: string | null;
 };
 
@@ -277,6 +278,7 @@ export type AdminCommissionFeeCategoryRuleItem = {
   RuleName: string | null;
   CommissionPercent: number;
   IsActive: boolean;
+  ActivatedAt: string | null;
   EffectiveFrom: string;
   EffectiveTo: string | null;
   CreatedAt: string;
@@ -324,6 +326,7 @@ export type AdminTransactionFeeChannelRuleItem = {
   PaymentChannelLabel: string;
   RatePercent: number;
   IsActive: boolean;
+  ActivatedAt: string | null;
   EffectiveFrom: string;
   EffectiveTo: string | null;
   CreatedAt: string;
