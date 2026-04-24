@@ -1,7 +1,7 @@
 "use client"
 
 import { Clock } from "lucide-react"
-import EnterpriseLocationPicker from "@/components/admin/enterprises/EnterpriseLocationPicker"
+import EnterpriseLocationPicker from "@/components/admin/enterprises/shared/EnterpriseLocationPicker"
 
 type TimeFieldHandlers = {
   value: string

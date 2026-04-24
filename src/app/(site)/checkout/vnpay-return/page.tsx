@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { CheckCircle, XCircle, ArrowLeft, Loader2 } from 'lucide-react'
 import { useCart } from '@/hooks/use-cart'
 import { CheckoutService } from '@/services/checkout.service'
-import { CHECKOUT_PAYMENT_METHOD } from '@/lib/payment-method'
+import { CHECKOUT_PAYMENT_METHOD } from '@/lib/orders'
 
 type ReturnState = {
   status: 'processing' | 'success' | 'failed' | 'invalid_signature'

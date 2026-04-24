@@ -1,14 +1,16 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { formatDate } from "@/lib/utils";
-import { Eye } from "lucide-react";
-import { listAdminOrders } from "@/services/admin-order.service";
+import Link from "next/link";
+import { formatDate, formatPrice } from "@/lib/utils";
+import { Eye, MoreVertical } from "lucide-react";
+import { deleteAdminOrder, listAdminOrders } from "@/services/admin-order.service";
 import type { AdminOrderListItem } from "@/types/admin-api.types";
-import OrderStatusTabs from "./OrderStatusTabs";
+import OrderStatusSelect from "./OrderStatusSelect";
 import OrderSearch from "./OrderSearch";
-import { formatPrice } from "@/lib/utils";
+import { getActionMenuPosition } from "@/components/admin/enterprises/list/utils";
+import { Pagination } from "@/components/ui/pagination";
 
 const statusColorMap: Record<string, string> = {
   Pending: "bg-amber-50 text-amber-700 border-amber-200",
@@ -36,37 +38,114 @@ const paymentMethodLabel: Record<string, string> = {
   BankTransfer: "Bank Transfer",
 };
 
+const PAGE_SIZE_OPTIONS = [12, 24, 48] as const;
+
 export default function OrdersAdminPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const status = searchParams.get("status") || "all";
-  const paymentMethod = searchParams.get("paymentMethod") || "";
-  const buyerSearch = searchParams.get("buyerSearch")?.trim() || "";
-  const orderId = searchParams.get("orderId")?.trim() || "";
-  const enterpriseId = searchParams.get("enterpriseId")?.trim() || "";
-  const fromDate = searchParams.get("fromDate") || "";
-  const toDate = searchParams.get("toDate") || "";
+  const statusFilter = searchParams.get("status") || "all";
+  const paymentMethodFilter = searchParams.get("paymentMethod") || "";
+  const paymentStatusFilter = searchParams.get("paymentStatus") || "";
+  const searchText = searchParams.get("q")?.trim() || "";
+  const searchField = searchParams.get("qMode") || "buyer";
+  const fromDateFilter = searchParams.get("fromDate") || "";
+  const toDateFilter = searchParams.get("toDate") || "";
   const cursor = searchParams.get("cursor") || "";
+  const limitParam = Number(searchParams.get("limit") || "") || 12;
+  const limit = (PAGE_SIZE_OPTIONS.includes(limitParam as any)
+    ? (limitParam as (typeof PAGE_SIZE_OPTIONS)[number])
+    : 12) as (typeof PAGE_SIZE_OPTIONS)[number];
 
   const [orders, setOrders] = useState<AdminOrderListItem[]>([]);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [exporting, setExporting] = useState(false);
+  const [deletingOrderId, setDeletingOrderId] = useState<string | null>(null);
+  const [actionMenu, setActionMenu] = useState<{
+    orderId: string;
+    left: number;
+    top: number;
+  } | null>(null);
+  const actionMenuElRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    function onDown(e: MouseEvent) {
+      const target = e.target as Node | null;
+      const clickedMenu = !!(actionMenuElRef.current && target && actionMenuElRef.current.contains(target));
+      const clickedTrigger = !!(target && target instanceof Element && target.closest("[data-action-menu-trigger='true']"));
+      if (!clickedMenu && !clickedTrigger) setActionMenu(null);
+    }
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, []);
+
+  const cursorHistoryStorageKey = useMemo(() => {
+    return [
+      "adminOrdersCursorStack",
+      statusFilter,
+      paymentMethodFilter,
+      paymentStatusFilter,
+      searchText,
+      searchField,
+      fromDateFilter,
+      toDateFilter,
+      String(limit),
+    ].join("|");
+  }, [
+    statusFilter,
+    paymentMethodFilter,
+    paymentStatusFilter,
+    searchText,
+    searchField,
+    fromDateFilter,
+    toDateFilter,
+    limit,
+  ]);
+
+  const cursorHistory = useMemo(() => {
+    try {
+      const raw = sessionStorage.getItem(cursorHistoryStorageKey);
+      const arr = raw ? (JSON.parse(raw) as string[]) : [];
+      return Array.isArray(arr) ? arr.filter((x) => typeof x === "string") : [];
+    } catch {
+      return [];
+    }
+  }, [cursorHistoryStorageKey]);
+
+  function clearCursorHistory() {
+    writeCursorHistory([]);
+  }
+
+  const pageIndex = cursorHistory.length + 1;
+  const totalPagesHint = nextCursor ? pageIndex + 1 : pageIndex;
+
+  const getSearchPayload = useCallback(() => {
+    // This screen intentionally does not support searching by email.
+    const effectiveSearchText = searchText.includes("@") ? "" : searchText;
+    if (!effectiveSearchText) return { buyerSearch: "", orderId: "" };
+
+    return searchField === "orderId"
+      ? { buyerSearch: "", orderId: effectiveSearchText }
+      : { buyerSearch: effectiveSearchText, orderId: "" };
+  }, [searchField, searchText]);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
+      const { buyerSearch, orderId } = getSearchPayload();
+
       const res = await listAdminOrders({
-        status: status !== "all" ? status : undefined,
-        paymentMethod: paymentMethod || undefined,
+        status: statusFilter !== "all" ? statusFilter : undefined,
+        paymentMethod: paymentMethodFilter || undefined,
+        paymentStatus: paymentStatusFilter || undefined,
         buyerSearch: buyerSearch || undefined,
         orderId: orderId || undefined,
-        enterpriseId: enterpriseId || undefined,
-        fromDate: fromDate || undefined,
-        toDate: toDate || undefined,
-        limit: 10,
+        fromDate: fromDateFilter || undefined,
+        toDate: toDateFilter || undefined,
+        limit,
         cursor: cursor || undefined,
       });
       setOrders(res.items);
@@ -78,13 +157,13 @@ export default function OrdersAdminPage() {
       setLoading(false);
     }
   }, [
-    status,
-    paymentMethod,
-    buyerSearch,
-    orderId,
-    enterpriseId,
-    fromDate,
-    toDate,
+    statusFilter,
+    paymentMethodFilter,
+    paymentStatusFilter,
+    getSearchPayload,
+    fromDateFilter,
+    toDateFilter,
+    limit,
     cursor,
   ]);
 
@@ -95,13 +174,14 @@ export default function OrdersAdminPage() {
   function buildQuery(overrides: Record<string, string | undefined>) {
     const p = new URLSearchParams();
     const merged = {
-      status,
-      paymentMethod,
-      buyerSearch,
-      orderId,
-      enterpriseId,
-      fromDate,
-      toDate,
+      status: statusFilter,
+      paymentMethod: paymentMethodFilter,
+      paymentStatus: paymentStatusFilter,
+      q: searchText,
+      qMode: searchField,
+      fromDate: fromDateFilter,
+      toDate: toDateFilter,
+      limit: String(limit),
       ...overrides,
     };
     for (const [k, v] of Object.entries(merged)) {
@@ -110,42 +190,216 @@ export default function OrdersAdminPage() {
     return p.toString();
   }
 
-  function goPage(nextCursorVal: string | null) {
-    const qs = buildQuery({ cursor: nextCursorVal ?? undefined });
-    router.push(qs ? `/admin/orders?${qs}` : "/admin/orders");
+  function navigateToCursor(nextCursorVal: string | null) {
+    const queryString = buildQuery({ cursor: nextCursorVal ?? undefined });
+    router.push(queryString ? `/admin/orders?${queryString}` : "/admin/orders");
   }
 
-  // Lấy payment đầu tiên trong mảng (nếu có)
+  function writeCursorHistory(next: string[]) {
+    try {
+      sessionStorage.setItem(cursorHistoryStorageKey, JSON.stringify(next));
+    } catch {}
+  }
+
+  function goToNextPage() {
+    if (!nextCursor) return;
+    const nextHistory = [...cursorHistory, cursor || ""];
+    writeCursorHistory(nextHistory);
+    navigateToCursor(nextCursor);
+  }
+
+  function goToPreviousPage() {
+    if (cursorHistory.length === 0) {
+      navigateToCursor(null);
+      return;
+    }
+
+    const nextHistory = cursorHistory.slice(0, -1);
+    writeCursorHistory(nextHistory);
+    const previousCursor = nextHistory.length ? nextHistory[nextHistory.length - 1] : "";
+    navigateToCursor(previousCursor || null);
+  }
+
+  function changePageSize(nextLimit: (typeof PAGE_SIZE_OPTIONS)[number]) {
+    const queryString = buildQuery({
+      limit: String(nextLimit),
+      cursor: undefined,
+    });
+    writeCursorHistory([]);
+    router.push(queryString ? `/admin/orders?${queryString}` : "/admin/orders");
+  }
+
   function getPrimaryPayment(o: AdminOrderListItem) {
     return o.payments[0] ?? null;
+  }
+
+  function csvEscape(v: unknown): string {
+    const s = v == null ? "" : String(v);
+    if (/[",\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+    return s;
+  }
+
+  function exportOrderRow(o: AdminOrderListItem) {
+    const p = o.payments[0];
+    const header = [
+      "OrderID",
+      "Buyer",
+      "Seller",
+      "Total",
+      "PaymentMethod",
+      "PayStatus",
+      "OrderStatus",
+      "OrderDate",
+    ];
+    const line = [
+      csvEscape(o.OrderID),
+      csvEscape(o.customer?.FullName ?? ""),
+      csvEscape((o.sellers ?? []).join(", ")),
+      csvEscape(o.TotalAmount),
+      csvEscape(p?.PaymentMethod ?? ""),
+      csvEscape(p?.PaymentStatus ?? ""),
+      csvEscape(o.Status),
+      csvEscape(o.OrderDate),
+    ].join(",");
+    const blob = new Blob([header.join(",") + "\n" + line], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `order-${o.OrderID}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  async function handleDeleteOrder(orderId: string) {
+    if (deletingOrderId) return;
+    const ok = window.confirm("Delete this order? This cannot be undone.");
+    if (!ok) return;
+    setDeletingOrderId(orderId);
+    setActionMenu(null);
+    try {
+      await deleteAdminOrder(orderId);
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to delete order");
+    } finally {
+      setDeletingOrderId(null);
+    }
+  }
+
+  async function exportHistory() {
+    if (exporting) return;
+    setExporting(true);
+    setError(null);
+    try {
+      const { buyerSearch, orderId } = getSearchPayload();
+
+      const take = 200;
+      const maxRows = 5000;
+      const all: AdminOrderListItem[] = [];
+      let cur: string | undefined = undefined;
+
+      while (all.length < maxRows) {
+        const res = await listAdminOrders({
+          status: statusFilter !== "all" ? statusFilter : undefined,
+          paymentMethod: paymentMethodFilter || undefined,
+          paymentStatus: paymentStatusFilter || undefined,
+          buyerSearch: buyerSearch || undefined,
+          orderId: orderId || undefined,
+          fromDate: fromDateFilter || undefined,
+          toDate: toDateFilter || undefined,
+          limit: take,
+          cursor: cur,
+        });
+
+        all.push(...res.items);
+        if (!res.nextCursor) break;
+        cur = res.nextCursor;
+      }
+
+      const rows = all.slice(0, maxRows);
+      const header = [
+        "OrderID",
+        "Buyer",
+        "Seller",
+        "Total",
+        "PaymentMethod",
+        "PayStatus",
+        "OrderStatus",
+        "OrderDate",
+      ];
+
+      const lines = [
+        header.join(","),
+        ...rows.map((o) => {
+          const p = o.payments[0];
+          return [
+            csvEscape(o.OrderID),
+            csvEscape(o.customer?.FullName ?? ""),
+            csvEscape((o.sellers ?? []).join(", ")),
+            csvEscape(o.TotalAmount),
+            csvEscape(p?.PaymentMethod ?? ""),
+            csvEscape(p?.PaymentStatus ?? ""),
+            csvEscape(o.Status),
+            csvEscape(o.OrderDate),
+          ].join(",");
+        }),
+      ].join("\n");
+
+      const blob = new Blob([lines], { type: "text/csv;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
+      a.href = url;
+      a.download = `orders-export-${stamp}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to export orders");
+    } finally {
+      setExporting(false);
+    }
   }
 
   return (
     <div className="space-y-6">
       <div className="space-y-3">
-        <div>
-          <h1 className="text-[14px] leading-[18px] font-medium text-[oklch(0.21_0.034_264.665)]">
-            Orders
-          </h1>
-          <p className="mt-1 text-[13px] leading-[18px] font-medium text-[oklch(0.551_0.027_264.364)]">
-            View and manage all customer orders.
-          </p>
-        </div>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h1 className="text-[14px] leading-[18px] font-medium text-[oklch(0.21_0.034_264.665)]">
+              Orders
+            </h1>
+            <p className="mt-1 text-[13px] leading-[18px] font-medium text-[oklch(0.551_0.027_264.364)]">
+              View and manage all customer orders.
+            </p>
+          </div>
 
-        {/* Tabs */}
-        <OrderStatusTabs current={status} />
+          <button
+            type="button"
+            disabled={exporting}
+            onClick={exportHistory}
+            className="inline-flex h-8 min-h-8 w-fit items-center gap-2 rounded border border-[#2563FF] bg-[#2563FF] px-3 py-0 text-[13px] font-medium text-white hover:bg-[#1E4FE6] disabled:opacity-60 transition-colors"
+          >
+            {exporting ? "Exporting…" : "Export"}
+          </button>
+        </div>
 
         {/* Search & Filters */}
         <OrderSearch
-          currentStatus={status}
+          currentStatus={statusFilter}
           initialValues={{
-            buyerSearch,
-            orderId,
-            enterpriseId,
-            paymentMethod,
-            fromDate,
-            toDate,
+            q: searchText,
+            paymentMethod: paymentMethodFilter,
+            paymentStatus: paymentStatusFilter,
+            fromDate: fromDateFilter,
+            toDate: toDateFilter,
           }}
+          statusControl={
+            <OrderStatusSelect current={statusFilter} onStatusChange={clearCursorHistory} />
+          }
         />
 
         {error && (
@@ -154,23 +408,52 @@ export default function OrdersAdminPage() {
           </div>
         )}
 
+        {actionMenu && (
+          <div
+            ref={actionMenuElRef}
+            style={{ left: actionMenu.left, top: actionMenu.top }}
+            className="fixed z-[60] w-40 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg"
+            onClick={(ev) => ev.stopPropagation()}
+          >
+            <button
+              type="button"
+              className="w-full flex items-center px-3 py-2 text-[12px] leading-4 font-normal text-[oklch(0.208_0.042_265.755)] hover:bg-slate-50 text-left"
+              onClick={() => {
+                const row = orders.find((x) => x.OrderID === actionMenu.orderId);
+                if (row) exportOrderRow(row);
+                setActionMenu(null);
+              }}
+            >
+              Export row
+            </button>
+            <button
+              type="button"
+              disabled={deletingOrderId === actionMenu.orderId}
+              className="w-full flex items-center px-3 py-2 text-[12px] leading-4 font-normal text-rose-600 hover:bg-slate-50 disabled:opacity-60 text-left"
+              onClick={() => handleDeleteOrder(actionMenu.orderId)}
+            >
+              Delete
+            </button>
+          </div>
+        )}
+
         {/* Table */}
         <div className="rounded-lg border border-slate-200 bg-white">
-          <div className="overflow-x-auto px-4">
+          <div className="overflow-x-auto">
             {loading ? (
               <div className="text-center text-slate-500 py-10">Loading…</div>
             ) : (
               <table className="min-w-full text-[13px]">
                 <thead>
                   <tr className="bg-[#f9fbfc] text-left border-b border-slate-200">
-                    <th className="py-2 pr-4 text-xs leading-4 font-semibold text-[oklch(0.21_0.034_264.665)]">
+                    <th className="py-2 pr-4 pl-4 text-xs leading-4 font-semibold text-[oklch(0.21_0.034_264.665)]">
                       Order ID
                     </th>
                     <th className="py-2 pr-4 text-xs leading-4 font-semibold text-[oklch(0.21_0.034_264.665)]">
                       Buyer
                     </th>
                     <th className="py-2 pr-4 text-xs leading-4 font-semibold text-[oklch(0.21_0.034_264.665)]">
-                      Phone
+                      Seller
                     </th>
                     <th className="py-2 pr-4 text-xs leading-4 font-semibold text-[oklch(0.21_0.034_264.665)]">
                       Total
@@ -182,12 +465,12 @@ export default function OrdersAdminPage() {
                       Pay Status
                     </th>
                     <th className="py-2 pr-4 text-xs leading-4 font-semibold text-[oklch(0.21_0.034_264.665)]">
-                      Status
+                      Order Status
                     </th>
                     <th className="py-2 pr-4 text-xs leading-4 font-semibold text-[oklch(0.21_0.034_264.665)]">
                       Date
                     </th>
-                    <th className="py-2 pr-0 text-right w-20 text-xs leading-4 font-semibold text-[oklch(0.21_0.034_264.665)]">
+                    <th className="py-2 pr-4 text-right w-20 text-xs leading-4 font-semibold text-[oklch(0.21_0.034_264.665)]">
                       Actions
                     </th>
                   </tr>
@@ -195,19 +478,27 @@ export default function OrdersAdminPage() {
                 <tbody className="divide-y divide-slate-100">
                   {orders.map((o) => {
                     const payment = getPrimaryPayment(o);
+                    const shortOrderId = o.OrderID.length > 5 ? o.OrderID.slice(-5) : o.OrderID;
                     return (
                       <tr
                         key={o.OrderID}
                         className="hover:bg-slate-50/50 transition-colors"
                       >
-                        <td className="py-2 pr-4 font-mono text-[11px] text-slate-500 max-w-[100px] truncate">
-                          {o.OrderID}
+                        <td className="py-2 pr-4 pl-4 font-mono text-[11px] max-w-[100px] truncate">
+                          <button
+                            type="button"
+                            onClick={() => router.push(`/admin/orders/${o.OrderID}`)}
+                            title={o.OrderID}
+                            className="text-sky-600 hover:text-sky-700 hover:underline underline-offset-2"
+                          >
+                            {shortOrderId}
+                          </button>
                         </td>
                         <td className="py-2 pr-4 text-slate-700 font-medium max-w-[140px] truncate">
                           {o.customer.FullName}
                         </td>
-                        <td className="py-2 pr-4 text-slate-600 whitespace-nowrap">
-                          {o.customer.PhoneNumber}
+                        <td className="py-2 pr-4 text-slate-700 font-medium max-w-[160px] truncate">
+                          {(o.sellers ?? []).join(", ") || "—"}
                         </td>
                         <td className="py-2 pr-4 text-slate-700 font-medium whitespace-nowrap">
                           {formatPrice(o.TotalAmount)}
@@ -245,16 +536,36 @@ export default function OrdersAdminPage() {
                         <td className="py-2 pr-4 text-slate-500 whitespace-nowrap">
                           {formatDate(o.OrderDate).split(",")[0]}
                         </td>
-                        <td className="py-2 pr-0 text-right">
-                          <button
-                            type="button"
-                            onClick={() =>
-                              router.push(`/admin/orders/${o.OrderID}`)
-                            }
-                            className="h-8 px-3 text-xs rounded-md border border-slate-200 bg-white hover:bg-slate-50 inline-flex items-center gap-1 text-slate-700"
-                          >
-                            <Eye className="w-3 h-3" /> View
-                          </button>
+                        <td className="py-2 pr-4 text-right">
+                          <div className="flex items-center justify-end">
+                            <Link
+                              href={`/admin/orders/${encodeURIComponent(o.OrderID)}`}
+                              className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs leading-4 font-medium text-[#2563FF] hover:bg-blue-50"
+                            >
+                              <Eye className="w-3.5 h-3.5" />
+                              <span>View</span>
+                            </Link>
+
+                            <div className="relative inline-flex justify-end">
+                              <button
+                                type="button"
+                                disabled={deletingOrderId === o.OrderID}
+                                onClick={(ev) => {
+                                  ev.stopPropagation();
+                                  const btn = ev.currentTarget;
+                                  const { left, top } = getActionMenuPosition(btn);
+                                  setActionMenu((cur) =>
+                                    cur?.orderId === o.OrderID ? null : { orderId: o.OrderID, left, top },
+                                  );
+                                }}
+                                className="ml-1 inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white hover:bg-slate-50 transition disabled:opacity-60"
+                                aria-label="Actions"
+                                data-action-menu-trigger="true"
+                              >
+                                <MoreVertical className="w-4 h-4 text-slate-700" />
+                              </button>
+                            </div>
+                          </div>
                         </td>
                       </tr>
                     );
@@ -272,24 +583,22 @@ export default function OrdersAdminPage() {
 
           {/* Pagination */}
           {!loading && (orders.length > 0 || cursor) && (
-            <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100">
-              <button
-                type="button"
-                disabled={!cursor}
-                onClick={() => goPage(null)}
-                className="text-xs px-3 py-1.5 rounded-md border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed text-slate-700"
-              >
-                ← Back to first
-              </button>
-              <button
-                type="button"
-                disabled={!nextCursor}
-                onClick={() => goPage(nextCursor)}
-                className="text-xs px-3 py-1.5 rounded-md border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed text-slate-700"
-              >
-                Next page →
-              </button>
-            </div>
+            <Pagination
+              variant="cursor"
+              canPrev={!!cursor || cursorHistory.length > 0}
+              canNext={!!nextCursor}
+              pageLabel={`${pageIndex} / ${totalPagesHint}`}
+              onPrev={goToPreviousPage}
+              onNext={goToNextPage}
+              pageSize={limit}
+              pageSizeOptions={PAGE_SIZE_OPTIONS}
+              onPageSizeChange={(n) => changePageSize(n as any)}
+              leftSlot={
+                <div className="text-[11px] font-normal leading-4 text-slate-600">
+                  Showing <span className="text-slate-900">{orders.length}</span> orders
+                </div>
+              }
+            />
           )}
         </div>
       </div>

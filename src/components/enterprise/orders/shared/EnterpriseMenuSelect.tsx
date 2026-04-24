@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Check, ChevronDown } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { mergeClasses } from "@/lib/utils";
 
 export type EnterpriseMenuSelectOption = { value: string; label: string };
 
@@ -113,7 +113,7 @@ export function EnterpriseMenuSelect({
         aria-haspopup="listbox"
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
-        className={cn(
+        className={mergeClasses(
           "relative inline-flex h-9 min-h-9 w-full items-center border-0 bg-white px-3 py-0 text-left text-[13px] text-slate-900 transition-colors disabled:cursor-not-allowed disabled:opacity-75 md:text-[13px]",
           borderlessTrigger ? null : "rounded",
           triggerRing,

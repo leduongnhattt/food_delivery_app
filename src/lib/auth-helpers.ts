@@ -53,7 +53,6 @@ function clearFinanceVerifySession(): void {
             }
         }
     } catch {
-        // ignore storage errors
     }
 }
 

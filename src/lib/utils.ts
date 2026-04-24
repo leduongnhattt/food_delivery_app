@@ -1,7 +1,7 @@
 import { type ClassValue, clsx } from 'clsx'
 import { twMerge } from 'tailwind-merge'
 
-export function cn(...inputs: ClassValue[]) {
+export function mergeClasses(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
@@ -132,4 +132,41 @@ export function generateUsernameFromEmail(email: string): string {
   }
 
   return cleanUsername;
+}
+
+export function renderPreview(tpl: string, params: Record<string, string>): string {
+  let out = tpl
+  for (const [k, v] of Object.entries(params)) {
+    out = out.replace(new RegExp(`\\{\\{\\s*${k}\\s*\\}\\}`, "g"), v)
+  }
+  return out
+}
+
+export function htmlToText(html: string): string {
+  if (!html) return ""
+  return html
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/(p|div|li|h1|h2|h3|h4|h5|h6)>/gi, "\n")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim()
+}
+
+export function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;")
+}
+
+export function textToHtml(text: string): string {
+  const safe = escapeHtml(text || "")
+  const body = safe.replace(/\n/g, "<br/>")
+  return `<!doctype html><html><head><meta charset="utf-8"/></head><body style="font-family:Inter,Arial,sans-serif;white-space:normal;">${body}</body></html>`
 }

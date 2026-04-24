@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 
 type StoreEntry = { count: number; resetAt: number }
 
-// Simple in-memory store. For production, replace with Redis or Upstash implementation.
 const store = new Map<string, StoreEntry>()
 
 export type RateLimitOptions = {

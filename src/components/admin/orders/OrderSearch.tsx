@@ -1,15 +1,19 @@
 "use client";
 
-import { useCallback, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
+  Check,
   ChevronDown,
-  Filter,
   Search,
-  SlidersHorizontal,
   X,
 } from "lucide-react";
-import { useAdminSearchInput } from "@/hooks/use-admin-search-input";
+import { useAdminSearchInput } from "@/hooks/admin-hooks";
+import { DateTimePickerField } from "@/components/ui/date-time-picker";
+import {
+  EnterpriseMenuSelect,
+  type EnterpriseMenuSelectOption,
+} from "@/components/enterprise/orders/shared/EnterpriseMenuSelect";
 
 const PAYMENT_METHODS = [
   { value: "", label: "All Methods" },
@@ -20,11 +24,17 @@ const PAYMENT_METHODS = [
   { value: "BankTransfer", label: "Bank Transfer" },
 ];
 
+const PAYMENT_STATUSES = [
+  { value: "", label: "All Statuses" },
+  { value: "Pending", label: "Pending" },
+  { value: "Completed", label: "Completed" },
+  { value: "Failed", label: "Failed" },
+];
+
 type FilterValues = {
-  buyerSearch: string;
-  orderId: string;
-  enterpriseId: string;
+  q: string;
   paymentMethod: string;
+  paymentStatus: string;
   fromDate: string;
   toDate: string;
 };
@@ -32,267 +42,376 @@ type FilterValues = {
 type Props = {
   currentStatus: string;
   initialValues: FilterValues;
+  statusControl?: React.ReactNode;
 };
 
-export default function OrderSearch({ currentStatus, initialValues }: Props) {
+export default function OrderSearch({
+  currentStatus,
+  initialValues,
+  statusControl,
+}: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
-  const [showAdvanced, setShowAdvanced] = useState(
-    !!(
-      initialValues.orderId ||
-      initialValues.enterpriseId ||
-      initialValues.fromDate ||
-      initialValues.toDate ||
-      initialValues.paymentMethod
-    ),
-  );
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
+  const restoreSearchFocusRef = useRef(false);
   const [paymentMethod, setPaymentMethod] = useState(
     initialValues.paymentMethod,
   );
-  const [orderId, setOrderId] = useState(initialValues.orderId);
-  const [enterpriseId, setEnterpriseId] = useState(initialValues.enterpriseId);
+  const [paymentStatus, setPaymentStatus] = useState(
+    initialValues.paymentStatus,
+  );
   const [fromDate, setFromDate] = useState(initialValues.fromDate);
   const [toDate, setToDate] = useState(initialValues.toDate);
-  const [pmOpen, setPmOpen] = useState(false);
-  const pmRef = useRef<HTMLDivElement>(null);
+  const [isPaymentMethodMenuOpen, setIsPaymentMethodMenuOpen] = useState(false);
+  const paymentMethodMenuRef = useRef<HTMLDivElement>(null);
+  const [isPaymentStatusMenuOpen, setIsPaymentStatusMenuOpen] = useState(false);
+  const paymentStatusMenuRef = useRef<HTMLDivElement>(null);
 
-  const applyBuyerSearch = useCallback(
-    (q: string) => {
-      const p = new URLSearchParams(searchParams.toString());
-      if (q) p.set("buyerSearch", q);
-      else p.delete("buyerSearch");
-      p.delete("cursor");
+  const qModeParam = searchParams.get("qMode") || "buyer";
+  const [qMode, setQModeState] = useState(qModeParam);
+  useEffect(() => {
+    setQModeState(qModeParam);
+  }, [qModeParam]);
+
+  const searchModeOptions = useMemo<EnterpriseMenuSelectOption[]>(
+    () => [
+      { value: "buyer", label: "Name" },
+      { value: "orderId", label: "Order ID" },
+    ],
+    [],
+  );
+
+  const updateUrlFilters = useCallback(
+    (next: FilterValues & { qMode: string }) => {
+      const normalized = {
+        ...next,
+        q: next.q.trim(),
+      };
+
+      const params = new URLSearchParams();
+      if (currentStatus && currentStatus !== "all") params.set("status", currentStatus);
+
+      if (normalized.q && !normalized.q.includes("@")) params.set("q", normalized.q);
+      if (normalized.qMode && normalized.qMode !== "buyer") params.set("qMode", normalized.qMode);
+
+      if (normalized.paymentMethod) params.set("paymentMethod", normalized.paymentMethod);
+      if (normalized.paymentStatus) params.set("paymentStatus", normalized.paymentStatus);
+      if (normalized.fromDate) params.set("fromDate", normalized.fromDate);
+      if (normalized.toDate) params.set("toDate", normalized.toDate);
+
+      // Reset cursor when any filter changes
+      params.delete("cursor");
+
       startTransition(() => {
-        router.replace(`/admin/orders?${p.toString()}`, { scroll: false });
+        router.replace(`/admin/orders?${params.toString()}`, { scroll: false });
       });
     },
-    [searchParams, router],
+    [currentStatus, router, startTransition],
   );
 
-  const { value: buyerSearchValue, onChange: onBuyerSearchChange } =
-    useAdminSearchInput(initialValues.buyerSearch, applyBuyerSearch);
+  const applyQ = useCallback(
+    (nextQ: string) => {
+      updateUrlFilters({
+        q: nextQ,
+        qMode,
+        paymentMethod,
+        paymentStatus,
+        fromDate,
+        toDate,
+      });
+    },
+    [fromDate, paymentMethod, paymentStatus, qMode, toDate, updateUrlFilters],
+  );
 
-  function applyAllFilters() {
-    const p = new URLSearchParams();
-    if (currentStatus && currentStatus !== "all")
-      p.set("status", currentStatus);
-    if (buyerSearchValue.trim()) p.set("buyerSearch", buyerSearchValue.trim());
-    if (orderId.trim()) p.set("orderId", orderId.trim());
-    if (enterpriseId.trim()) p.set("enterpriseId", enterpriseId.trim());
-    if (paymentMethod) p.set("paymentMethod", paymentMethod);
-    if (fromDate) p.set("fromDate", fromDate);
-    if (toDate) p.set("toDate", toDate);
-    startTransition(() => {
-      router.replace(`/admin/orders?${p.toString()}`, { scroll: false });
+  const { value: qValue, onChange: onQChange } = useAdminSearchInput(
+    initialValues.q,
+    applyQ,
+  );
+
+  // If we update the URL while typing, Next navigation can re-render and drop focus.
+  // Restore focus after the transition completes, but only when the user was typing.
+  useEffect(() => {
+    if (isPending) return;
+    if (!restoreSearchFocusRef.current) return;
+    restoreSearchFocusRef.current = false;
+    const el = searchInputRef.current;
+    if (!el) return;
+    if (typeof document !== "undefined" && document.activeElement === el) return;
+    requestAnimationFrame(() => {
+      el.focus({ preventScroll: true });
     });
-  }
+  }, [isPending]);
+
+  useEffect(() => {
+    function onDocMouseDown(ev: MouseEvent) {
+      const t = ev.target as Node | null;
+      if (
+        isPaymentMethodMenuOpen &&
+        paymentMethodMenuRef.current &&
+        t &&
+        !paymentMethodMenuRef.current.contains(t)
+      ) {
+        setIsPaymentMethodMenuOpen(false);
+      }
+      if (
+        isPaymentStatusMenuOpen &&
+        paymentStatusMenuRef.current &&
+        t &&
+        !paymentStatusMenuRef.current.contains(t)
+      ) {
+        setIsPaymentStatusMenuOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", onDocMouseDown);
+    return () => document.removeEventListener("mousedown", onDocMouseDown);
+  }, [isPaymentMethodMenuOpen, isPaymentStatusMenuOpen]);
+
+  const setQMode = useCallback(
+    (next: string) => {
+      // Only change UI when user hasn't typed a query yet.
+      setQModeState(next);
+
+      const trimmed = qValue.trim();
+      if (!trimmed || trimmed.includes("@")) return;
+      updateUrlFilters({
+        q: trimmed,
+        qMode: next,
+        paymentMethod,
+        paymentStatus,
+        fromDate,
+        toDate,
+      });
+    },
+    [fromDate, paymentMethod, paymentStatus, qValue, toDate, updateUrlFilters],
+  );
 
   function clearAllFilters() {
-    setOrderId("");
-    setEnterpriseId("");
     setPaymentMethod("");
+    setPaymentStatus("");
     setFromDate("");
     setToDate("");
-    const p = new URLSearchParams();
-    if (currentStatus && currentStatus !== "all")
-      p.set("status", currentStatus);
-    startTransition(() => {
-      router.replace(`/admin/orders?${p.toString()}`, { scroll: false });
+    updateUrlFilters({
+      q: qValue,
+      qMode,
+      paymentMethod: "",
+      paymentStatus: "",
+      fromDate: "",
+      toDate: "",
     });
   }
 
-  const hasActiveFilters = !!(
-    initialValues.orderId ||
-    initialValues.enterpriseId ||
-    initialValues.paymentMethod ||
-    initialValues.fromDate ||
-    initialValues.toDate
-  );
+  const hasActiveFilters =
+    !!qValue.trim() ||
+    !!paymentMethod ||
+    !!paymentStatus ||
+    !!fromDate ||
+    !!toDate;
 
   const selectedPmLabel =
     PAYMENT_METHODS.find((m) => m.value === paymentMethod)?.label ??
     "All Methods";
 
+  const selectedPsLabel =
+    PAYMENT_STATUSES.find((s) => s.value === paymentStatus)?.label ??
+    "All Statuses";
+
+  // Keep URL in sync while editing filters (no Apply button).
+  useEffect(() => {
+    const t = setTimeout(() => {
+      updateUrlFilters({
+        q: qValue,
+        qMode,
+        paymentMethod,
+        paymentStatus,
+        fromDate,
+        toDate,
+      });
+    }, 250);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [paymentMethod, paymentStatus, fromDate, toDate]);
+
   return (
     <div className="rounded-lg border border-slate-200 bg-white p-4 space-y-3">
-      {/* Row 1: Buyer search + toggle advanced */}
-      <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
-        <div className="relative flex-1 w-full">
-          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-          <input
-            type="text"
-            value={buyerSearchValue}
-            onChange={onBuyerSearchChange}
-            placeholder="Search by buyer name, phone, or email"
-            disabled={isPending}
-            aria-label="Search buyer"
-            className="w-full border-0 appearance-none placeholder:text-slate-400 focus:outline-none disabled:cursor-not-allowed disabled:opacity-75 transition-colors rounded px-3 gap-2 text-slate-900 ring ring-inset focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-sky-300 ps-10 text-[13px] py-2.5 ring-slate-200 bg-white"
-          />
-        </div>
-
-        <button
-          type="button"
-          onClick={() => setShowAdvanced((v) => !v)}
-          className={[
-            "shrink-0 inline-flex items-center gap-2 px-3 py-2.5 text-[13px] rounded border transition-colors",
-            showAdvanced
-              ? "border-slate-900 bg-slate-900 text-white"
-              : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50",
-            hasActiveFilters && !showAdvanced ? "ring-2 ring-sky-300" : "",
-          ]
-            .filter(Boolean)
-            .join(" ")}
-        >
-          <SlidersHorizontal className="w-4 h-4" />
-          <span>Filters</span>
-          {hasActiveFilters && (
-            <span className="ml-0.5 w-2 h-2 rounded-full bg-sky-400 inline-block" />
-          )}
-        </button>
-      </div>
-
-      {/* Advanced filters */}
-      {showAdvanced && (
-        <div className="border-t border-slate-100 pt-3 space-y-3">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {/* Order ID */}
-            <div>
-              <label className="block text-[11px] font-semibold text-slate-500 mb-1 uppercase tracking-wide">
-                Order ID
-              </label>
+      {/* Row 1: Buyer search + status */}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-12 sm:items-end">
+        <div className="w-full min-w-0 sm:col-span-9">
+          <div className="flex min-w-0 flex-1 items-stretch rounded border border-slate-200 bg-white focus-within:ring-2 focus-within:ring-inset focus-within:ring-sky-300">
+            <EnterpriseMenuSelect
+              value={qMode}
+              onChange={setQMode}
+              options={searchModeOptions}
+              className="w-40 shrink-0"
+              borderlessTrigger
+              triggerClassName="h-8 min-h-8 rounded-none rounded-l-md rounded-r-none"
+              aria-label="Search by field"
+            />
+            <div className="relative min-w-0 flex-1">
+              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
-                type="text"
-                value={orderId}
-                onChange={(e) => setOrderId(e.target.value)}
-                placeholder="Enter order ID"
+                ref={searchInputRef}
+                value={qValue}
+                onChange={(e) => {
+                  restoreSearchFocusRef.current = true;
+                  onQChange(e);
+                }}
+                placeholder={qMode === "orderId" ? "Input order ID" : "Input buyer or seller name"}
                 disabled={isPending}
-                className="w-full border-0 appearance-none placeholder:text-slate-400 focus:outline-none disabled:cursor-not-allowed disabled:opacity-75 transition-colors rounded px-3 text-slate-900 ring ring-inset focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-sky-300 text-[13px] py-2.5 ring-slate-200 bg-white"
-              />
-            </div>
-
-            {/* Enterprise ID */}
-            <div>
-              <label className="block text-[11px] font-semibold text-slate-500 mb-1 uppercase tracking-wide">
-                Enterprise ID
-              </label>
-              <input
-                type="text"
-                value={enterpriseId}
-                onChange={(e) => setEnterpriseId(e.target.value)}
-                placeholder="Enter enterprise ID"
-                disabled={isPending}
-                className="w-full border-0 appearance-none placeholder:text-slate-400 focus:outline-none disabled:cursor-not-allowed disabled:opacity-75 transition-colors rounded px-3 text-slate-900 ring ring-inset focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-sky-300 text-[13px] py-2.5 ring-slate-200 bg-white"
-              />
-            </div>
-
-            {/* Payment Method */}
-            <div>
-              <label className="block text-[11px] font-semibold text-slate-500 mb-1 uppercase tracking-wide">
-                Payment Method
-              </label>
-              <div ref={pmRef} className="relative">
-                <button
-                  type="button"
-                  disabled={isPending}
-                  onClick={() => setPmOpen((v) => !v)}
-                  className="relative w-full inline-flex items-center focus:outline-none disabled:cursor-not-allowed disabled:opacity-75 transition-colors rounded gap-2 text-[13px] py-2.5 px-3 text-slate-900 bg-white ring ring-inset hover:bg-slate-50 focus:ring-2 focus:ring-inset focus:ring-sky-300 pe-10 ring-slate-200"
-                >
-                  <span className="truncate">{selectedPmLabel}</span>
-                  <ChevronDown
-                    className={`w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 transition-transform duration-150 ${
-                      pmOpen ? "rotate-180" : ""
-                    }`}
-                  />
-                </button>
-                {pmOpen && (
-                  <div className="absolute left-0 right-0 mt-1 rounded-xl border border-slate-200 bg-white shadow-lg overflow-hidden z-50">
-                    {PAYMENT_METHODS.map((m) => (
-                      <button
-                        key={m.value}
-                        type="button"
-                        onClick={() => {
-                          setPaymentMethod(m.value);
-                          setPmOpen(false);
-                        }}
-                        className={`w-full flex items-center justify-between px-3 py-2 text-[13px] text-slate-900 hover:bg-slate-50 ${
-                          paymentMethod === m.value
-                            ? "bg-slate-50 font-medium"
-                            : ""
-                        }`}
-                      >
-                        {m.label}
-                        {paymentMethod === m.value && (
-                          <span className="w-1.5 h-1.5 rounded-full bg-slate-700 ml-2" />
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* From Date */}
-            <div>
-              <label className="block text-[11px] font-semibold text-slate-500 mb-1 uppercase tracking-wide">
-                From Date
-              </label>
-              <input
-                type="date"
-                value={fromDate}
-                onChange={(e) => setFromDate(e.target.value)}
-                disabled={isPending}
-                max={toDate || undefined}
-                className="w-full border-0 appearance-none focus:outline-none disabled:cursor-not-allowed disabled:opacity-75 transition-colors rounded px-3 text-slate-900 ring ring-inset focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-sky-300 text-[13px] py-2.5 ring-slate-200 bg-white"
-              />
-            </div>
-
-            {/* To Date */}
-            <div>
-              <label className="block text-[11px] font-semibold text-slate-500 mb-1 uppercase tracking-wide">
-                To Date
-              </label>
-              <input
-                type="date"
-                value={toDate}
-                onChange={(e) => setToDate(e.target.value)}
-                disabled={isPending}
-                min={fromDate || undefined}
-                className="w-full border-0 appearance-none focus:outline-none disabled:cursor-not-allowed disabled:opacity-75 transition-colors rounded px-3 text-slate-900 ring ring-inset focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-sky-300 text-[13px] py-2.5 ring-slate-200 bg-white"
+                aria-label="Search"
+                className="h-8 min-h-8 min-w-0 w-full rounded-none rounded-r-md border-0 border-l border-slate-200 bg-white px-3 ps-10 text-[13px] leading-normal text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-0 disabled:cursor-not-allowed disabled:opacity-75"
               />
             </div>
           </div>
+        </div>
 
-          {/* Action row */}
+        <div className="w-full min-w-0 sm:col-span-3">
+          <label className="block text-[11px] font-semibold text-slate-500 mb-1 uppercase tracking-wide">
+            Order status
+          </label>
+          <div className="w-full min-w-0">{statusControl ? statusControl : null}</div>
+        </div>
+      </div>
+
+      {/* Filters (always visible; no Apply button) */}
+      <div className="border-t border-slate-100 pt-3 space-y-3">
+        <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+          {/* Payment Method */}
+          <div className="min-w-0">
+            <label className="block text-[11px] font-semibold text-slate-500 mb-1 uppercase tracking-wide">
+              Payment Method
+            </label>
+            <div ref={paymentMethodMenuRef} className="relative">
+              <button
+                type="button"
+                disabled={isPending}
+                onClick={() => setIsPaymentMethodMenuOpen((v) => !v)}
+                className="relative w-full inline-flex h-8 min-h-8 items-center focus:outline-none disabled:cursor-not-allowed disabled:opacity-75 transition-colors rounded gap-2 text-[13px] px-3 py-0 text-slate-900 bg-white ring ring-inset hover:bg-slate-50 focus:ring-2 focus:ring-inset focus:ring-sky-300 pe-10 ring-slate-200"
+              >
+                <span className="truncate">{selectedPmLabel}</span>
+                <ChevronDown
+                  className={`w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 transition-transform duration-150 ${
+                    isPaymentMethodMenuOpen ? "rotate-180" : ""
+                  }`}
+                />
+              </button>
+              {isPaymentMethodMenuOpen && (
+                <div className="absolute left-0 right-0 mt-1 rounded-xl border border-slate-200 bg-white shadow-lg overflow-hidden z-50">
+                  {PAYMENT_METHODS.map((m) => (
+                    <button
+                      key={m.value}
+                      type="button"
+                      onClick={() => {
+                        setPaymentMethod(m.value);
+                        setIsPaymentMethodMenuOpen(false);
+                      }}
+                      className={`w-full flex items-center justify-between px-3 py-2 text-[13px] text-slate-900 hover:bg-slate-50 ${
+                        paymentMethod === m.value ? "bg-slate-50 font-medium" : ""
+                      }`}
+                    >
+                      {m.label}
+                      {paymentMethod === m.value ? (
+                        <Check className="w-4 h-4 text-slate-700" />
+                      ) : null}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Pay Status */}
+          <div className="min-w-0">
+            <label className="block text-[11px] font-semibold text-slate-500 mb-1 uppercase tracking-wide">
+              Pay status
+            </label>
+            <div ref={paymentStatusMenuRef} className="relative">
+              <button
+                type="button"
+                disabled={isPending}
+                onClick={() => setIsPaymentStatusMenuOpen((v) => !v)}
+                className="relative w-full inline-flex h-8 min-h-8 items-center focus:outline-none disabled:cursor-not-allowed disabled:opacity-75 transition-colors rounded gap-2 text-[13px] px-3 py-0 text-slate-900 bg-white ring ring-inset hover:bg-slate-50 focus:ring-2 focus:ring-inset focus:ring-sky-300 pe-10 ring-slate-200"
+              >
+                <span className="truncate">{selectedPsLabel}</span>
+                <ChevronDown
+                  className={`w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 transition-transform duration-150 ${
+                    isPaymentStatusMenuOpen ? "rotate-180" : ""
+                  }`}
+                />
+              </button>
+              {isPaymentStatusMenuOpen && (
+                <div className="absolute left-0 right-0 mt-1 rounded-xl border border-slate-200 bg-white shadow-lg overflow-hidden z-50">
+                  {PAYMENT_STATUSES.map((s) => (
+                    <button
+                      key={s.value}
+                      type="button"
+                      onClick={() => {
+                        setPaymentStatus(s.value);
+                        setIsPaymentStatusMenuOpen(false);
+                      }}
+                      className={`w-full flex items-center justify-between px-3 py-2 text-[13px] text-slate-900 hover:bg-slate-50 ${
+                        paymentStatus === s.value ? "bg-slate-50 font-medium" : ""
+                      }`}
+                    >
+                      {s.label}
+                      {paymentStatus === s.value ? (
+                        <Check className="w-4 h-4 text-slate-700" />
+                      ) : null}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="min-w-0">
+            <label className="block text-[11px] font-semibold text-slate-500 mb-1 uppercase tracking-wide">
+              From Date
+            </label>
+            <DateTimePickerField
+              mode="date"
+              value={fromDate}
+              onChange={(next) => setFromDate(next)}
+              disabled={isPending}
+              max={toDate || undefined}
+              placeholder="dd/mm/yyyy"
+              triggerClassName="w-full h-8 min-h-8 border-0 bg-white py-0 ps-3 pe-9 text-[13px] leading-normal text-slate-900 ring ring-inset ring-slate-200 rounded transition-colors hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-sky-300 disabled:cursor-not-allowed disabled:opacity-75"
+            />
+          </div>
+
+          <div className="min-w-0">
+            <label className="block text-[11px] font-semibold text-slate-500 mb-1 uppercase tracking-wide">
+              To Date
+            </label>
+            <DateTimePickerField
+              mode="date"
+              value={toDate}
+              onChange={(next) => setToDate(next)}
+              disabled={isPending}
+              min={fromDate || undefined}
+              placeholder="dd/mm/yyyy"
+              triggerClassName="w-full h-8 min-h-8 border-0 bg-white py-0 ps-3 pe-9 text-[13px] leading-normal text-slate-900 ring ring-inset ring-slate-200 rounded transition-colors hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-sky-300 disabled:cursor-not-allowed disabled:opacity-75"
+            />
+          </div>
+        </div>
+
+        {/* Reset */}
+        {hasActiveFilters && (
           <div className="flex items-center gap-2 pt-1">
             <button
               type="button"
               disabled={isPending}
-              onClick={applyAllFilters}
-              className="inline-flex items-center gap-2 px-4 py-2 text-[13px] rounded bg-slate-900 text-white hover:bg-slate-800 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+              onClick={() => {
+                clearAllFilters();
+              }}
+              className="inline-flex h-8 min-h-8 items-center gap-2 px-3 py-0 text-[13px] rounded border border-sky-600 bg-white text-sky-600 hover:bg-sky-600 hover:text-white disabled:opacity-60 transition-colors"
             >
-              {isPending ? (
-                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              ) : (
-                <Filter className="w-3.5 h-3.5" />
-              )}
-              Apply Filters
+              <X className="w-3.5 h-3.5" />
+              Reset
             </button>
-
-            {hasActiveFilters && (
-              <button
-                type="button"
-                disabled={isPending}
-                onClick={clearAllFilters}
-                className="inline-flex items-center gap-2 px-3 py-2 text-[13px] rounded border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-60 transition-colors"
-              >
-                <X className="w-3.5 h-3.5" />
-                Clear Filters
-              </button>
-            )}
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }

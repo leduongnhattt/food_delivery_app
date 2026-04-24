@@ -3,7 +3,7 @@
 import { useCallback, useTransition } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Search } from 'lucide-react'
-import { useAdminSearchInput } from '@/hooks/use-admin-search-input'
+import { useAdminSearchInput } from '@/hooks/admin-hooks'
 
 export default function CustomerSearch({ currentTab, currentSearch }: { currentTab: string; currentSearch: string }) {
   const router = useRouter()

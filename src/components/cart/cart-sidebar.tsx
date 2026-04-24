@@ -4,10 +4,10 @@ import { Button } from '@/components/ui/button'
 import { formatPrice, calculatePrice } from '@/lib/utils'
 import { CartItem as CartItemType } from '@/types/models'
 import { CartItem } from './cart-item'
-import { useAuth } from '@/hooks/use-auth'
+import { useAuth } from '@/hooks/auth-hooks'
 import { useRouter } from 'next/navigation'
 import { useTranslations } from '@/lib/i18n'
-import { exceedsItemValueLimit, getOrderLimitLabel } from '@/lib/order-limit'
+import { exceedsItemValueLimit, getOrderLimitLabel } from '@/lib/orders'
 import { AlertTriangle } from 'lucide-react'
 
 interface CartSidebarProps {

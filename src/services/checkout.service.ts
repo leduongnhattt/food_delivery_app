@@ -1,5 +1,5 @@
 import { CartItem } from '@/types/models'
-import { buildHeaders, getServerApiBase } from '@/lib/http-client'
+import { buildHeaders, getServerApiBase } from '@/lib/http'
 
 export interface CheckoutData {
     cartItems: CartItem[]

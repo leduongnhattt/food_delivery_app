@@ -6,7 +6,7 @@ import {
   buildQueryString,
   getServerApiBase,
   requestJson,
-} from '@/lib/http-client'
+} from '@/lib/http'
 import { AdminOrderDetailResponse, AdminOrdersListResponse } from '@/types/admin-api.types'
 
 export type AdminOrdersListQuery = {
@@ -15,6 +15,7 @@ export type AdminOrdersListQuery = {
   buyerSearch?: string;
   status?: string;
   paymentMethod?: string;
+  paymentStatus?: string;
   fromDate?: string;
   toDate?: string;
   limit?: number;
@@ -45,6 +46,7 @@ export async function listAdminOrders(
     buyerSearch: params.buyerSearch,
     status: params.status,
     paymentMethod: params.paymentMethod,
+    paymentStatus: params.paymentStatus,
     fromDate: params.fromDate,
     toDate: params.toDate,
     limit: params.limit,
@@ -70,4 +72,10 @@ export async function getAdminOrderDetail(
       method: 'GET',
     },
   )
+}
+
+export async function deleteAdminOrder(orderId: string): Promise<{ success: boolean }> {
+  return requestJson<{ success: boolean }>(urlAdminOrderDetail(orderId), {
+    method: 'DELETE',
+  })
 }

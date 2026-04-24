@@ -8,7 +8,7 @@ import { useRouter } from 'next/navigation'
 import { ArrowLeft, Globe, Bell, Shield, Palette, Moon, Sun, Save, CheckCircle2 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { AuthGuard } from '@/components/auth/auth-guard'
-import { getServerApiBase } from '@/lib/http-client'
+import { getServerApiBase } from '@/lib/http'
 
 export default function SettingsPage() {
   const router = useRouter()

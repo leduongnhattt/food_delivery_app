@@ -6,7 +6,7 @@ import { StockValidationPopup, useStockValidationPopup } from '@/components/ui/s
 import { validateFoodStock } from '@/lib/stock-validation'
 import { useState, useEffect, useRef } from 'react'
 import { Trash2, AlertTriangle } from 'lucide-react'
-import { exceedsItemValueLimit, getOrderLimitLabel } from '@/lib/order-limit'
+import { exceedsItemValueLimit, getOrderLimitLabel } from '@/lib/orders'
 import { useTranslations } from '@/lib/i18n'
 
 interface CartItemProps {

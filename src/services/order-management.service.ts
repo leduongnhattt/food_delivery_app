@@ -1,5 +1,5 @@
-import { getServerApiBase, requestJson } from "@/lib/http-client";
-import type { EnterpriseOrderListItem } from "@/lib/enterprise-order-buckets";
+import { getServerApiBase, requestJson } from "@/lib/http";
+import type { EnterpriseOrderListItem } from "@/lib/enterprise-orders";
 
 /** List row from GET /enterprise/orders (includes latest payment fields). */
 export type Order = EnterpriseOrderListItem;

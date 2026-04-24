@@ -8,14 +8,12 @@ import { PasswordStrength } from "@/components/ui/password-strength";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { registerUser } from "@/lib/client-auth";
-import { usePasswordToggle } from "@/hooks/use-password-toggle";
+import { usePasswordToggle } from "@/hooks/ui-hooks";
 import { useTranslations } from "@/lib/i18n";
 import { useToast } from "@/contexts/toast-context";
 import GoogleAuthButton from "@/components/ui/google-auth-button";
-import { useAuthValidation } from "@/hooks/use-auth-validation";
-import { useEmailField } from "@/hooks/use-email-field";
+import { useAuthValidation, useEmailField, type EmailInvalidReason } from "@/hooks/auth-hooks";
 import Image from "next/image";
-import type { EmailInvalidReason } from "@/hooks/use-email-field";
 
 export default function SignupPage() {
   const router = useRouter();

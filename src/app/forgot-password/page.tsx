@@ -8,7 +8,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "@/lib/i18n";
 import { PasswordService } from "@/services/password.service";
-import { useEmailField } from "@/hooks/use-email-field";
+import { useEmailField } from "@/hooks/auth-hooks";
 
 export default function ForgotPasswordPage() {
   const router = useRouter();

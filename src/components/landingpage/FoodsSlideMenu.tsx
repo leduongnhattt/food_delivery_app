@@ -1,8 +1,7 @@
 import React from 'react';
 import { useRouter } from 'next/navigation';
 import FoodCard from './FoodCard';
-import { usePopularFoods } from '@/hooks/use-popular-foods';
-import { CATALOG_REFETCH_INTERVAL_MS } from '@/hooks/catalog-refetch';
+import { usePopularFoods, CATALOG_REFETCH_INTERVAL_MS } from '@/hooks/catalog-hooks';
 import { SAMPLE_FOODS } from '@/data/sample-foods';
 import { Food, RestaurantModalInfo, ApiRestaurantPayload, FoodsSlideMenuProps } from '@/types/models';
 import { OrderModal } from '@/components/ui/order-modal';

@@ -12,11 +12,10 @@ import {
   ChevronRight,
   ChevronRight as ChevronBreadcrumb,
 } from "lucide-react";
-import { useAuth } from "@/hooks/use-auth";
-import { useAccountHeader } from "@/hooks/use-account-header";
-import { useAPICache } from "@/hooks/use-api-cache";
+import { useAuth } from "@/hooks/auth-hooks";
+import { useAccountHeader, useAPICache } from "@/hooks/account-hooks";
 import { buildAuthHeader } from "@/lib/auth-helpers";
-import { getServerApiBase } from "@/lib/http-client";
+import { getServerApiBase } from "@/lib/http";
 
 type NavChild = { href: string; label: string };
 type NavSection = { key: string; label: string; defaultOpen?: boolean; children: NavChild[] };

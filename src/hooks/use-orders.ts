@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { OrderService, Order, OrderFilters } from '@/services/order.service'
-import { useAuth } from '@/hooks/use-auth'
+import { useAuth } from '@/hooks/auth-hooks'
 import { useRouter } from 'next/navigation'
 
 export function useOrders() {

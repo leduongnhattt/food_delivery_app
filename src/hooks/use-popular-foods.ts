@@ -1,13 +1,13 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { Food } from '@/types/models'
 import { FoodService, FoodServiceFilters } from '@/services/food.service'
-import { CATALOG_REFETCH_INTERVAL_MS } from '@/hooks/catalog-refetch'
+import { CATALOG_REFETCH_INTERVAL_MS } from '@/hooks/catalog-hooks'
 
 export interface UsePopularFoodsOptions {
-  /** When false, no network calls (e.g. FoodsSlideMenu with sample data only). */
-  enabled?: boolean
-  refetchIntervalMs?: number
-  refetchOnVisibility?: boolean
+    /** When false, no network calls (e.g. FoodsSlideMenu with sample data only). */
+    enabled?: boolean
+    refetchIntervalMs?: number
+    refetchOnVisibility?: boolean
 }
 
 interface UsePopularFoodsReturn {

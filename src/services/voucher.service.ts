@@ -1,4 +1,4 @@
-import { requestJson, getServerApiBase } from '@/lib/http-client'
+import { requestJson, getServerApiBase } from '@/lib/http'
 
 export interface VoucherDTO {
     Code: string

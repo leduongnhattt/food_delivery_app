@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { Plus } from "lucide-react";
-import { ENTERPRISE_PAYOUT_PROVIDERS } from "@/lib/enterprise-bank-names";
+import { ENTERPRISE_PAYOUT_PROVIDERS } from "@/lib/enterprise-finance";
 import type { EnterpriseBankAccountRow } from "@/services/enterprise-bank-accounts.service";
 
 type CardVM = {

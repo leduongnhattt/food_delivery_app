@@ -21,7 +21,7 @@ import {
   parseToShipSubFromQuery,
   type EnterpriseOrderTab,
   type EnterpriseToShipSubTab,
-} from "@/lib/enterprise-order-buckets";
+} from "@/lib/enterprise-orders";
 import {
   EnterpriseMenuSelect,
   type EnterpriseMenuSelectOption,

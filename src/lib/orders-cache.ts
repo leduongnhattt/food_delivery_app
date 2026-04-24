@@ -1,6 +1,5 @@
 import { getKeyJson, setKeyJson, deleteKey } from './redis';
 
-// Cache keys for orders data
 const ORDERS_CACHE_KEYS = {
     ENTERPRISE_ORDERS: (enterpriseId: string) => `enterprise:${enterpriseId}:orders`,
     ENTERPRISE_RECENT_ORDERS: (enterpriseId: string) => `enterprise:${enterpriseId}:recent_orders`,

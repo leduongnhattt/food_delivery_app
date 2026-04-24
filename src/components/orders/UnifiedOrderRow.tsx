@@ -10,7 +10,7 @@ import {
   isCustomerOrder, 
   isEnterpriseOrder,
   type Order 
-} from '@/lib/order-utils'
+} from '@/lib/orders'
 import { 
   MapPin, 
   Trash2, 

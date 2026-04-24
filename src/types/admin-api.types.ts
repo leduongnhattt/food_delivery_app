@@ -6,6 +6,7 @@ export type AdminCustomerListItem = {
   CustomerID: string;
   FullName: string;
   PhoneNumber: string;
+  Address: string;
   account: {
     AccountID: string;
     Email: string;
@@ -205,6 +206,7 @@ export type AdminOrderListItem = {
   TotalAmount: number;
   Status: string;
   OrderDate: string;
+  sellers: string[];
 
   payments: Array<{
     PaymentMethod: string;

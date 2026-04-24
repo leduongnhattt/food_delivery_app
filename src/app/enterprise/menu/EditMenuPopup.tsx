@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Menu } from "./MenuList";
-import { getServerApiBase } from "@/lib/http-client";
+import { getServerApiBase } from "@/lib/http";
 import { buildAuthHeader } from "@/lib/auth-helpers";
 
 interface EditMenuPopupProps {

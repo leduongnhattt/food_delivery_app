@@ -1,7 +1,7 @@
 /**
  * Customer / Enterprise support tickets — Nest `/support/*`.
  */
-import { buildQueryString, getServerApiBase, requestJson } from '@/lib/http-client'
+import { buildQueryString, getServerApiBase, requestJson } from '@/lib/http'
 import type {
   UserSupportTicketDetailResponse,
   UserSupportTicketsResponse,

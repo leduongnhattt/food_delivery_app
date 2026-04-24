@@ -1,7 +1,7 @@
 'use client'
 
 import { RestaurantCard } from '@/components/restaurant/restaurant-card'
-import { useRestaurantList } from '@/hooks/use-restaurant-list'
+import { useRestaurantList } from '@/hooks/catalog-hooks'
 import { Loading } from '@/components/ui/loading'
 import { ErrorDisplay } from '@/components/ui/error-display'
 

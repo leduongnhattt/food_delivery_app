@@ -12,7 +12,7 @@ import {
   buildStatusDisplay,
 } from "@/components/enterprise/orders/detail/order-detail-helpers";
 import { CopyToClipboardButton } from "@/components/enterprise/CopyToClipboardButton";
-import { initials } from "@/lib/enterprise-ui-helpers";
+import { initials } from "@/lib/enterprise-orders";
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === "object" && !Array.isArray(value);

@@ -10,7 +10,7 @@ import Image from 'next/image'
 import { StockValidationPopup, useStockValidationPopup } from '@/components/ui/stock-validation-popup'
 import { validateFoodStock } from '@/lib/stock-validation'
 import { useTranslations } from '@/lib/i18n'
-import { exceedsItemValueLimit, getOrderLimitLabel } from '@/lib/order-limit'
+import { exceedsItemValueLimit, getOrderLimitLabel } from '@/lib/orders'
 
 interface OrderModalProps {
   isOpen: boolean
