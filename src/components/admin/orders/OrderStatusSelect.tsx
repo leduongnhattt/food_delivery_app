@@ -3,21 +3,7 @@
 import React, { useMemo, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { AdminFilterMenu, type AdminFilterOption } from "@/components/admin/shared/AdminFilterMenu"
-
-const ORDER_STATUSES = [
-  { key: "all", label: "All" },
-  { key: "Pending", label: "Pending" },
-  { key: "Confirmed", label: "Confirmed" },
-  { key: "Preparing", label: "Preparing" },
-  { key: "ReadyForPickup", label: "Ready" },
-  { key: "OutForDelivery", label: "Delivering" },
-  { key: "Delivered", label: "Delivered" },
-  { key: "Completed", label: "Completed" },
-  { key: "Cancelled", label: "Cancelled" },
-  { key: "Refunded", label: "Refunded" },
-] as const
-
-type OrderStatusKey = (typeof ORDER_STATUSES)[number]["key"]
+import { ORDER_STATUS_OPTIONS, type OrderStatusKey } from "./order-status"
 
 export default function OrderStatusSelect({
   current,
@@ -31,12 +17,12 @@ export default function OrderStatusSelect({
   const [openMenuId, setOpenMenuId] = useState<string | null>(null)
 
   const currentValue = useMemo<OrderStatusKey>(() => {
-    const found = ORDER_STATUSES.some((x) => x.key === current)
+    const found = ORDER_STATUS_OPTIONS.some((x) => x.key === current)
     return (found ? current : "all") as OrderStatusKey
   }, [current])
 
   const options = useMemo<AdminFilterOption[]>(
-    () => ORDER_STATUSES.map((x) => ({ value: x.key, label: x.label })),
+    () => ORDER_STATUS_OPTIONS.map((x) => ({ value: x.key, label: x.label })),
     [],
   )
 
@@ -44,14 +30,14 @@ export default function OrderStatusSelect({
     const nextStatus = next as OrderStatusKey
     if (nextStatus === currentValue) return
 
-    const p = new URLSearchParams(searchParams.toString())
-    if (nextStatus === "all") p.delete("status")
-    else p.set("status", nextStatus)
+    const params = new URLSearchParams(searchParams.toString())
+    if (nextStatus === "all") params.delete("status")
+    else params.set("status", nextStatus)
 
     // reset cursor on status change
-    p.delete("cursor")
+    params.delete("cursor")
 
-    router.replace(`/admin/orders?${p.toString()}`, { scroll: false })
+    router.replace(`/admin/orders?${params.toString()}`, { scroll: false })
     onStatusChange?.()
   }
 

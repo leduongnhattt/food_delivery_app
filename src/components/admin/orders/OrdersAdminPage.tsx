@@ -3,13 +3,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { formatDate } from "@/lib/utils";
+import { formatDate, formatPrice } from "@/lib/utils";
 import { Eye, MoreVertical } from "lucide-react";
 import { deleteAdminOrder, listAdminOrders } from "@/services/admin-order.service";
 import type { AdminOrderListItem } from "@/types/admin-api.types";
 import OrderStatusSelect from "./OrderStatusSelect";
 import OrderSearch from "./OrderSearch";
-import { formatPrice } from "@/lib/utils";
 import { getActionMenuPosition } from "@/components/admin/enterprises/list/utils";
 import { Pagination } from "@/components/ui/pagination";
 
@@ -45,13 +44,13 @@ export default function OrdersAdminPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const status = searchParams.get("status") || "all";
-  const paymentMethod = searchParams.get("paymentMethod") || "";
-  const paymentStatus = searchParams.get("paymentStatus") || "";
-  const q = searchParams.get("q")?.trim() || "";
-  const qMode = searchParams.get("qMode") || "buyer";
-  const fromDate = searchParams.get("fromDate") || "";
-  const toDate = searchParams.get("toDate") || "";
+  const statusFilter = searchParams.get("status") || "all";
+  const paymentMethodFilter = searchParams.get("paymentMethod") || "";
+  const paymentStatusFilter = searchParams.get("paymentStatus") || "";
+  const searchText = searchParams.get("q")?.trim() || "";
+  const searchField = searchParams.get("qMode") || "buyer";
+  const fromDateFilter = searchParams.get("fromDate") || "";
+  const toDateFilter = searchParams.get("toDate") || "";
   const cursor = searchParams.get("cursor") || "";
   const limitParam = Number(searchParams.get("limit") || "") || 12;
   const limit = (PAGE_SIZE_OPTIONS.includes(limitParam as any)
@@ -64,7 +63,11 @@ export default function OrdersAdminPage() {
   const [error, setError] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
   const [deletingOrderId, setDeletingOrderId] = useState<string | null>(null);
-  const [actionMenu, setActionMenu] = useState<{ orderId: string; left: number; top: number } | null>(null);
+  const [actionMenu, setActionMenu] = useState<{
+    orderId: string;
+    left: number;
+    top: number;
+  } | null>(null);
   const actionMenuElRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -78,54 +81,70 @@ export default function OrdersAdminPage() {
     return () => document.removeEventListener("mousedown", onDown);
   }, []);
 
-  const cursorStackKey = useMemo(() => {
+  const cursorHistoryStorageKey = useMemo(() => {
     return [
       "adminOrdersCursorStack",
-      status,
-      paymentMethod,
-      paymentStatus,
-      q,
-      qMode,
-      fromDate,
-      toDate,
+      statusFilter,
+      paymentMethodFilter,
+      paymentStatusFilter,
+      searchText,
+      searchField,
+      fromDateFilter,
+      toDateFilter,
       String(limit),
     ].join("|");
-  }, [status, paymentMethod, paymentStatus, q, qMode, fromDate, toDate, limit]);
+  }, [
+    statusFilter,
+    paymentMethodFilter,
+    paymentStatusFilter,
+    searchText,
+    searchField,
+    fromDateFilter,
+    toDateFilter,
+    limit,
+  ]);
 
-  const cursorStack = useMemo(() => {
+  const cursorHistory = useMemo(() => {
     try {
-      const raw = sessionStorage.getItem(cursorStackKey);
+      const raw = sessionStorage.getItem(cursorHistoryStorageKey);
       const arr = raw ? (JSON.parse(raw) as string[]) : [];
       return Array.isArray(arr) ? arr.filter((x) => typeof x === "string") : [];
     } catch {
       return [];
     }
-  }, [cursorStackKey]);
+  }, [cursorHistoryStorageKey]);
 
-  function clearCursorStack() {
-    writeCursorStack([]);
+  function clearCursorHistory() {
+    writeCursorHistory([]);
   }
 
-  const pageIndex = cursorStack.length + 1;
+  const pageIndex = cursorHistory.length + 1;
   const totalPagesHint = nextCursor ? pageIndex + 1 : pageIndex;
+
+  const getSearchPayload = useCallback(() => {
+    // This screen intentionally does not support searching by email.
+    const effectiveSearchText = searchText.includes("@") ? "" : searchText;
+    if (!effectiveSearchText) return { buyerSearch: "", orderId: "" };
+
+    return searchField === "orderId"
+      ? { buyerSearch: "", orderId: effectiveSearchText }
+      : { buyerSearch: effectiveSearchText, orderId: "" };
+  }, [searchField, searchText]);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const isEmail = q.includes("@");
-      const effectiveQ = isEmail ? "" : q;
-      const buyerSearch = qMode === "orderId" ? "" : effectiveQ;
-      const orderId = qMode === "orderId" ? effectiveQ : "";
+      const { buyerSearch, orderId } = getSearchPayload();
 
       const res = await listAdminOrders({
-        status: status !== "all" ? status : undefined,
-        paymentMethod: paymentMethod || undefined,
-        paymentStatus: paymentStatus || undefined,
+        status: statusFilter !== "all" ? statusFilter : undefined,
+        paymentMethod: paymentMethodFilter || undefined,
+        paymentStatus: paymentStatusFilter || undefined,
         buyerSearch: buyerSearch || undefined,
         orderId: orderId || undefined,
-        fromDate: fromDate || undefined,
-        toDate: toDate || undefined,
+        fromDate: fromDateFilter || undefined,
+        toDate: toDateFilter || undefined,
         limit,
         cursor: cursor || undefined,
       });
@@ -138,13 +157,12 @@ export default function OrdersAdminPage() {
       setLoading(false);
     }
   }, [
-    status,
-    paymentMethod,
-    paymentStatus,
-    q,
-    qMode,
-    fromDate,
-    toDate,
+    statusFilter,
+    paymentMethodFilter,
+    paymentStatusFilter,
+    getSearchPayload,
+    fromDateFilter,
+    toDateFilter,
     limit,
     cursor,
   ]);
@@ -156,13 +174,13 @@ export default function OrdersAdminPage() {
   function buildQuery(overrides: Record<string, string | undefined>) {
     const p = new URLSearchParams();
     const merged = {
-      status,
-      paymentMethod,
-      paymentStatus,
-      q,
-      qMode,
-      fromDate,
-      toDate,
+      status: statusFilter,
+      paymentMethod: paymentMethodFilter,
+      paymentStatus: paymentStatusFilter,
+      q: searchText,
+      qMode: searchField,
+      fromDate: fromDateFilter,
+      toDate: toDateFilter,
       limit: String(limit),
       ...overrides,
     };
@@ -172,42 +190,43 @@ export default function OrdersAdminPage() {
     return p.toString();
   }
 
-  function goPage(nextCursorVal: string | null) {
-    const qs = buildQuery({ cursor: nextCursorVal ?? undefined });
-    router.push(qs ? `/admin/orders?${qs}` : "/admin/orders");
+  function navigateToCursor(nextCursorVal: string | null) {
+    const queryString = buildQuery({ cursor: nextCursorVal ?? undefined });
+    router.push(queryString ? `/admin/orders?${queryString}` : "/admin/orders");
   }
 
-  function writeCursorStack(next: string[]) {
+  function writeCursorHistory(next: string[]) {
     try {
-      sessionStorage.setItem(cursorStackKey, JSON.stringify(next));
+      sessionStorage.setItem(cursorHistoryStorageKey, JSON.stringify(next));
     } catch {}
   }
 
-  function goNext() {
+  function goToNextPage() {
     if (!nextCursor) return;
-    const nextStack = [...cursorStack, cursor || ""];
-    writeCursorStack(nextStack);
-    goPage(nextCursor);
+    const nextHistory = [...cursorHistory, cursor || ""];
+    writeCursorHistory(nextHistory);
+    navigateToCursor(nextCursor);
   }
 
-  function goPrev() {
-    if (cursorStack.length === 0) {
-      goPage(null);
+  function goToPreviousPage() {
+    if (cursorHistory.length === 0) {
+      navigateToCursor(null);
       return;
     }
-    const nextStack = cursorStack.slice(0, -1);
-    writeCursorStack(nextStack);
-    const prevCursor = nextStack.length ? nextStack[nextStack.length - 1] : "";
-    goPage(prevCursor || null);
+
+    const nextHistory = cursorHistory.slice(0, -1);
+    writeCursorHistory(nextHistory);
+    const previousCursor = nextHistory.length ? nextHistory[nextHistory.length - 1] : "";
+    navigateToCursor(previousCursor || null);
   }
 
-  function changeLimit(nextLimit: (typeof PAGE_SIZE_OPTIONS)[number]) {
-    const qs = buildQuery({
+  function changePageSize(nextLimit: (typeof PAGE_SIZE_OPTIONS)[number]) {
+    const queryString = buildQuery({
       limit: String(nextLimit),
       cursor: undefined,
     });
-    writeCursorStack([]);
-    router.push(qs ? `/admin/orders?${qs}` : "/admin/orders");
+    writeCursorHistory([]);
+    router.push(queryString ? `/admin/orders?${queryString}` : "/admin/orders");
   }
 
   function getPrimaryPayment(o: AdminOrderListItem) {
@@ -274,10 +293,7 @@ export default function OrdersAdminPage() {
     setExporting(true);
     setError(null);
     try {
-      const isEmail = q.includes("@");
-      const effectiveQ = isEmail ? "" : q;
-      const buyerSearch = qMode === "orderId" ? "" : effectiveQ;
-      const orderId = qMode === "orderId" ? effectiveQ : "";
+      const { buyerSearch, orderId } = getSearchPayload();
 
       const take = 200;
       const maxRows = 5000;
@@ -286,13 +302,13 @@ export default function OrdersAdminPage() {
 
       while (all.length < maxRows) {
         const res = await listAdminOrders({
-          status: status !== "all" ? status : undefined,
-          paymentMethod: paymentMethod || undefined,
-          paymentStatus: paymentStatus || undefined,
+          status: statusFilter !== "all" ? statusFilter : undefined,
+          paymentMethod: paymentMethodFilter || undefined,
+          paymentStatus: paymentStatusFilter || undefined,
           buyerSearch: buyerSearch || undefined,
           orderId: orderId || undefined,
-          fromDate: fromDate || undefined,
-          toDate: toDate || undefined,
+          fromDate: fromDateFilter || undefined,
+          toDate: toDateFilter || undefined,
           limit: take,
           cursor: cur,
         });
@@ -373,15 +389,17 @@ export default function OrdersAdminPage() {
 
         {/* Search & Filters */}
         <OrderSearch
-          currentStatus={status}
+          currentStatus={statusFilter}
           initialValues={{
-            q,
-            paymentMethod,
-            paymentStatus,
-            fromDate,
-            toDate,
+            q: searchText,
+            paymentMethod: paymentMethodFilter,
+            paymentStatus: paymentStatusFilter,
+            fromDate: fromDateFilter,
+            toDate: toDateFilter,
           }}
-          statusControl={<OrderStatusSelect current={status} onStatusChange={clearCursorStack} />}
+          statusControl={
+            <OrderStatusSelect current={statusFilter} onStatusChange={clearCursorHistory} />
+          }
         />
 
         {error && (
@@ -567,14 +585,14 @@ export default function OrdersAdminPage() {
           {!loading && (orders.length > 0 || cursor) && (
             <Pagination
               variant="cursor"
-              canPrev={!!cursor || cursorStack.length > 0}
+              canPrev={!!cursor || cursorHistory.length > 0}
               canNext={!!nextCursor}
               pageLabel={`${pageIndex} / ${totalPagesHint}`}
-              onPrev={goPrev}
-              onNext={goNext}
+              onPrev={goToPreviousPage}
+              onNext={goToNextPage}
               pageSize={limit}
               pageSizeOptions={PAGE_SIZE_OPTIONS}
-              onPageSizeChange={(n) => changeLimit(n as any)}
+              onPageSizeChange={(n) => changePageSize(n as any)}
               leftSlot={
                 <div className="text-[11px] font-normal leading-4 text-slate-600">
                   Showing <span className="text-slate-900">{orders.length}</span> orders

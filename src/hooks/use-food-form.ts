@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useEnterpriseUpload } from "./use-enterprise-upload";
-import { foodManagementService, type Category } from "@/services/food-management.service";
+import { foodManagementService, type Category } from "@/services/food.service";
 import { useToast } from "@/contexts/toast-context";
 
 export interface FoodFormData {

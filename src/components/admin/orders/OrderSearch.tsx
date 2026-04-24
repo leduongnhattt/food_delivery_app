@@ -63,10 +63,10 @@ export default function OrderSearch({
   );
   const [fromDate, setFromDate] = useState(initialValues.fromDate);
   const [toDate, setToDate] = useState(initialValues.toDate);
-  const [pmOpen, setPmOpen] = useState(false);
-  const pmRef = useRef<HTMLDivElement>(null);
-  const [psOpen, setPsOpen] = useState(false);
-  const psRef = useRef<HTMLDivElement>(null);
+  const [isPaymentMethodMenuOpen, setIsPaymentMethodMenuOpen] = useState(false);
+  const paymentMethodMenuRef = useRef<HTMLDivElement>(null);
+  const [isPaymentStatusMenuOpen, setIsPaymentStatusMenuOpen] = useState(false);
+  const paymentStatusMenuRef = useRef<HTMLDivElement>(null);
 
   const qModeParam = searchParams.get("qMode") || "buyer";
   const [qMode, setQModeState] = useState(qModeParam);
@@ -82,22 +82,46 @@ export default function OrderSearch({
     [],
   );
 
-  const applyQ = useCallback(
-    (nextQ: string) => {
-      const p = new URLSearchParams(searchParams.toString());
-      const trimmed = nextQ.trim();
-      if (trimmed) p.set("q", trimmed);
-      else p.delete("q");
-      // Disable email search explicitly
-      if (trimmed.includes("@")) p.delete("q");
-      if (qMode && qMode !== "buyer") p.set("qMode", qMode);
-      else p.delete("qMode");
-      p.delete("cursor");
+  const updateUrlFilters = useCallback(
+    (next: FilterValues & { qMode: string }) => {
+      const normalized = {
+        ...next,
+        q: next.q.trim(),
+      };
+
+      const params = new URLSearchParams();
+      if (currentStatus && currentStatus !== "all") params.set("status", currentStatus);
+
+      if (normalized.q && !normalized.q.includes("@")) params.set("q", normalized.q);
+      if (normalized.qMode && normalized.qMode !== "buyer") params.set("qMode", normalized.qMode);
+
+      if (normalized.paymentMethod) params.set("paymentMethod", normalized.paymentMethod);
+      if (normalized.paymentStatus) params.set("paymentStatus", normalized.paymentStatus);
+      if (normalized.fromDate) params.set("fromDate", normalized.fromDate);
+      if (normalized.toDate) params.set("toDate", normalized.toDate);
+
+      // Reset cursor when any filter changes
+      params.delete("cursor");
+
       startTransition(() => {
-        router.replace(`/admin/orders?${p.toString()}`, { scroll: false });
+        router.replace(`/admin/orders?${params.toString()}`, { scroll: false });
       });
     },
-    [searchParams, router, qMode],
+    [currentStatus, router, startTransition],
+  );
+
+  const applyQ = useCallback(
+    (nextQ: string) => {
+      updateUrlFilters({
+        q: nextQ,
+        qMode,
+        paymentMethod,
+        paymentStatus,
+        fromDate,
+        toDate,
+      });
+    },
+    [fromDate, paymentMethod, paymentStatus, qMode, toDate, updateUrlFilters],
   );
 
   const { value: qValue, onChange: onQChange } = useAdminSearchInput(
@@ -119,43 +143,29 @@ export default function OrderSearch({
     });
   }, [isPending]);
 
-  const syncUrl = useCallback(
-    (overrides?: Partial<FilterValues>) => {
-      const next = {
-        q: qValue.trim(),
-        paymentMethod,
-        paymentStatus,
-        fromDate,
-        toDate,
-        ...(overrides ?? {}),
-      };
-
-      const p = new URLSearchParams();
-      if (currentStatus && currentStatus !== "all") p.set("status", currentStatus);
-      if (next.q && !next.q.includes("@")) p.set("q", next.q);
-      if (qMode && qMode !== "buyer") p.set("qMode", qMode);
-      if (next.paymentMethod) p.set("paymentMethod", next.paymentMethod);
-      if (next.paymentStatus) p.set("paymentStatus", next.paymentStatus);
-      if (next.fromDate) p.set("fromDate", next.fromDate);
-      if (next.toDate) p.set("toDate", next.toDate);
-      p.delete("cursor");
-
-      startTransition(() => {
-        router.replace(`/admin/orders?${p.toString()}`, { scroll: false });
-      });
-    },
-    [qValue, paymentMethod, paymentStatus, fromDate, toDate, currentStatus, router, qMode],
-  );
-
   useEffect(() => {
     function onDocMouseDown(ev: MouseEvent) {
       const t = ev.target as Node | null;
-      if (pmOpen && pmRef.current && t && !pmRef.current.contains(t)) setPmOpen(false);
-      if (psOpen && psRef.current && t && !psRef.current.contains(t)) setPsOpen(false);
+      if (
+        isPaymentMethodMenuOpen &&
+        paymentMethodMenuRef.current &&
+        t &&
+        !paymentMethodMenuRef.current.contains(t)
+      ) {
+        setIsPaymentMethodMenuOpen(false);
+      }
+      if (
+        isPaymentStatusMenuOpen &&
+        paymentStatusMenuRef.current &&
+        t &&
+        !paymentStatusMenuRef.current.contains(t)
+      ) {
+        setIsPaymentStatusMenuOpen(false);
+      }
     }
     document.addEventListener("mousedown", onDocMouseDown);
     return () => document.removeEventListener("mousedown", onDocMouseDown);
-  }, [pmOpen, psOpen]);
+  }, [isPaymentMethodMenuOpen, isPaymentStatusMenuOpen]);
 
   const setQMode = useCallback(
     (next: string) => {
@@ -164,16 +174,16 @@ export default function OrderSearch({
 
       const trimmed = qValue.trim();
       if (!trimmed || trimmed.includes("@")) return;
-
-      const p = new URLSearchParams(searchParams.toString());
-      if (next === "buyer") p.delete("qMode");
-      else p.set("qMode", next);
-      p.delete("cursor");
-      startTransition(() => {
-        router.replace(`/admin/orders?${p.toString()}`, { scroll: false });
+      updateUrlFilters({
+        q: trimmed,
+        qMode: next,
+        paymentMethod,
+        paymentStatus,
+        fromDate,
+        toDate,
       });
     },
-    [qValue, router, searchParams, startTransition],
+    [fromDate, paymentMethod, paymentStatus, qValue, toDate, updateUrlFilters],
   );
 
   function clearAllFilters() {
@@ -181,20 +191,22 @@ export default function OrderSearch({
     setPaymentStatus("");
     setFromDate("");
     setToDate("");
-    const p = new URLSearchParams();
-    if (currentStatus && currentStatus !== "all") p.set("status", currentStatus);
-    startTransition(() => {
-      router.replace(`/admin/orders?${p.toString()}`, { scroll: false });
+    updateUrlFilters({
+      q: qValue,
+      qMode,
+      paymentMethod: "",
+      paymentStatus: "",
+      fromDate: "",
+      toDate: "",
     });
   }
 
-  const hasActiveFilters = !!(
-    initialValues.q ||
-    initialValues.paymentMethod ||
-    initialValues.paymentStatus ||
-    initialValues.fromDate ||
-    initialValues.toDate
-  );
+  const hasActiveFilters =
+    !!qValue.trim() ||
+    !!paymentMethod ||
+    !!paymentStatus ||
+    !!fromDate ||
+    !!toDate;
 
   const selectedPmLabel =
     PAYMENT_METHODS.find((m) => m.value === paymentMethod)?.label ??
@@ -207,7 +219,14 @@ export default function OrderSearch({
   // Keep URL in sync while editing filters (no Apply button).
   useEffect(() => {
     const t = setTimeout(() => {
-      syncUrl();
+      updateUrlFilters({
+        q: qValue,
+        qMode,
+        paymentMethod,
+        paymentStatus,
+        fromDate,
+        toDate,
+      });
     }, 250);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -262,21 +281,21 @@ export default function OrderSearch({
             <label className="block text-[11px] font-semibold text-slate-500 mb-1 uppercase tracking-wide">
               Payment Method
             </label>
-            <div ref={pmRef} className="relative">
+            <div ref={paymentMethodMenuRef} className="relative">
               <button
                 type="button"
                 disabled={isPending}
-                onClick={() => setPmOpen((v) => !v)}
+                onClick={() => setIsPaymentMethodMenuOpen((v) => !v)}
                 className="relative w-full inline-flex h-8 min-h-8 items-center focus:outline-none disabled:cursor-not-allowed disabled:opacity-75 transition-colors rounded gap-2 text-[13px] px-3 py-0 text-slate-900 bg-white ring ring-inset hover:bg-slate-50 focus:ring-2 focus:ring-inset focus:ring-sky-300 pe-10 ring-slate-200"
               >
                 <span className="truncate">{selectedPmLabel}</span>
                 <ChevronDown
                   className={`w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 transition-transform duration-150 ${
-                    pmOpen ? "rotate-180" : ""
+                    isPaymentMethodMenuOpen ? "rotate-180" : ""
                   }`}
                 />
               </button>
-              {pmOpen && (
+              {isPaymentMethodMenuOpen && (
                 <div className="absolute left-0 right-0 mt-1 rounded-xl border border-slate-200 bg-white shadow-lg overflow-hidden z-50">
                   {PAYMENT_METHODS.map((m) => (
                     <button
@@ -284,7 +303,7 @@ export default function OrderSearch({
                       type="button"
                       onClick={() => {
                         setPaymentMethod(m.value);
-                        setPmOpen(false);
+                        setIsPaymentMethodMenuOpen(false);
                       }}
                       className={`w-full flex items-center justify-between px-3 py-2 text-[13px] text-slate-900 hover:bg-slate-50 ${
                         paymentMethod === m.value ? "bg-slate-50 font-medium" : ""
@@ -306,21 +325,21 @@ export default function OrderSearch({
             <label className="block text-[11px] font-semibold text-slate-500 mb-1 uppercase tracking-wide">
               Pay status
             </label>
-            <div ref={psRef} className="relative">
+            <div ref={paymentStatusMenuRef} className="relative">
               <button
                 type="button"
                 disabled={isPending}
-                onClick={() => setPsOpen((v) => !v)}
+                onClick={() => setIsPaymentStatusMenuOpen((v) => !v)}
                 className="relative w-full inline-flex h-8 min-h-8 items-center focus:outline-none disabled:cursor-not-allowed disabled:opacity-75 transition-colors rounded gap-2 text-[13px] px-3 py-0 text-slate-900 bg-white ring ring-inset hover:bg-slate-50 focus:ring-2 focus:ring-inset focus:ring-sky-300 pe-10 ring-slate-200"
               >
                 <span className="truncate">{selectedPsLabel}</span>
                 <ChevronDown
                   className={`w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 transition-transform duration-150 ${
-                    psOpen ? "rotate-180" : ""
+                    isPaymentStatusMenuOpen ? "rotate-180" : ""
                   }`}
                 />
               </button>
-              {psOpen && (
+              {isPaymentStatusMenuOpen && (
                 <div className="absolute left-0 right-0 mt-1 rounded-xl border border-slate-200 bg-white shadow-lg overflow-hidden z-50">
                   {PAYMENT_STATUSES.map((s) => (
                     <button
@@ -328,7 +347,7 @@ export default function OrderSearch({
                       type="button"
                       onClick={() => {
                         setPaymentStatus(s.value);
-                        setPsOpen(false);
+                        setIsPaymentStatusMenuOpen(false);
                       }}
                       className={`w-full flex items-center justify-between px-3 py-2 text-[13px] text-slate-900 hover:bg-slate-50 ${
                         paymentStatus === s.value ? "bg-slate-50 font-medium" : ""

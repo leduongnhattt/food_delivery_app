@@ -10,7 +10,7 @@ import {
   EnterpriseIncomeService,
   type EnterpriseIncomeSummary,
   type EnterpriseIncomeTx,
-} from "@/services/enterprise-income.service";
+} from "@/services/enterprise-finance.service";
 import { IncomePreview } from "@/app/enterprise/income/components/IncomePreview";
 import { IncomeBalanceOverview } from "@/components/enterprise/finance/IncomeBalanceOverview";
 import {

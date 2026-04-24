@@ -7,28 +7,7 @@ import { getEnterpriseInvitationTemplate, inviteEnterprise } from "@/services/ad
 import type { AdminInvitationTemplateValue } from "@/services/admin.service"
 import { useToast } from "@/contexts/toast-context"
 import { ChevronLeft, Send } from "lucide-react"
-
-function renderPreview(tpl: string, params: Record<string, string>): string {
-  let out = tpl
-  for (const [k, v] of Object.entries(params)) {
-    out = out.replace(new RegExp(`\\{\\{\\s*${k}\\s*\\}\\}`, "g"), v)
-  }
-  return out
-}
-
-function htmlToText(html: string): string {
-  if (!html) return ""
-  return html
-    .replace(/<br\s*\/?>/gi, "\n")
-    .replace(/<\/(p|div|li|h1|h2|h3|h4|h5|h6)>/gi, "\n")
-    .replace(/<[^>]+>/g, "")
-    .replace(/&nbsp;/g, " ")
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim()
-}
+import { htmlToText, renderPreview } from "@/lib/utils"
 
 export default function SendEnterpriseInvitationAdminPage() {
   const router = useRouter()

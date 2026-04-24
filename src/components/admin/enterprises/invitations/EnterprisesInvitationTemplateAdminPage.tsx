@@ -8,43 +8,7 @@ import {
 } from "@/services/admin.service"
 import { useToast } from "@/contexts/toast-context"
 import { Eye, Save } from "lucide-react"
-
-function renderPreview(tpl: string, params: Record<string, string>): string {
-  let out = tpl
-  for (const [k, v] of Object.entries(params)) {
-    out = out.replace(new RegExp(`\\{\\{\\s*${k}\\s*\\}\\}`, "g"), v)
-  }
-  return out
-}
-
-function htmlToText(html: string): string {
-  if (!html) return ""
-  return html
-    .replace(/<br\s*\/?>/gi, "\n")
-    .replace(/<\/(p|div|li|h1|h2|h3|h4|h5|h6)>/gi, "\n")
-    .replace(/<[^>]+>/g, "")
-    .replace(/&nbsp;/g, " ")
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim()
-}
-
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;")
-}
-
-function textToHtml(text: string): string {
-  const safe = escapeHtml(text || "")
-  const body = safe.replace(/\n/g, "<br/>")
-  return `<!doctype html><html><head><meta charset="utf-8"/></head><body style="font-family:Inter,Arial,sans-serif;white-space:normal;">${body}</body></html>`
-}
+import { htmlToText, renderPreview, textToHtml } from "@/lib/utils"
 
 export default function EnterprisesInvitationTemplateAdminPage() {
   const { showToast } = useToast()
