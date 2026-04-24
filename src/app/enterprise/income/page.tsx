@@ -11,27 +11,16 @@ import {
   type EnterpriseIncomeSummary,
   type EnterpriseIncomeTx,
 } from "@/services/enterprise-finance.service";
-import { IncomePreview } from "@/app/enterprise/income/components/IncomePreview";
+import { IncomePreview } from "@/components/enterprise/finance/IncomePreview";
 import { IncomeBalanceOverview } from "@/components/enterprise/finance/IncomeBalanceOverview";
 import {
   IncomeTransactions,
   type MoneyFlow,
+  type IncomeTxRow,
   type TxStatus,
   type TxType,
 } from "@/components/enterprise/finance/IncomeTransactions";
 import { clampISODate, formatCurrency } from "@/lib/utils";
-
-type IncomeTxRow = {
-  id: string;
-  createdAtISO: string;
-  transactionType: TxType;
-  description: string;
-  subtitle?: string | null;
-  referenceId?: string | null; // e.g. order id
-  moneyFlow: "in" | "out";
-  amount: number; // signed
-  status: "success" | "pending" | "failed";
-};
 
 export default function EnterpriseIncomePage() {
   const [loading, setLoading] = useState(true);
@@ -131,7 +120,13 @@ export default function EnterpriseIncomePage() {
       tt.includes("withdraw") ? "withdrawal" : tt.includes("refund") ? "refund" : tt.includes("adjust") ? "adjustment" : "order_income";
     const statusLower = (t.status || "").toLowerCase();
     const status: IncomeTxRow["status"] =
-      statusLower.includes("fail") ? "failed" : statusLower.includes("pending") ? "pending" : "success";
+      statusLower.includes("fail")
+        ? "failed"
+        : statusLower.includes("expire")
+          ? "expired"
+          : statusLower.includes("pending")
+            ? "pending"
+            : "success";
     return {
       id: t.id,
       createdAtISO: t.createdAt,
