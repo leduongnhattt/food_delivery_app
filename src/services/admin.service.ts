@@ -22,6 +22,10 @@ import type {
   CreateAdminVoucherResponse,
   CreateEnterpriseApiResponse,
   AdminVouchersListResponse,
+  AdminCommissionFeesGlobalResponse,
+  AdminCommissionFeeCategoryRuleItem,
+  AdminCommissionFeeCategoryRulesListResponse,
+  FoodCategoriesListResponse,
 } from '@/types/admin-api.types'
 
 /** Body for `POST` enterprise onboarding on Nest. */
@@ -110,6 +114,10 @@ function urlAdminVouchers(): string {
 
 function urlAdminDashboardSummary(): string {
   return `${nestApiBase()}/admin/dashboard/summary`
+}
+
+function urlAdminCommissionFees(): string {
+  return `${nestApiBase()}/admin/finance/commission-fees`
 }
 
 /** Normalizes `HeadersInit` so `buildAuthHeader` can merge Bearer tokens. */
@@ -364,6 +372,117 @@ export async function fetchAdminDashboardSummary(params: {
   const qs = buildQueryString({ range: params.range })
   const url = qs ? `${urlAdminDashboardSummary()}?${qs}` : urlAdminDashboardSummary()
   return requestJson<AdminDashboardSummaryResponse>(url, { method: 'GET' })
+}
+
+export async function getCommissionFeesGlobal(): Promise<AdminCommissionFeesGlobalResponse> {
+  return requestJson<AdminCommissionFeesGlobalResponse>(
+    `${urlAdminCommissionFees()}/global`,
+    { method: 'GET' },
+  )
+}
+
+export async function updateCommissionFeesGlobal(payload: {
+  ruleName?: string | null
+  commissionPercent: number
+}): Promise<{ success: boolean; DefaultID: string; CommissionPercent: number }> {
+  return requestJson(`${urlAdminCommissionFees()}/global`, {
+    method: 'PATCH',
+    body: JSON.stringify({
+      ruleName: payload.ruleName ?? undefined,
+      commissionPercent: payload.commissionPercent,
+    }),
+  })
+}
+
+export type ListCommissionFeeCategoryRulesParams = {
+  page?: number
+  pageSize?: number
+  search?: string
+  foodCategoryId?: string
+  isActive?: boolean
+  effectiveFrom?: string
+  effectiveTo?: string
+}
+
+export async function listCommissionFeeCategoryRules(
+  params: ListCommissionFeeCategoryRulesParams,
+): Promise<AdminCommissionFeeCategoryRulesListResponse> {
+  const qs = buildQueryString({
+    page: params.page,
+    pageSize: params.pageSize,
+    search: params.search,
+    foodCategoryId: params.foodCategoryId,
+    isActive:
+      params.isActive === undefined
+        ? undefined
+        : params.isActive
+          ? 'true'
+          : 'false',
+    effectiveFrom: params.effectiveFrom,
+    effectiveTo: params.effectiveTo,
+  })
+  const url = qs
+    ? `${urlAdminCommissionFees()}/category-rules?${qs}`
+    : `${urlAdminCommissionFees()}/category-rules`
+  return requestJson<AdminCommissionFeeCategoryRulesListResponse>(url, {
+    method: 'GET',
+  })
+}
+
+export async function getCommissionFeeCategoryRule(
+  commissionDefaultId: string,
+): Promise<AdminCommissionFeeCategoryRuleItem> {
+  return requestJson(
+    `${urlAdminCommissionFees()}/category-rules/${encodeURIComponent(commissionDefaultId)}`,
+    { method: 'GET' },
+  )
+}
+
+export async function createCommissionFeeCategoryRule(payload: {
+  foodCategoryId: string
+  ruleName?: string | null
+  commissionPercent: number
+  isActive?: boolean
+  effectiveFrom: string
+  effectiveTo?: string | null
+}): Promise<{ success: boolean; item: AdminCommissionFeeCategoryRuleItem }> {
+  return requestJson(`${urlAdminCommissionFees()}/category-rules`, {
+    method: 'POST',
+    body: JSON.stringify({
+      foodCategoryId: payload.foodCategoryId,
+      ruleName: payload.ruleName ?? undefined,
+      commissionPercent: payload.commissionPercent,
+      isActive: payload.isActive,
+      effectiveFrom: payload.effectiveFrom,
+      effectiveTo: payload.effectiveTo ?? undefined,
+    }),
+  })
+}
+
+export async function updateCommissionFeeCategoryRule(
+  commissionDefaultId: string,
+  payload: {
+    foodCategoryId?: string
+    ruleName?: string | null
+    commissionPercent?: number
+    isActive?: boolean
+    effectiveFrom?: string
+    effectiveTo?: string | null
+  },
+): Promise<{ success: boolean; item: AdminCommissionFeeCategoryRuleItem }> {
+  return requestJson(
+    `${urlAdminCommissionFees()}/category-rules/${encodeURIComponent(commissionDefaultId)}`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    },
+  )
+}
+
+export async function fetchFoodCategoriesList(): Promise<FoodCategoriesListResponse> {
+  return requestJson<FoodCategoriesListResponse>(urlCategories(), {
+    method: 'GET',
+  })
 }
 
 /**

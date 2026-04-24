@@ -258,3 +258,47 @@ export type AdminOrderDetail = {
 };
 
 export type AdminOrderDetailResponse = AdminOrderDetail;
+
+/** `GET /admin/finance/commission-fees/global` */
+export type AdminCommissionFeesGlobalResponse = {
+  DefaultID: string;
+  RuleName: string | null;
+  CommissionPercent: number;
+  UpdatedAt: string;
+  /** Server maps platform row to a display date (see API). */
+  EffectiveDisplayDate: string;
+  UpdatedByLabel: string | null;
+};
+
+export type AdminCommissionFeeCategoryRuleItem = {
+  CommissionDefaultID: string;
+  FoodCategoryID: string;
+  CategoryName: string;
+  RuleName: string | null;
+  CommissionPercent: number;
+  IsActive: boolean;
+  EffectiveFrom: string;
+  EffectiveTo: string | null;
+  CreatedAt: string;
+  UpdatedByLabel: string | null;
+};
+
+export type AdminCommissionFeeCategoryRulesListResponse = {
+  items: AdminCommissionFeeCategoryRuleItem[];
+  total: number;
+  page: number;
+  pageSize: number;
+};
+
+export type FoodCategoryListItem = {
+  id: string;
+  name: string;
+  description: string;
+  foodCount: number;
+  createdAt: string;
+};
+
+export type FoodCategoriesListResponse = {
+  categories: FoodCategoryListItem[];
+  total: number;
+};

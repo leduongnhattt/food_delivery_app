@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Check, ChevronDown, Search } from "lucide-react";
 import {
@@ -17,69 +17,15 @@ import {
 } from "@/components/admin/shared/finance-list-ui";
 import { DateTimePickerField } from "@/components/ui/date-time-picker";
 import { Pagination } from "@/components/ui/pagination";
+import type { AdminCommissionFeeCategoryRuleItem } from "@/types/admin-api.types";
+import {
+  fetchFoodCategoriesList,
+  getCommissionFeesGlobal,
+  listCommissionFeeCategoryRules,
+  updateCommissionFeeCategoryRule,
+} from "@/services/admin.service";
 
 type RuleStatus = "Active" | "Inactive";
-
-type CategoryCommissionDefaultRow = {
-  CommissionDefaultID: string;
-  CategoryName: string;
-  CommissionPercent: number;
-  IsActive: boolean;
-  EffectiveFrom: string; // ISO date
-  EffectiveTo?: string; // ISO date
-  CreatedAt?: string; // UI-only (schema doesn't store CreatedAt for this model)
-  UpdatedBy?: string;
-};
-
-const MOCK_CATEGORY_DEFAULTS: CategoryCommissionDefaultRow[] = [
-  {
-    CommissionDefaultID: "cd-001",
-    CategoryName: "Burgers",
-    CommissionPercent: 5,
-    IsActive: true,
-    EffectiveFrom: "2026-04-01",
-    EffectiveTo: "2026-04-30",
-    CreatedAt: "2026-04-01",
-    UpdatedBy: "admin",
-  },
-  {
-    CommissionDefaultID: "cd-002",
-    CategoryName: "Pizza",
-    CommissionPercent: 7.5,
-    IsActive: true,
-    EffectiveFrom: "2026-04-05",
-    EffectiveTo: "2026-05-05",
-    CreatedAt: "2026-04-05",
-    UpdatedBy: "admin",
-  },
-  {
-    CommissionDefaultID: "cd-003",
-    CategoryName: "Drinks",
-    CommissionPercent: 3,
-    IsActive: false,
-    EffectiveFrom: "2026-03-20",
-    EffectiveTo: "2026-03-27",
-    CreatedAt: "2026-03-20",
-    UpdatedBy: "admin",
-  },
-];
-
-type CommissionGlobalDefault = {
-  ruleId: string;
-  ratePct: number;
-  effectiveFrom: string;
-  effectiveTo?: string;
-  isActive: boolean;
-};
-
-// UI-only mock: keep placeholder values to match CMS header design.
-const MOCK_GLOBAL_DEFAULT: CommissionGlobalDefault | null = {
-  ruleId: "00000000-0000-0000-0000-000000000001",
-  ratePct: 5,
-  effectiveFrom: "2026-03-20",
-  effectiveTo: undefined,
-  isActive: true,
-};
 
 const PAGE_SIZE_OPTIONS = [12, 24, 48] as const;
 
@@ -92,6 +38,12 @@ function StatusPill({ active }: { active: boolean }) {
       {active ? "Active" : "Inactive"}
     </span>
   );
+}
+
+function displayRuleName(row: AdminCommissionFeeCategoryRuleItem): string {
+  const n = row.RuleName?.trim();
+  if (n) return n;
+  return `${row.CategoryName} Commission Default`;
 }
 
 export function CommissionFeesPage() {
@@ -110,33 +62,89 @@ export function CommissionFeesPage() {
   const [openPeriod, setOpenPeriod] = useState(false);
   const periodRef = useRef<HTMLDivElement | null>(null);
 
-  const categoryOptions = useMemo(
-    () =>
-      Array.from(new Set(MOCK_CATEGORY_DEFAULTS.map((r) => r.CategoryName))).sort((a, b) =>
-        a.localeCompare(b),
-      ),
-    [],
-  );
+  const [globalRow, setGlobalRow] = useState<{
+    DefaultID: string;
+    CommissionPercent: number;
+    EffectiveDisplayDate: string;
+  } | null>(null);
+  const [rows, setRows] = useState<AdminCommissionFeeCategoryRuleItem[]>([]);
+  const [total, setTotal] = useState(0);
+  const [listLoading, setListLoading] = useState(true);
+  const [globalLoading, setGlobalLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [categoryOptions, setCategoryOptions] = useState<Array<{ id: string; name: string }>>([]);
+  const [toggleBusyId, setToggleBusyId] = useState<string | null>(null);
+  const [debouncedSearch, setDebouncedSearch] = useState("");
 
-  const filtered = useMemo(() => {
-    const qq = q.trim().toLowerCase();
-    return MOCK_CATEGORY_DEFAULTS.filter((r) => {
-      const okQ = !qq || r.CategoryName.toLowerCase().includes(qq);
-      const okCategory = categoryFilter === "all" || r.CategoryName === categoryFilter;
-      const okStatus =
-        status === "all" ? true : status === "Active" ? r.IsActive : !r.IsActive;
-      const okFrom = !from || r.EffectiveFrom >= from;
-      const okTo = !to || r.EffectiveFrom <= to;
-      return okQ && okCategory && okStatus && okFrom && okTo;
-    });
-  }, [q, categoryFilter, status, from, to]);
+  useEffect(() => {
+    const t = window.setTimeout(() => setDebouncedSearch(q.trim()), 350);
+    return () => window.clearTimeout(t);
+  }, [q]);
 
-  const total = filtered.length;
-  const totalPages = Math.max(1, Math.ceil(total / pageSize));
-  const safePage = Math.min(Math.max(1, page), totalPages);
-  const startIdx = (safePage - 1) * pageSize;
-  const endIdx = Math.min(total, startIdx + pageSize);
-  const rows = filtered.slice(startIdx, endIdx);
+  const loadCategories = useCallback(async () => {
+    try {
+      const res = await fetchFoodCategoriesList();
+      setCategoryOptions(
+        res.categories.map((c) => ({ id: c.id, name: c.name })).sort((a, b) => a.name.localeCompare(b.name)),
+      );
+    } catch {
+      setCategoryOptions([]);
+    }
+  }, []);
+
+  const loadGlobal = useCallback(async () => {
+    setGlobalLoading(true);
+    try {
+      const g = await getCommissionFeesGlobal();
+      setGlobalRow({
+        DefaultID: g.DefaultID,
+        CommissionPercent: g.CommissionPercent,
+        EffectiveDisplayDate: g.EffectiveDisplayDate,
+      });
+    } catch {
+      setGlobalRow(null);
+    } finally {
+      setGlobalLoading(false);
+    }
+  }, []);
+
+  const loadList = useCallback(async () => {
+    setListLoading(true);
+    setError(null);
+    try {
+      const isActiveParam =
+        status === "all" ? undefined : status === "Active";
+      const res = await listCommissionFeeCategoryRules({
+        page,
+        pageSize,
+        search: debouncedSearch || undefined,
+        foodCategoryId: categoryFilter === "all" ? undefined : categoryFilter,
+        isActive: isActiveParam,
+        effectiveFrom: from.trim() || undefined,
+        effectiveTo: to.trim() || undefined,
+      });
+      setRows(res.items);
+      setTotal(res.total);
+    } catch (e) {
+      setRows([]);
+      setTotal(0);
+      setError(e instanceof Error ? e.message : "Failed to load commission rules");
+    } finally {
+      setListLoading(false);
+    }
+  }, [page, pageSize, debouncedSearch, categoryFilter, status, from, to]);
+
+  useEffect(() => {
+    void loadCategories();
+  }, [loadCategories]);
+
+  useEffect(() => {
+    void loadGlobal();
+  }, [loadGlobal]);
+
+  useEffect(() => {
+    void loadList();
+  }, [loadList]);
 
   function resetPageOnFilter() {
     setPage(1);
@@ -156,10 +164,38 @@ export function CommissionFeesPage() {
     return () => document.removeEventListener("mousedown", onDocMouseDown);
   }, []);
 
-  const categoryLabel = categoryFilter === "all" ? "All Categories" : categoryFilter;
+  const categoryLabel = useMemo(() => {
+    if (categoryFilter === "all") return "All Categories";
+    const found = categoryOptions.find((c) => c.id === categoryFilter);
+    return found?.name ?? "Category";
+  }, [categoryFilter, categoryOptions]);
+
   const statusLabel = status === "all" ? "All Status" : status;
   const periodLabel =
     from && to ? `${from} to ${to}` : from ? `${from} onwards` : to ? `Until ${to}` : "Period";
+
+  const totalPages = Math.max(1, Math.ceil(total / pageSize) || 1);
+  const safePage = Math.min(Math.max(1, page), totalPages);
+
+  useEffect(() => {
+    if (page > totalPages) {
+      setPage(totalPages);
+    }
+  }, [page, totalPages]);
+
+  async function onToggleActive(row: AdminCommissionFeeCategoryRuleItem) {
+    const id = row.CommissionDefaultID;
+    setToggleBusyId(id);
+    setError(null);
+    try {
+      await updateCommissionFeeCategoryRule(id, { isActive: !row.IsActive });
+      await loadList();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Update failed");
+    } finally {
+      setToggleBusyId(null);
+    }
+  }
 
   return (
     <div className="space-y-4">
@@ -168,14 +204,26 @@ export function CommissionFeesPage() {
         description="Manage commission fee rules for your marketplace."
       />
 
-      <FinanceGlobalDefaultCard
-        ruleId={MOCK_GLOBAL_DEFAULT?.ruleId}
-        rateLabel="Global Commission"
-        ratePct={MOCK_GLOBAL_DEFAULT?.ratePct}
-        effectiveFrom={MOCK_GLOBAL_DEFAULT?.effectiveFrom}
-        actionLabel="Edit Global Rule"
-        onAction={() => router.push("/admin/finance/commission-fees/new?scope=global")}
-      />
+      {error ? (
+        <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-[13px] text-rose-800">
+          {error}
+        </div>
+      ) : null}
+
+      {globalLoading ? (
+        <div className="rounded-lg border border-slate-200 bg-white px-4 py-6 text-center text-[13px] text-slate-500">
+          Loading global commission…
+        </div>
+      ) : (
+        <FinanceGlobalDefaultCard
+          ruleId={globalRow?.DefaultID}
+          rateLabel="Global Commission"
+          ratePct={globalRow?.CommissionPercent ?? null}
+          effectiveFrom={globalRow?.EffectiveDisplayDate ?? null}
+          actionLabel="Edit Global Rule"
+          onAction={() => router.push("/admin/finance/commission-fees/new?scope=global")}
+        />
+      )}
 
       <FinanceRulesListCardShell
         title="Commission Fees"
@@ -191,7 +239,7 @@ export function CommissionFeesPage() {
                   setQ(e.target.value);
                   resetPageOnFilter();
                 }}
-                placeholder="Search by category name"
+                placeholder="Search by category or rule name"
                 className={`${ADMIN_FIELD_BASE_CLASS} ps-10`}
               />
             </div>
@@ -315,19 +363,19 @@ export function CommissionFeesPage() {
                     <span>All Categories</span>
                     {categoryFilter === "all" && <Check className="w-4 h-4 text-slate-700" />}
                   </button>
-                  {categoryOptions.map((name) => (
+                  {categoryOptions.map((c) => (
                     <button
-                      key={name}
+                      key={c.id}
                       type="button"
                       onClick={() => {
                         setOpenCategoryMenu(false);
-                        setCategoryFilter(name);
+                        setCategoryFilter(c.id);
                         resetPageOnFilter();
                       }}
                       className="w-full flex items-center justify-between px-3 py-2 text-[13px] md:text-[13px] text-slate-900 hover:bg-slate-50"
                     >
-                      <span className="truncate">{name}</span>
-                      {categoryFilter === name && <Check className="w-4 h-4 shrink-0 text-slate-700" />}
+                      <span className="truncate">{c.name}</span>
+                      {categoryFilter === c.id && <Check className="w-4 h-4 shrink-0 text-slate-700" />}
                     </button>
                   ))}
                 </div>
@@ -374,7 +422,7 @@ export function CommissionFeesPage() {
                       type="button"
                       onClick={() => {
                         setOpenStatusMenu(false);
-                        setStatus(opt.id as any);
+                        setStatus(opt.id);
                         resetPageOnFilter();
                       }}
                       className="w-full flex items-center justify-between px-3 py-2 text-[13px] md:text-[13px] text-slate-900 hover:bg-slate-50"
@@ -396,100 +444,121 @@ export function CommissionFeesPage() {
             pageSizeOptions={PAGE_SIZE_OPTIONS}
             onPageChange={setPage}
             onPageSizeChange={(n) => {
-              setPageSize(n as any);
+              setPageSize(n as (typeof PAGE_SIZE_OPTIONS)[number]);
               setPage(1);
             }}
           />
         }
       >
         <div className="mt-2 overflow-x-auto">
-          <table className="min-w-full text-[12px] leading-4">
-            <thead>
-              <tr className="bg-[#f9fbfc] text-left border-y border-slate-200">
-                <th className="py-2 pr-4 pl-4 text-xs leading-4 font-semibold text-[oklch(0.21_0.034_264.665)]">
-                  ID
-                </th>
-                <th className="py-2 pr-4 text-xs leading-4 font-semibold text-[oklch(0.21_0.034_264.665)]">
-                  Rule Name
-                </th>
-                <th className="py-2 pr-4 text-xs leading-4 font-semibold text-[oklch(0.21_0.034_264.665)]">
-                  Category
-                </th>
-                <th className="py-2 pr-4 text-xs leading-4 font-semibold text-[oklch(0.21_0.034_264.665)]">
-                  Commission (%)
-                </th>
-                <th className="py-2 pr-4 text-xs leading-4 font-semibold text-[oklch(0.21_0.034_264.665)]">
-                  Status
-                </th>
-                <th className="py-2 pr-4 text-xs leading-4 font-semibold text-[oklch(0.21_0.034_264.665)]">
-                  Period
-                </th>
-                <th className="py-2 pr-4 text-xs leading-4 font-semibold text-[oklch(0.21_0.034_264.665)]">
-                  Created Date
-                </th>
-                <th className="py-2 pr-4 text-xs leading-4 font-semibold text-[oklch(0.21_0.034_264.665)]">
-                  Action
-                </th>
-              </tr>
-            </thead>
+          {listLoading ? (
+            <div className="py-12 text-center text-[13px] text-slate-500">Loading rules…</div>
+          ) : (
+            <table className="min-w-full text-[12px] leading-4">
+              <thead>
+                <tr className="bg-[#f9fbfc] text-left border-y border-slate-200">
+                  <th className="py-2 pr-4 pl-4 text-xs leading-4 font-semibold text-[oklch(0.21_0.034_264.665)]">
+                    ID
+                  </th>
+                  <th className="py-2 pr-4 text-xs leading-4 font-semibold text-[oklch(0.21_0.034_264.665)]">
+                    Rule Name
+                  </th>
+                  <th className="py-2 pr-4 text-xs leading-4 font-semibold text-[oklch(0.21_0.034_264.665)]">
+                    Category
+                  </th>
+                  <th className="py-2 pr-4 text-xs leading-4 font-semibold text-[oklch(0.21_0.034_264.665)]">
+                    Commission (%)
+                  </th>
+                  <th className="py-2 pr-4 text-xs leading-4 font-semibold text-[oklch(0.21_0.034_264.665)]">
+                    Status
+                  </th>
+                  <th className="py-2 pr-4 text-xs leading-4 font-semibold text-[oklch(0.21_0.034_264.665)]">
+                    Period
+                  </th>
+                  <th className="py-2 pr-4 text-xs leading-4 font-semibold text-[oklch(0.21_0.034_264.665)]">
+                    Created Date
+                  </th>
+                  <th className="py-2 pr-4 text-xs leading-4 font-semibold text-[oklch(0.21_0.034_264.665)]">
+                    Action
+                  </th>
+                </tr>
+              </thead>
 
-            <tbody className="divide-y divide-slate-100">
-              {rows.map((r) => (
-                <tr key={r.CommissionDefaultID} className="hover:bg-slate-50/50 transition-colors">
-                  <td className="py-2 pr-4 pl-4 font-mono text-[11px] text-slate-600">
-                    {r.CommissionDefaultID}
-                  </td>
-                  <td className="py-2 pr-4">
-                    <button
-                      type="button"
-                      className="text-[12px] font-medium text-[#2563FF] hover:underline underline-offset-2 text-left"
-                    >
-                      {r.CategoryName} Commission Default
-                    </button>
-                  </td>
-                  <td className="py-2 pr-4 text-slate-700 font-medium">{r.CategoryName}</td>
-                  <td className="py-2 pr-4 text-slate-700">{r.CommissionPercent}%</td>
-                  <td className="py-2 pr-4">
-                    <StatusPill active={r.IsActive} />
-                  </td>
-                  <td className="py-2 pr-4 text-slate-600 whitespace-nowrap">
-                    {r.EffectiveFrom}
-                    {r.EffectiveTo ? ` to ${r.EffectiveTo}` : ""}
-                  </td>
-                  <td className="py-2 pr-4 text-slate-600 whitespace-nowrap">{r.CreatedAt ?? "—"}</td>
-                  <td className="py-2 pr-4">
-                    <div className="flex items-center gap-3 pt-1.5">
+              <tbody className="divide-y divide-slate-100">
+                {rows.map((r) => (
+                  <tr key={r.CommissionDefaultID} className="hover:bg-slate-50/50 transition-colors">
+                    <td className="py-2 pr-4 pl-4 font-mono text-[11px] text-slate-600">
+                      {r.CommissionDefaultID}
+                    </td>
+                    <td className="py-2 pr-4">
                       <button
                         type="button"
-                        className="text-[12px] font-medium text-[#2563FF] hover:underline underline-offset-2"
+                        onClick={() =>
+                          router.push(
+                            `/admin/finance/commission-fees/${encodeURIComponent(r.CommissionDefaultID)}/edit`,
+                          )
+                        }
+                        className="text-[12px] font-medium text-[#2563FF] hover:underline underline-offset-2 text-left"
                       >
-                        Edit
+                        {displayRuleName(r)}
                       </button>
-                      <button
-                        type="button"
-                        className={`text-[12px] font-medium hover:underline underline-offset-2 ${
-                          r.IsActive ? "text-rose-600" : "text-emerald-700"
-                        }`}
-                      >
-                        {r.IsActive ? "Deactivate" : "Activate"}
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                    <td className="py-2 pr-4 text-slate-700 font-medium">{r.CategoryName}</td>
+                    <td className="py-2 pr-4 text-slate-700">{r.CommissionPercent}%</td>
+                    <td className="py-2 pr-4">
+                      <StatusPill active={r.IsActive} />
+                    </td>
+                    <td className="py-2 pr-4 text-slate-600 whitespace-nowrap">
+                      {r.EffectiveFrom}
+                      {r.EffectiveTo ? ` to ${r.EffectiveTo}` : ""}
+                    </td>
+                    <td className="py-2 pr-4 text-slate-600 whitespace-nowrap">
+                      {r.CreatedAt ?? "—"}
+                    </td>
+                    <td className="py-2 pr-4">
+                      <div className="flex items-center gap-3 pt-1.5">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            router.push(
+                              `/admin/finance/commission-fees/${encodeURIComponent(r.CommissionDefaultID)}/edit`,
+                            )
+                          }
+                          className="text-[12px] font-medium text-[#2563FF] hover:underline underline-offset-2"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          disabled={toggleBusyId === r.CommissionDefaultID}
+                          onClick={() => void onToggleActive(r)}
+                          className={`text-[12px] font-medium hover:underline underline-offset-2 disabled:opacity-50 ${
+                            r.IsActive ? "text-rose-600" : "text-emerald-700"
+                          }`}
+                        >
+                          {toggleBusyId === r.CommissionDefaultID
+                            ? "…"
+                            : r.IsActive
+                              ? "Deactivate"
+                              : "Activate"}
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
 
-              {rows.length === 0 ? (
-                <tr>
-                  <td colSpan={8} className="py-10 text-center text-slate-500">
-                    No rules
-                  </td>
-                </tr>
-              ) : null}
-            </tbody>
-          </table>
+                {rows.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="py-10 text-center text-slate-500">
+                      No rules
+                    </td>
+                  </tr>
+                ) : null}
+              </tbody>
+            </table>
+          )}
         </div>
       </FinanceRulesListCardShell>
     </div>
   );
 }
-

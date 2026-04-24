@@ -71,25 +71,31 @@ export function FinanceCreateActions({
   createLabel,
   onCancel,
   onCreate,
+  submitDisabled,
+  cancelDisabled,
 }: {
   cancelLabel?: string;
   createLabel: string;
   onCancel: () => void;
   onCreate?: () => void;
+  submitDisabled?: boolean;
+  cancelDisabled?: boolean;
 }) {
   return (
     <div className="flex items-center justify-end gap-3 pt-1">
       <button
         type="button"
         onClick={onCancel}
-        className="inline-flex h-8 min-h-8 min-w-[110px] items-center justify-center rounded-md border border-slate-200 bg-white px-4 text-[12px] font-medium text-slate-700 hover:bg-slate-50 transition-colors"
+        disabled={cancelDisabled}
+        className="inline-flex h-8 min-h-8 min-w-[110px] items-center justify-center rounded-md border border-slate-200 bg-white px-4 text-[12px] font-medium text-slate-700 hover:bg-slate-50 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
       >
         {cancelLabel ?? "Cancel"}
       </button>
       <button
         type="button"
         onClick={onCreate}
-        className="inline-flex h-8 min-h-8 min-w-[110px] items-center justify-center rounded-md border border-[#2563FF] bg-[#2563FF] px-4 text-[12px] font-medium text-white hover:bg-[#1E4FE6] transition-colors"
+        disabled={submitDisabled}
+        className="inline-flex h-8 min-h-8 min-w-[110px] items-center justify-center rounded-md border border-[#2563FF] bg-[#2563FF] px-4 text-[12px] font-medium text-white hover:bg-[#1E4FE6] transition-colors disabled:cursor-not-allowed disabled:opacity-50"
       >
         {createLabel}
       </button>
