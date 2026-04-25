@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useToast } from "@/contexts/toast-context";
 import {
   CommissionFeeRuleForm,
   type CommissionFeeRuleFormValues,
@@ -19,6 +20,7 @@ export function CommissionFeeRuleEditPage({
   commissionDefaultId: string;
 }) {
   const router = useRouter();
+  const { showToast } = useToast();
   const [categoryOptions, setCategoryOptions] = useState<FoodCategoryOption[]>([]);
   const [defaults, setDefaults] = useState<Partial<CommissionFeeRuleFormValues> | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -40,6 +42,9 @@ export function CommissionFeeRuleEditPage({
         isGlobalRule: false,
         foodCategoryId: rule.FoodCategoryID,
         commissionPercent: String(rule.CommissionPercent),
+        isActive: rule.IsActive,
+        activatedAt: rule.ActivatedAt,
+        expiredAt: rule.ExpiredAt,
         customPeriod: true,
         effectiveFrom: rule.EffectiveFrom,
         effectiveTo: rule.EffectiveTo ?? "",
@@ -88,9 +93,11 @@ export function CommissionFeeRuleEditPage({
         effectiveFrom,
         effectiveTo: effectiveToTrim ? effectiveToTrim : null,
       });
-      router.push("/admin/finance/commission-fees");
+      showToast("Saved successfully.", "success");
+      await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Request failed");
+      showToast(e instanceof Error ? e.message : "Request failed", "error");
     } finally {
       setSubmitting(false);
     }
@@ -126,6 +133,7 @@ export function CommissionFeeRuleEditPage({
       lockGlobal={false}
       categoryOptions={categoryOptions}
       defaultValues={defaults}
+      lockCustomPeriod
       isSubmitting={submitting}
       errorMessage={error}
       onCancel={() => router.push("/admin/finance/commission-fees")}

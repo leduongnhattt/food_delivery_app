@@ -147,9 +147,17 @@ export async function requestJson<T>(
 
             try {
                 errorData = await response.json()
-                errorMessage = errorData.error || errorData.message || errorMessage
+                const msg = errorData?.message
+                if (Array.isArray(msg)) {
+                    errorMessage = msg.filter(Boolean).join('; ') || errorMessage
+                } else if (typeof msg === 'string' && msg.trim()) {
+                    errorMessage = msg
+                } else if (typeof errorData?.error === 'string' && errorData.error.trim()) {
+                    errorMessage = errorData.error
+                } else {
+                    errorMessage = errorMessage
+                }
             } catch {
-                // If response is not JSON, use status text or default message
                 errorMessage = response.statusText || errorMessage
             }
 

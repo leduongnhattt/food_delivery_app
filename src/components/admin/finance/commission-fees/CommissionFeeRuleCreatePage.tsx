@@ -31,8 +31,8 @@ export function CommissionFeeRuleCreatePage() {
 
   const loadCategories = useCallback(async () => {
     try {
-      const res = await fetchFoodCategoriesList();
-      setCategoryOptions(res.categories.map((c) => ({ id: c.id, name: c.name })));
+      const categoriesResponse = await fetchFoodCategoriesList();
+      setCategoryOptions(categoriesResponse.categories.map((c) => ({ id: c.id, name: c.name })));
     } catch {
       setCategoryOptions([]);
     } finally {
@@ -48,16 +48,16 @@ export function CommissionFeeRuleCreatePage() {
     if (!scopeGlobal) return;
     void (async () => {
       try {
-        const g = await getCommissionFeesGlobal();
+        const globalRule = await getCommissionFeesGlobal();
         setGlobalPrefill({
-          ruleName: g.RuleName ?? "",
+          ruleName: globalRule.RuleName ?? "",
           isGlobalRule: true,
           foodCategoryId: "",
-          commissionPercent: String(g.CommissionPercent),
-          isActive: g.IsActive,
+          commissionPercent: String(globalRule.CommissionPercent),
+          isActive: globalRule.IsActive,
           customPeriod: true,
-          effectiveFrom: g.EffectiveFrom,
-          effectiveTo: g.EffectiveTo ?? "",
+          effectiveFrom: globalRule.EffectiveFrom,
+          effectiveTo: globalRule.EffectiveTo ?? "",
         });
       } catch {
         setGlobalPrefill({
@@ -76,10 +76,16 @@ export function CommissionFeeRuleCreatePage() {
 
   async function handleSubmit(values: CommissionFeeRuleFormValues) {
     setError(null);
-    const pct = Number(values.commissionPercent.trim().replace(",", "."));
-    const name = values.ruleName.trim();
-    if (!Number.isFinite(pct) || pct < 0 || pct > 100) return; // validated in form
-    if (!name) return; // validated in form
+    const commissionPercentNumber = Number(values.commissionPercent.trim().replace(",", "."));
+    const trimmedRuleName = values.ruleName.trim();
+    if (
+      !Number.isFinite(commissionPercentNumber) ||
+      commissionPercentNumber < 0 ||
+      commissionPercentNumber > 100
+    ) {
+      return; // validated in form
+    }
+    if (!trimmedRuleName) return; // validated in form
 
     const global = scopeGlobal || values.isGlobalRule;
     if (!global) {
@@ -90,8 +96,8 @@ export function CommissionFeeRuleCreatePage() {
     try {
       if (global) {
         await updateCommissionFeesGlobal({
-          ruleName: name,
-          commissionPercent: pct,
+          ruleName: trimmedRuleName,
+          commissionPercent: commissionPercentNumber,
           isActive: values.isActive,
           effectiveFrom: values.effectiveFrom.trim(),
           effectiveTo: values.effectiveTo.trim() ? values.effectiveTo.trim() : null,
@@ -100,8 +106,8 @@ export function CommissionFeeRuleCreatePage() {
         const effectiveToTrim = values.effectiveTo.trim();
         await createCommissionFeeCategoryRule({
           foodCategoryId: values.foodCategoryId.trim(),
-          ruleName: name,
-          commissionPercent: pct,
+          ruleName: trimmedRuleName,
+          commissionPercent: commissionPercentNumber,
           isActive: true,
           effectiveFrom: values.effectiveFrom.trim(),
           effectiveTo: effectiveToTrim ? effectiveToTrim : null,

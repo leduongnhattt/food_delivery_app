@@ -16,17 +16,20 @@ import {
   FinanceRulesListCardShell,
 } from "@/components/admin/shared/finance-list-ui";
 import { DateTimePickerField } from "@/components/ui/date-time-picker";
+import { ConfirmActionModal } from "@/components/ui/confirm-action-modal";
 import { Pagination } from "@/components/ui/pagination";
 import type { AdminCommissionFeeCategoryRuleItem } from "@/types/admin-api.types";
 import { useToast } from "@/contexts/toast-context";
 import {
   fetchFoodCategoriesList,
+  activateCommissionFeeGlobalRule,
   getCommissionFeesGlobal,
   listCommissionFeeCategoryRules,
   updateCommissionFeeCategoryRule,
+  updateCommissionFeeGlobalRule,
 } from "@/services/admin.service";
 
-type RuleStatus = "Pending" | "Active" | "Inactive";
+type RuleStatus = "Pending" | "Active" | "Inactive" | "Expired";
 
 const PAGE_SIZE_OPTIONS = [12, 24, 48] as const;
 
@@ -36,6 +39,8 @@ function StatusPill({ status }: { status: RuleStatus }) {
       ? "bg-emerald-50 text-emerald-700 border-emerald-200"
       : status === "Pending"
         ? "bg-amber-50 text-amber-800 border-amber-200"
+        : status === "Expired"
+          ? "bg-rose-50 text-rose-800 border-rose-200"
         : "bg-slate-50 text-slate-700 border-slate-200";
   return (
     <span className={`inline-flex rounded px-2 py-1 text-[11px] leading-4 border ${cls}`}>
@@ -45,19 +50,28 @@ function StatusPill({ status }: { status: RuleStatus }) {
 }
 
 function displayRuleName(row: AdminCommissionFeeCategoryRuleItem): string {
-  const n = row.RuleName?.trim();
-  if (n) return n;
+  const ruleName = row.RuleName?.trim();
+  if (ruleName) return ruleName;
+  if (row.IsGlobal) return row.CategoryName;
   return `${row.CategoryName} Commission Default`;
+}
+
+function commissionRuleEditHref(row: AdminCommissionFeeCategoryRuleItem): string {
+  if (row.IsGlobal) {
+    return `/admin/finance/commission-fees/new?scope=global&globalRuleId=${encodeURIComponent(row.CommissionDefaultID)}`;
+  }
+  return `/admin/finance/commission-fees/${encodeURIComponent(row.CommissionDefaultID)}/edit`;
 }
 
 export function CommissionFeesPage() {
   const router = useRouter();
   const { showToast } = useToast();
-  const [q, setQ] = useState("");
+  const todayMax = useMemo(() => new Date().toISOString().slice(0, 10), []);
+  const [searchText, setSearchText] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<"all" | string>("all");
-  const [status, setStatus] = useState<"all" | RuleStatus>("all");
-  const [from, setFrom] = useState("");
-  const [to, setTo] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"all" | RuleStatus>("all");
+  const [effectiveFromFilter, setEffectiveFromFilter] = useState("");
+  const [effectiveToFilter, setEffectiveToFilter] = useState("");
   const [pageSize, setPageSize] = useState<(typeof PAGE_SIZE_OPTIONS)[number]>(12);
   const [page, setPage] = useState(1);
   const [openCategoryMenu, setOpenCategoryMenu] = useState(false);
@@ -78,18 +92,22 @@ export function CommissionFeesPage() {
   const [globalLoading, setGlobalLoading] = useState(true);
   const [categoryOptions, setCategoryOptions] = useState<Array<{ id: string; name: string }>>([]);
   const [toggleBusyId, setToggleBusyId] = useState<string | null>(null);
+  const [activateConfirmRow, setActivateConfirmRow] =
+    useState<AdminCommissionFeeCategoryRuleItem | null>(null);
   const [debouncedSearch, setDebouncedSearch] = useState("");
 
   useEffect(() => {
-    const t = window.setTimeout(() => setDebouncedSearch(q.trim()), 350);
-    return () => window.clearTimeout(t);
-  }, [q]);
+    const timeoutId = window.setTimeout(() => setDebouncedSearch(searchText.trim()), 350);
+    return () => window.clearTimeout(timeoutId);
+  }, [searchText]);
 
   const loadCategories = useCallback(async () => {
     try {
-      const res = await fetchFoodCategoriesList();
+      const categoriesResponse = await fetchFoodCategoriesList();
       setCategoryOptions(
-        res.categories.map((c) => ({ id: c.id, name: c.name })).sort((a, b) => a.name.localeCompare(b.name)),
+        categoriesResponse.categories
+          .map((c) => ({ id: c.id, name: c.name }))
+          .sort((a, b) => a.name.localeCompare(b.name)),
       );
     } catch {
       setCategoryOptions([]);
@@ -99,11 +117,11 @@ export function CommissionFeesPage() {
   const loadGlobal = useCallback(async () => {
     setGlobalLoading(true);
     try {
-      const g = await getCommissionFeesGlobal();
+      const globalRule = await getCommissionFeesGlobal();
       setGlobalRow({
-        DefaultID: g.DefaultID,
-        CommissionPercent: g.CommissionPercent,
-        EffectiveFrom: g.EffectiveFrom,
+        DefaultID: globalRule.DefaultID,
+        CommissionPercent: globalRule.CommissionPercent,
+        EffectiveFrom: globalRule.EffectiveFrom,
       });
     } catch {
       setGlobalRow(null);
@@ -112,30 +130,39 @@ export function CommissionFeesPage() {
     }
   }, []);
 
-  const loadList = useCallback(async () => {
-    setListLoading(true);
+  const loadList = useCallback(async (opts?: { silent?: boolean }) => {
+    const silent = opts?.silent === true;
+    if (!silent) setListLoading(true);
     try {
-      const isActiveParam = undefined;
-      const res = await listCommissionFeeCategoryRules({
+      const listResponse = await listCommissionFeeCategoryRules({
         page,
         pageSize,
         search: debouncedSearch || undefined,
         foodCategoryId: categoryFilter === "all" ? undefined : categoryFilter,
-        status: status === "all" ? undefined : status,
-        isActive: isActiveParam,
-        effectiveFrom: from.trim() || undefined,
-        effectiveTo: to.trim() || undefined,
+        status: statusFilter === "all" ? undefined : statusFilter,
+        effectiveFrom: effectiveFromFilter.trim() || undefined,
+        effectiveTo: effectiveToFilter.trim() || undefined,
       });
-      setRows(res.items);
-      setTotal(res.total);
+      setRows(listResponse.items);
+      setTotal(listResponse.total);
     } catch (e) {
-      setRows([]);
-      setTotal(0);
+      if (!silent) {
+        setRows([]);
+        setTotal(0);
+      }
       // Intentionally keep the UI clean (no error banner per design).
     } finally {
-      setListLoading(false);
+      if (!silent) setListLoading(false);
     }
-  }, [page, pageSize, debouncedSearch, categoryFilter, status, from, to]);
+  }, [
+    page,
+    pageSize,
+    debouncedSearch,
+    categoryFilter,
+    statusFilter,
+    effectiveFromFilter,
+    effectiveToFilter,
+  ]);
 
   useEffect(() => {
     void loadCategories();
@@ -173,9 +200,15 @@ export function CommissionFeesPage() {
     return found?.name ?? "Category";
   }, [categoryFilter, categoryOptions]);
 
-  const statusLabel = status === "all" ? "All Status" : status;
+  const statusLabel = statusFilter === "all" ? "All Status" : statusFilter;
   const periodLabel =
-    from && to ? `${from} to ${to}` : from ? `${from} onwards` : to ? `Until ${to}` : "Period";
+    effectiveFromFilter && effectiveToFilter
+      ? `${effectiveFromFilter} to ${effectiveToFilter}`
+      : effectiveFromFilter
+        ? `${effectiveFromFilter} onwards`
+        : effectiveToFilter
+          ? `Until ${effectiveToFilter}`
+          : "Period";
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize) || 1);
   const safePage = Math.min(Math.max(1, page), totalPages);
@@ -186,29 +219,73 @@ export function CommissionFeesPage() {
     }
   }, [page, totalPages]);
 
-  async function onToggleActive(row: AdminCommissionFeeCategoryRuleItem) {
+  async function runToggleActive(row: AdminCommissionFeeCategoryRuleItem): Promise<boolean> {
     const id = row.CommissionDefaultID;
     setToggleBusyId(id);
     try {
       const next = !row.IsActive;
-      const [res] = await Promise.all([
-        updateCommissionFeeCategoryRule(id, { isActive: next }),
+      await Promise.all([
+        row.IsGlobal
+          ? next
+            ? activateCommissionFeeGlobalRule(id)
+            : updateCommissionFeeGlobalRule(id, { isActive: false })
+          : updateCommissionFeeCategoryRule(id, { isActive: next }),
         new Promise<void>((r) => window.setTimeout(r, 450)),
       ]);
-      setRows((prev) => {
-        const nextRows = prev.map((x) => (x.CommissionDefaultID === id ? res.item : x));
-        if (status === "all") return nextRows;
-        const nextStatus =
-          res.item.ActivatedAt ? (res.item.IsActive ? "Active" : "Inactive") : "Pending";
-        if (status === nextStatus) return nextRows;
-        return nextRows.filter((x) => x.CommissionDefaultID !== id);
-      });
-      showToast(next ? "Rule activated." : "Rule deactivated.", "success");
+      await Promise.all([loadList({ silent: true }), loadGlobal()]);
+      showToast(
+        row.IsGlobal
+          ? next
+            ? "Global rule activated."
+            : "Global rule deactivated."
+          : next
+            ? "Rule activated."
+            : "Rule deactivated.",
+        "success",
+      );
+      return true;
     } catch (e) {
       showToast(e instanceof Error ? e.message : "Update failed", "error");
+      return false;
     } finally {
       setToggleBusyId(null);
     }
+  }
+
+  function onToggleActive(row: AdminCommissionFeeCategoryRuleItem) {
+    const id = row.CommissionDefaultID;
+    const next = !row.IsActive;
+    if (next) {
+      if (row.IsGlobal) {
+        const hasAnotherActiveGlobal = rows.some(
+          (x) =>
+            !!x.IsGlobal &&
+            x.CommissionDefaultID !== id &&
+            !!x.ActivatedAt &&
+            !x.ExpiredAt &&
+            x.IsActive,
+        );
+        if (hasAnotherActiveGlobal) {
+          setActivateConfirmRow(row);
+          return;
+        }
+      } else {
+        const hasAnotherActiveSameCategory = rows.some(
+          (x) =>
+            !x.IsGlobal &&
+            x.CommissionDefaultID !== id &&
+            x.FoodCategoryID === row.FoodCategoryID &&
+            !!x.ActivatedAt &&
+            !x.ExpiredAt &&
+            x.IsActive,
+        );
+        if (hasAnotherActiveSameCategory) {
+          setActivateConfirmRow(row);
+          return;
+        }
+      }
+    }
+    void runToggleActive(row);
   }
 
   return (
@@ -243,9 +320,9 @@ export function CommissionFeesPage() {
             <div className={FINANCE_FILTER_SEARCH_WRAP}>
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
               <input
-                value={q}
+                value={searchText}
                 onChange={(e) => {
-                  setQ(e.target.value);
+                  setSearchText(e.target.value);
                   resetPageOnFilter();
                 }}
                 placeholder="Search by category or rule name"
@@ -287,13 +364,14 @@ export function CommissionFeesPage() {
                     <div className="space-y-1.5">
                       <div className="text-[12px] font-medium text-slate-600">From</div>
                       <DateTimePickerField
-                        value={from}
+                        value={effectiveFromFilter}
                         onChange={(next) => {
-                          setFrom(next);
+                          setEffectiveFromFilter(next);
                           resetPageOnFilter();
                         }}
                         mode="date"
                         placeholder="From"
+                        max={todayMax}
                         align="start"
                         triggerClassName={ADMIN_FIELD_BASE_CLASS}
                       />
@@ -301,13 +379,14 @@ export function CommissionFeesPage() {
                     <div className="space-y-1.5">
                       <div className="text-[12px] font-medium text-slate-600">To</div>
                       <DateTimePickerField
-                        value={to}
+                        value={effectiveToFilter}
                         onChange={(next) => {
-                          setTo(next);
+                          setEffectiveToFilter(next);
                           resetPageOnFilter();
                         }}
                         mode="date"
                         placeholder="To"
+                        max={todayMax}
                         align="start"
                         triggerClassName={ADMIN_FIELD_BASE_CLASS}
                       />
@@ -319,8 +398,8 @@ export function CommissionFeesPage() {
                       type="button"
                       className="text-[12px] font-medium text-slate-600 hover:text-slate-900"
                       onClick={() => {
-                        setFrom("");
-                        setTo("");
+                        setEffectiveFromFilter("");
+                        setEffectiveToFilter("");
                         resetPageOnFilter();
                         setOpenPeriod(false);
                       }}
@@ -425,6 +504,7 @@ export function CommissionFeesPage() {
                       { id: "Pending" as const, label: "Pending" },
                       { id: "Active" as const, label: "Active" },
                       { id: "Inactive" as const, label: "Inactive" },
+                          { id: "Expired" as const, label: "Expired" },
                     ] as const
                   ).map((opt) => (
                     <button
@@ -432,13 +512,13 @@ export function CommissionFeesPage() {
                       type="button"
                       onClick={() => {
                         setOpenStatusMenu(false);
-                        setStatus(opt.id);
+                        setStatusFilter(opt.id);
                         resetPageOnFilter();
                       }}
                       className="w-full flex items-center justify-between px-3 py-2 text-[13px] md:text-[13px] text-slate-900 hover:bg-slate-50"
                     >
                       <span>{opt.label}</span>
-                      {status === opt.id && <Check className="w-4 h-4 text-slate-700" />}
+                      {statusFilter === opt.id && <Check className="w-4 h-4 text-slate-700" />}
                     </button>
                   ))}
                 </div>
@@ -496,18 +576,17 @@ export function CommissionFeesPage() {
 
               <tbody className="divide-y divide-slate-100">
                 {rows.map((r) => (
-                  <tr key={r.CommissionDefaultID} className="hover:bg-slate-50/50 transition-colors">
+                  <tr
+                    key={r.IsGlobal ? `global:${r.CommissionDefaultID}` : r.CommissionDefaultID}
+                    className="hover:bg-slate-50/50 transition-colors"
+                  >
                     <td className="py-2 pr-4 pl-4 font-mono text-[11px] text-slate-600">
                       {r.CommissionDefaultID}
                     </td>
                     <td className="py-2 pr-4">
                       <button
                         type="button"
-                        onClick={() =>
-                          router.push(
-                            `/admin/finance/commission-fees/${encodeURIComponent(r.CommissionDefaultID)}/edit`,
-                          )
-                        }
+                        onClick={() => router.push(commissionRuleEditHref(r))}
                         className="text-[12px] font-medium text-[#2563FF] hover:underline underline-offset-2 text-left"
                       >
                         {displayRuleName(r)}
@@ -518,11 +597,13 @@ export function CommissionFeesPage() {
                     <td className="py-2 pr-4">
                       <StatusPill
                         status={
-                          r.ActivatedAt
-                            ? r.IsActive
-                              ? "Active"
-                              : "Inactive"
-                            : "Pending"
+                          r.ExpiredAt
+                            ? "Expired"
+                            : r.ActivatedAt
+                              ? r.IsActive
+                                ? "Active"
+                                : "Inactive"
+                              : "Pending"
                         }
                       />
                     </td>
@@ -537,29 +618,27 @@ export function CommissionFeesPage() {
                       <div className="flex items-center gap-3 pt-1.5">
                         <button
                           type="button"
-                          onClick={() =>
-                            router.push(
-                              `/admin/finance/commission-fees/${encodeURIComponent(r.CommissionDefaultID)}/edit`,
-                            )
-                          }
+                          onClick={() => router.push(commissionRuleEditHref(r))}
                           className="text-[12px] font-medium text-[#2563FF] hover:underline underline-offset-2"
                         >
                           Edit
                         </button>
-                        <button
-                          type="button"
-                          disabled={toggleBusyId === r.CommissionDefaultID}
-                          onClick={() => void onToggleActive(r)}
-                          className={`text-[12px] font-medium hover:underline underline-offset-2 disabled:opacity-50 ${
-                            r.IsActive ? "text-rose-600" : "text-emerald-700"
-                          }`}
-                        >
-                          {toggleBusyId === r.CommissionDefaultID
-                            ? "…"
-                            : r.IsActive
-                              ? "Deactivate"
-                              : "Activate"}
-                        </button>
+                        {!r.ExpiredAt ? (
+                          <button
+                            type="button"
+                            disabled={toggleBusyId === r.CommissionDefaultID}
+                            onClick={() => void onToggleActive(r)}
+                            className={`text-[12px] font-medium hover:underline underline-offset-2 disabled:opacity-50 ${
+                              r.IsActive ? "text-rose-600" : "text-emerald-700"
+                            }`}
+                          >
+                            {toggleBusyId === r.CommissionDefaultID
+                              ? "…"
+                              : r.IsActive
+                                ? "Deactivate"
+                                : "Activate"}
+                          </button>
+                        ) : null}
                       </div>
                     </td>
                   </tr>
@@ -577,6 +656,42 @@ export function CommissionFeesPage() {
           )}
         </div>
       </FinanceRulesListCardShell>
+
+      <ConfirmActionModal
+        open={!!activateConfirmRow}
+        title="Activate this rule?"
+        message={
+          activateConfirmRow?.IsGlobal ? (
+            <p>
+              If you activate this global rule, all other{" "}
+              <span className="font-medium text-slate-800">platform global</span> rules will be set to{" "}
+              <span className="font-medium text-slate-800">Inactive</span>.
+            </p>
+          ) : (
+            <p>
+              If you activate this rule, all other rules in the same category will be set to{" "}
+              <span className="font-medium text-slate-800">Inactive</span>.
+            </p>
+          )
+        }
+        confirmLabel="Activate"
+        confirmTone="primary"
+        confirmLoading={
+          !!activateConfirmRow && toggleBusyId === activateConfirmRow.CommissionDefaultID
+        }
+        onClose={() => {
+          if (toggleBusyId) return;
+          setActivateConfirmRow(null);
+        }}
+        onConfirm={() => {
+          const row = activateConfirmRow;
+          if (!row) return;
+          void (async () => {
+            const ok = await runToggleActive(row);
+            if (ok) setActivateConfirmRow(null);
+          })();
+        }}
+      />
     </div>
   );
 }

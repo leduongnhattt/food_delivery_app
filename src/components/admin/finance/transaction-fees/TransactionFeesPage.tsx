@@ -16,18 +16,21 @@ import {
   FinanceRulesListCardShell,
 } from "@/components/admin/shared/finance-list-ui";
 import { DateTimePickerField } from "@/components/ui/date-time-picker";
+import { ConfirmActionModal } from "@/components/ui/confirm-action-modal";
 import { Pagination } from "@/components/ui/pagination";
 import type { AdminTransactionFeeChannelRuleItem } from "@/types/admin-api.types";
 import { useToast } from "@/contexts/toast-context";
 import {
+  activateTransactionFeeGlobalRule,
   getTransactionFeesGlobal,
   listTransactionFeeChannelRules,
   updateTransactionFeeChannelRule,
+  updateTransactionFeeGlobalRule,
 } from "@/services/admin.service";
 import { TRANSACTION_FEE_PAYMENT_CHANNEL_FILTER_MENU } from "@/lib/transaction-fee-channels";
 import type { TransactionFeePaymentChannelFilterId } from "@/lib/transaction-fee-channels";
 
-type FeeStatus = "Pending" | "Active" | "Inactive";
+type FeeStatus = "Pending" | "Active" | "Inactive" | "Expired";
 
 const PAGE_SIZE_OPTIONS = [12, 24, 48] as const;
 
@@ -37,6 +40,8 @@ function StatusPill({ status }: { status: FeeStatus }) {
       ? "bg-emerald-50 text-emerald-700 border-emerald-200"
       : status === "Pending"
         ? "bg-amber-50 text-amber-800 border-amber-200"
+        : status === "Expired"
+          ? "bg-rose-50 text-rose-800 border-rose-200"
       : "bg-slate-50 text-slate-700 border-slate-200";
   return (
     <span className={`inline-flex rounded px-2 py-1 text-[11px] leading-4 border ${cls}`}>
@@ -52,14 +57,22 @@ function formatRulePeriod(row: AdminTransactionFeeChannelRuleItem): string {
   return `${row.EffectiveFrom} to Present`;
 }
 
+function transactionRuleEditHref(row: AdminTransactionFeeChannelRuleItem): string {
+  if (row.IsGlobal) {
+    return `/admin/finance/transaction-fees/new?scope=global&globalRuleId=${encodeURIComponent(row.FeeID)}`;
+  }
+  return `/admin/finance/transaction-fees/${encodeURIComponent(row.FeeID)}/edit`;
+}
+
 export function TransactionFeesPage() {
   const router = useRouter();
   const { showToast } = useToast();
-  const [q, setQ] = useState("");
+  const todayMax = useMemo(() => new Date().toISOString().slice(0, 10), []);
+  const [searchText, setSearchText] = useState("");
   const [channel, setChannel] = useState<"all" | TransactionFeePaymentChannelFilterId>("all");
-  const [status, setStatus] = useState<"all" | FeeStatus>("all");
-  const [from, setFrom] = useState("");
-  const [to, setTo] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"all" | FeeStatus>("all");
+  const [effectiveFromFilter, setEffectiveFromFilter] = useState("");
+  const [effectiveToFilter, setEffectiveToFilter] = useState("");
   const [pageSize, setPageSize] = useState<(typeof PAGE_SIZE_OPTIONS)[number]>(12);
   const [page, setPage] = useState(1);
   const [openChannelMenu, setOpenChannelMenu] = useState(false);
@@ -80,21 +93,23 @@ export function TransactionFeesPage() {
   const [listLoading, setListLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [toggleBusyId, setToggleBusyId] = useState<string | null>(null);
+  const [activateConfirmRow, setActivateConfirmRow] =
+    useState<AdminTransactionFeeChannelRuleItem | null>(null);
   const [debouncedSearch, setDebouncedSearch] = useState("");
 
   useEffect(() => {
-    const t = window.setTimeout(() => setDebouncedSearch(q.trim()), 350);
-    return () => window.clearTimeout(t);
-  }, [q]);
+    const timeoutId = window.setTimeout(() => setDebouncedSearch(searchText.trim()), 350);
+    return () => window.clearTimeout(timeoutId);
+  }, [searchText]);
 
   const loadGlobal = useCallback(async () => {
     setGlobalLoading(true);
     try {
-      const g = await getTransactionFeesGlobal();
+      const globalRule = await getTransactionFeesGlobal();
       setGlobalRow({
-        DefaultID: g.DefaultID,
-        RatePercent: g.RatePercent,
-        EffectiveFrom: g.EffectiveFrom,
+        DefaultID: globalRule.DefaultID,
+        RatePercent: globalRule.RatePercent,
+        EffectiveFrom: globalRule.EffectiveFrom,
       });
     } catch {
       setGlobalRow(null);
@@ -103,31 +118,42 @@ export function TransactionFeesPage() {
     }
   }, []);
 
-  const loadList = useCallback(async () => {
-    setListLoading(true);
-    setError(null);
+  const loadList = useCallback(async (opts?: { silent?: boolean }) => {
+    const silent = opts?.silent === true;
+    if (!silent) {
+      setListLoading(true);
+      setError(null);
+    }
     try {
-      const isActiveParam = undefined;
-      const res = await listTransactionFeeChannelRules({
+      const listResponse = await listTransactionFeeChannelRules({
         page,
         pageSize,
         search: debouncedSearch || undefined,
         paymentChannel: channel === "all" ? undefined : channel,
-        status: status === "all" ? undefined : status,
-        isActive: isActiveParam,
-        effectiveFrom: from.trim() || undefined,
-        effectiveTo: to.trim() || undefined,
+        status: statusFilter === "all" ? undefined : statusFilter,
+        effectiveFrom: effectiveFromFilter.trim() || undefined,
+        effectiveTo: effectiveToFilter.trim() || undefined,
       });
-      setRows(res.items);
-      setTotal(res.total);
+      setRows(listResponse.items);
+      setTotal(listResponse.total);
     } catch (e) {
-      setRows([]);
-      setTotal(0);
-      setError(e instanceof Error ? e.message : "Failed to load transaction fees");
+      if (!silent) {
+        setRows([]);
+        setTotal(0);
+        setError(e instanceof Error ? e.message : "Failed to load transaction fees");
+      }
     } finally {
-      setListLoading(false);
+      if (!silent) setListLoading(false);
     }
-  }, [page, pageSize, debouncedSearch, channel, status, from, to]);
+  }, [
+    page,
+    pageSize,
+    debouncedSearch,
+    channel,
+    statusFilter,
+    effectiveFromFilter,
+    effectiveToFilter,
+  ]);
 
   useEffect(() => {
     void loadGlobal();
@@ -165,37 +191,88 @@ export function TransactionFeesPage() {
     return found?.label ?? "Payment channel";
   }, [channel]);
 
-  const statusLabel = status === "all" ? "All Status" : status;
+  const statusLabel = statusFilter === "all" ? "All Status" : statusFilter;
   const periodLabel =
-    from && to ? `${from} to ${to}` : from ? `${from} onwards` : to ? `Until ${to}` : "Period";
+    effectiveFromFilter && effectiveToFilter
+      ? `${effectiveFromFilter} to ${effectiveToFilter}`
+      : effectiveFromFilter
+        ? `${effectiveFromFilter} onwards`
+        : effectiveToFilter
+          ? `Until ${effectiveToFilter}`
+          : "Period";
 
   function resetPage() {
     setPage(1);
   }
 
-  async function onToggleActive(row: AdminTransactionFeeChannelRuleItem) {
+  async function runToggleActive(row: AdminTransactionFeeChannelRuleItem): Promise<boolean> {
     const id = row.FeeID;
     setToggleBusyId(id);
     try {
       const next = !row.IsActive;
-      const [res] = await Promise.all([
-        updateTransactionFeeChannelRule(id, { isActive: next }),
+      await Promise.all([
+        row.IsGlobal
+          ? next
+            ? activateTransactionFeeGlobalRule(id)
+            : updateTransactionFeeGlobalRule(id, { isActive: false })
+          : updateTransactionFeeChannelRule(id, { isActive: next }),
         new Promise<void>((r) => window.setTimeout(r, 450)),
       ]);
-      setRows((prev) => {
-        const nextRows = prev.map((x) => (x.FeeID === id ? res.item : x));
-        if (status === "all") return nextRows;
-        const nextStatus =
-          res.item.ActivatedAt ? (res.item.IsActive ? "Active" : "Inactive") : "Pending";
-        if (status === nextStatus) return nextRows;
-        return nextRows.filter((x) => x.FeeID !== id);
-      });
-      showToast(next ? "Fee activated." : "Fee deactivated.", "success");
+      await Promise.all([loadList({ silent: true }), loadGlobal()]);
+      showToast(
+        row.IsGlobal
+          ? next
+            ? "Global fee rule activated."
+            : "Global fee rule deactivated."
+          : next
+            ? "Fee activated."
+            : "Fee deactivated.",
+        "success",
+      );
+      return true;
     } catch (e) {
       showToast(e instanceof Error ? e.message : "Update failed", "error");
+      return false;
     } finally {
       setToggleBusyId(null);
     }
+  }
+
+  function onToggleActive(row: AdminTransactionFeeChannelRuleItem) {
+    const id = row.FeeID;
+    const next = !row.IsActive;
+    if (next) {
+      if (row.IsGlobal) {
+        const hasAnotherActiveGlobal = rows.some(
+          (x) =>
+            !!x.IsGlobal &&
+            x.FeeID !== id &&
+            !!x.ActivatedAt &&
+            !x.ExpiredAt &&
+            x.IsActive,
+        );
+        if (hasAnotherActiveGlobal) {
+          setActivateConfirmRow(row);
+          return;
+        }
+      } else {
+        const hasAnotherActiveSameChannel = rows.some(
+          (x) =>
+            !x.IsGlobal &&
+            x.FeeID !== id &&
+            x.PaymentMethod === row.PaymentMethod &&
+            x.PaymentProviderCode === row.PaymentProviderCode &&
+            !!x.ActivatedAt &&
+            !x.ExpiredAt &&
+            x.IsActive,
+        );
+        if (hasAnotherActiveSameChannel) {
+          setActivateConfirmRow(row);
+          return;
+        }
+      }
+    }
+    void runToggleActive(row);
   }
 
   return (
@@ -230,9 +307,9 @@ export function TransactionFeesPage() {
             <div className={FINANCE_FILTER_SEARCH_WRAP}>
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
               <input
-                value={q}
+                value={searchText}
                 onChange={(e) => {
-                  setQ(e.target.value);
+                  setSearchText(e.target.value);
                   resetPage();
                 }}
                 placeholder="Search by fee name"
@@ -274,13 +351,14 @@ export function TransactionFeesPage() {
                     <div className="space-y-1.5">
                       <div className="text-[12px] font-medium text-slate-600">From</div>
                       <DateTimePickerField
-                        value={from}
+                        value={effectiveFromFilter}
                         onChange={(next) => {
-                          setFrom(next);
+                          setEffectiveFromFilter(next);
                           resetPage();
                         }}
                         mode="date"
                         placeholder="From"
+                        max={todayMax}
                         align="start"
                         triggerClassName={ADMIN_FIELD_BASE_CLASS}
                       />
@@ -288,13 +366,14 @@ export function TransactionFeesPage() {
                     <div className="space-y-1.5">
                       <div className="text-[12px] font-medium text-slate-600">To</div>
                       <DateTimePickerField
-                        value={to}
+                        value={effectiveToFilter}
                         onChange={(next) => {
-                          setTo(next);
+                          setEffectiveToFilter(next);
                           resetPage();
                         }}
                         mode="date"
                         placeholder="To"
+                        max={todayMax}
                         align="start"
                         triggerClassName={ADMIN_FIELD_BASE_CLASS}
                       />
@@ -306,8 +385,8 @@ export function TransactionFeesPage() {
                       type="button"
                       className="text-[12px] font-medium text-slate-600 hover:text-slate-900"
                       onClick={() => {
-                        setFrom("");
-                        setTo("");
+                        setEffectiveFromFilter("");
+                        setEffectiveToFilter("");
                         resetPage();
                         setOpenPeriod(false);
                       }}
@@ -402,6 +481,7 @@ export function TransactionFeesPage() {
                       { id: "Pending" as const, label: "Pending" },
                       { id: "Active" as const, label: "Active" },
                       { id: "Inactive" as const, label: "Inactive" },
+                          { id: "Expired" as const, label: "Expired" },
                     ] as const
                   ).map((opt) => (
                     <button
@@ -409,7 +489,7 @@ export function TransactionFeesPage() {
                       type="button"
                       onClick={() => {
                         setOpenStatusMenu(false);
-                        setStatus(opt.id);
+                        setStatusFilter(opt.id);
                         resetPage();
                       }}
                       className="w-full flex items-center justify-between px-3 py-2 text-[13px] md:text-[13px] text-slate-900 hover:bg-slate-50"
@@ -473,13 +553,22 @@ export function TransactionFeesPage() {
 
               <tbody className="divide-y divide-slate-100">
                 {rows.map((r) => {
+                  const statusUi: FeeStatus = r.ExpiredAt
+                    ? "Expired"
+                    : r.ActivatedAt
+                      ? r.IsActive
+                        ? "Active"
+                        : "Inactive"
+                      : "Pending";
                   const primaryAction =
-                    r.IsActive
+                    statusUi === "Active"
                       ? { label: "Deactivate", cls: "text-rose-600" }
                       : { label: "Activate", cls: "text-emerald-700" };
-                  const statusUi: FeeStatus = r.IsActive ? "Active" : "Inactive";
                   return (
-                    <tr key={r.FeeID} className="hover:bg-slate-50/50 transition-colors">
+                    <tr
+                      key={r.IsGlobal ? `global:${r.FeeID}` : r.FeeID}
+                      className="hover:bg-slate-50/50 transition-colors"
+                    >
                       <td className="py-2 pr-4 pl-4 font-mono text-[11px] text-slate-600">
                         {r.FeeID.length > 18 ? `${r.FeeID.slice(0, 18)}…` : r.FeeID}
                       </td>
@@ -487,9 +576,7 @@ export function TransactionFeesPage() {
                         <button
                           type="button"
                           onClick={() =>
-                            router.push(
-                              `/admin/finance/transaction-fees/${encodeURIComponent(r.FeeID)}/edit`,
-                            )
+                            router.push(transactionRuleEditHref(r))
                           }
                           className="text-[12px] font-medium text-[#2563FF] hover:underline underline-offset-2 text-left"
                         >
@@ -510,22 +597,22 @@ export function TransactionFeesPage() {
                           <button
                             type="button"
                             onClick={() =>
-                              router.push(
-                                `/admin/finance/transaction-fees/${encodeURIComponent(r.FeeID)}/edit`,
-                              )
+                              router.push(transactionRuleEditHref(r))
                             }
                             className="text-[12px] font-medium text-[#2563FF] hover:underline underline-offset-2"
                           >
                             Edit
                           </button>
-                          <button
-                            type="button"
-                            disabled={toggleBusyId === r.FeeID}
-                            onClick={() => void onToggleActive(r)}
-                            className={`text-[12px] font-medium hover:underline underline-offset-2 disabled:opacity-50 ${primaryAction.cls}`}
-                          >
-                            {toggleBusyId === r.FeeID ? "…" : primaryAction.label}
-                          </button>
+                          {statusUi !== "Expired" ? (
+                            <button
+                              type="button"
+                              disabled={toggleBusyId === r.FeeID}
+                              onClick={() => void onToggleActive(r)}
+                              className={`text-[12px] font-medium hover:underline underline-offset-2 disabled:opacity-50 ${primaryAction.cls}`}
+                            >
+                              {toggleBusyId === r.FeeID ? "…" : primaryAction.label}
+                            </button>
+                          ) : null}
                         </div>
                       </td>
                     </tr>
@@ -544,6 +631,40 @@ export function TransactionFeesPage() {
           )}
         </div>
       </FinanceRulesListCardShell>
+
+      <ConfirmActionModal
+        open={!!activateConfirmRow}
+        title="Activate this rule?"
+        message={
+          activateConfirmRow?.IsGlobal ? (
+            <p>
+              If you activate this global rule, all other{" "}
+              <span className="font-medium text-slate-800">platform global</span> fee rules will be set to{" "}
+              <span className="font-medium text-slate-800">Inactive</span>.
+            </p>
+          ) : (
+            <p>
+              If you activate this rule, all other rules for the same payment channel will be set to{" "}
+              <span className="font-medium text-slate-800">Inactive</span>.
+            </p>
+          )
+        }
+        confirmLabel="Activate"
+        confirmTone="primary"
+        confirmLoading={!!activateConfirmRow && toggleBusyId === activateConfirmRow.FeeID}
+        onClose={() => {
+          if (toggleBusyId) return;
+          setActivateConfirmRow(null);
+        }}
+        onConfirm={() => {
+          const row = activateConfirmRow;
+          if (!row) return;
+          void (async () => {
+            const ok = await runToggleActive(row);
+            if (ok) setActivateConfirmRow(null);
+          })();
+        }}
+      />
     </div>
   );
 }

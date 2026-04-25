@@ -265,13 +265,37 @@ export type AdminCommissionFeesGlobalResponse = {
   RuleName: string | null;
   CommissionPercent: number;
   IsActive: boolean;
+  ActivatedAt: string | null;
+  ExpiredAt: string | null;
   EffectiveFrom: string;
   EffectiveTo: string | null;
   UpdatedAt: string;
   UpdatedByLabel: string | null;
 };
 
+export type AdminCommissionFeeGlobalRuleItem = {
+  RuleID: string;
+  RuleName: string | null;
+  CommissionPercent: number;
+  IsActive: boolean;
+  ActivatedAt: string | null;
+  ExpiredAt: string | null;
+  EffectiveFrom: string;
+  EffectiveTo: string | null;
+  CreatedAt: string;
+  UpdatedAt: string | null;
+  UpdatedByLabel: string | null;
+};
+
+export type AdminCommissionFeeGlobalRulesListResponse = {
+  items: AdminCommissionFeeGlobalRuleItem[];
+};
+
 export type AdminCommissionFeeCategoryRuleItem = {
+  /**
+   * Category default id, or **platform global** `RuleID` when `IsGlobal` is true (PATCH
+   * `/admin/finance/commission-fees/global-rules/:ruleId`, not category-rules).
+   */
   CommissionDefaultID: string;
   FoodCategoryID: string;
   CategoryName: string;
@@ -279,10 +303,13 @@ export type AdminCommissionFeeCategoryRuleItem = {
   CommissionPercent: number;
   IsActive: boolean;
   ActivatedAt: string | null;
+  ExpiredAt: string | null;
   EffectiveFrom: string;
   EffectiveTo: string | null;
   CreatedAt: string;
   UpdatedByLabel: string | null;
+  /** Present when this row is a `PLATFORM_COMMISSION_GLOBAL_RULE` entry merged into the list. */
+  IsGlobal?: boolean;
 };
 
 export type AdminCommissionFeeCategoryRulesListResponse = {
@@ -311,6 +338,8 @@ export type AdminTransactionFeesGlobalResponse = {
   RuleName: string | null;
   RatePercent: number;
   IsActive: boolean;
+  ActivatedAt: string | null;
+  ExpiredAt: string | null;
   EffectiveFrom: string;
   EffectiveTo: string | null;
   CreatedAt: string;
@@ -318,7 +347,29 @@ export type AdminTransactionFeesGlobalResponse = {
   UpdatedByLabel: string | null;
 };
 
+export type AdminTransactionFeeGlobalRuleItem = {
+  RuleID: string;
+  RuleName: string | null;
+  RatePercent: number;
+  IsActive: boolean;
+  ActivatedAt: string | null;
+  ExpiredAt: string | null;
+  EffectiveFrom: string;
+  EffectiveTo: string | null;
+  CreatedAt: string;
+  UpdatedAt: string | null;
+  UpdatedByLabel: string | null;
+};
+
+export type AdminTransactionFeeGlobalRulesListResponse = {
+  items: AdminTransactionFeeGlobalRuleItem[];
+};
+
 export type AdminTransactionFeeChannelRuleItem = {
+  /**
+   * Channel rule `FeeID`, or **platform global** `RuleID` when `IsGlobal` is true (PATCH
+   * `/admin/finance/transaction-fees/global-rules/:ruleId`, not channel-rules).
+   */
   FeeID: string;
   FeeName: string;
   PaymentMethod: string;
@@ -327,10 +378,13 @@ export type AdminTransactionFeeChannelRuleItem = {
   RatePercent: number;
   IsActive: boolean;
   ActivatedAt: string | null;
+  ExpiredAt: string | null;
   EffectiveFrom: string;
   EffectiveTo: string | null;
   CreatedAt: string;
   UpdatedByLabel: string | null;
+  /** Present when this row is a `TRANSACTION_FEE_GLOBAL_RULE` entry merged into the list. */
+  IsGlobal?: boolean;
 };
 
 export type AdminTransactionFeeChannelRulesListResponse = {

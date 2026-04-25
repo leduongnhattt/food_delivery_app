@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useToast } from "@/contexts/toast-context";
 import {
   TransactionFeeRuleForm,
   type TransactionFeeRuleFormValues,
@@ -19,6 +20,7 @@ function postValueFromChannelLabel(label: string): string {
 
 export function TransactionFeeRuleEditPage({ feeId }: { feeId: string }) {
   const router = useRouter();
+  const { showToast } = useToast();
   const [defaults, setDefaults] = useState<Partial<TransactionFeeRuleFormValues> | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
@@ -36,6 +38,8 @@ export function TransactionFeeRuleEditPage({ feeId }: { feeId: string }) {
         paymentChannelPostValue: postValue,
         ratePercent: String(rule.RatePercent),
         isActive: rule.IsActive,
+        activatedAt: rule.ActivatedAt,
+        expiredAt: rule.ExpiredAt,
         customPeriod: true,
         effectiveFrom: rule.EffectiveFrom,
         effectiveTo: rule.EffectiveTo ?? "",
@@ -85,9 +89,11 @@ export function TransactionFeeRuleEditPage({ feeId }: { feeId: string }) {
         effectiveFrom,
         effectiveTo: effectiveToTrim ? effectiveToTrim : null,
       });
-      router.push("/admin/finance/transaction-fees");
+      showToast("Saved successfully.", "success");
+      await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Request failed");
+      showToast(e instanceof Error ? e.message : "Request failed", "error");
     } finally {
       setSubmitting(false);
     }
@@ -121,6 +127,7 @@ export function TransactionFeeRuleEditPage({ feeId }: { feeId: string }) {
       subtitle="Update fee name, channel, rate, period, or active status."
       submitLabel="Save Changes"
       defaultValues={defaults}
+      lockCustomPeriod
       isSubmitting={submitting}
       errorMessage={error}
       onCancel={() => router.push("/admin/finance/transaction-fees")}

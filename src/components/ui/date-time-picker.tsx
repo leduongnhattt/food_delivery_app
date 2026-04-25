@@ -204,6 +204,7 @@ export function DateTimePickerField({
 
   const today = new Date()
   const selectedKey = selectedDate ? toDateKey(selectedDate) : ""
+  const todayKey = toDateKey(today)
 
   return (
     <div ref={rootRef} className="relative w-full min-w-0">
@@ -228,7 +229,10 @@ export function DateTimePickerField({
         )}
       >
         <span
-          className={mergeClasses("block truncate", displayText ? "" : "text-slate-400")}
+          className={mergeClasses(
+            "block truncate",
+            displayText ? "text-slate-900 font-medium" : "text-slate-400",
+          )}
         >
           {displayText || placeholder || (mode === "date" ? "dd/mm/yyyy" : "dd/mm/yyyy HH:mm")}
         </span>
@@ -303,6 +307,7 @@ export function DateTimePickerField({
               {weeks.flat().map((d) => {
                 const key = toDateKey(d)
                 const isSelected = key === selectedKey
+                const isToday = key === todayKey
                 const isOutsideMonth = d.getFullYear() !== view.year || d.getMonth() !== view.month0
                 const minDt = min ? parseISODate(min) : null
                 const maxDt = max ? parseISODate(max) : null
@@ -317,15 +322,28 @@ export function DateTimePickerField({
                     disabled={outOfRange}
                     onClick={() => setDatePart(d)}
                     className={mergeClasses(
-                      "h-6 rounded-md text-[11px] transition-colors",
+                      "relative h-6 rounded-md text-[11px] transition-colors outline-none",
                       outOfRange
                         ? "text-slate-300 cursor-not-allowed"
-                        : "hover:bg-slate-50",
+                        : "hover:bg-slate-100 active:bg-slate-200 focus-visible:ring-2 focus-visible:ring-sky-300 focus-visible:ring-offset-1 focus-visible:ring-offset-white",
                       isOutsideMonth ? "text-slate-400" : "text-slate-700",
-                      isSelected ? "text-[#2563FF] font-semibold hover:bg-transparent" : "",
+                      isSelected
+                        ? "bg-slate-100 text-[#2563FF] font-semibold ring-1 ring-inset ring-slate-200"
+                        : "",
+                      !outOfRange && !isSelected && isToday
+                        ? "text-[#2563FF] font-semibold text-[12px]"
+                        : "",
                     )}
                   >
-                    <span className="inline-flex items-center justify-center w-full">{d.getDate()}</span>
+                    <span className="inline-flex items-center justify-center w-full">
+                      {d.getDate()}
+                    </span>
+                    {outOfRange ? (
+                      <span
+                        aria-hidden="true"
+                        className="pointer-events-none absolute left-1 right-1 top-1/2 h-px -translate-y-1/2 bg-slate-300"
+                      />
+                    ) : null}
                   </button>
                 )
               })}
@@ -344,27 +362,6 @@ export function DateTimePickerField({
             ) : null}
           </div>
 
-          <div className="flex items-center justify-between gap-2 px-2 py-1.5 border-t border-slate-100">
-            <button
-              type="button"
-              onClick={() => {
-                onChange("")
-                setOpen(false)
-              }}
-              className="inline-flex items-center gap-1.5 text-xs text-slate-600 hover:text-slate-900"
-            >
-              <X className="h-3.5 w-3.5" />
-              Clear
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setDatePart(today)}
-              className="inline-flex items-center gap-2 rounded-md bg-sky-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-sky-700"
-            >
-              Today
-            </button>
-          </div>
         </div>
       ) : null}
     </div>

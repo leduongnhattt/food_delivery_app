@@ -13,6 +13,12 @@ import {
   FinanceSummaryCard,
   InlineNumberField,
 } from "@/components/admin/shared/finance-create-ui";
+import {
+  addDays,
+  formatDateDdMmYyyy,
+  isISODateOnly,
+  todayDateString,
+} from "@/lib/utils";
 import { TRANSACTION_FEE_PAYMENT_CHANNELS } from "@/lib/transaction-fee-channels";
 
 export type TransactionFeeRuleFormValues = {
@@ -21,6 +27,8 @@ export type TransactionFeeRuleFormValues = {
   paymentChannelPostValue: string;
   ratePercent: string;
   isActive: boolean;
+  activatedAt?: string | null;
+  expiredAt?: string | null;
   customPeriod: boolean;
   effectiveFrom: string;
   effectiveTo: string;
@@ -38,25 +46,12 @@ type TransactionFeeRuleFormProps = {
   lockGlobal?: boolean;
   allowGlobalToggle?: boolean;
   defaultValues: Partial<TransactionFeeRuleFormValues> | null;
+  lockCustomPeriod?: boolean;
   isSubmitting: boolean;
   errorMessage: string | null;
   onCancel: () => void;
   onSubmit: (values: TransactionFeeRuleFormValues) => Promise<void>;
 };
-
-function todayDateString(): string {
-  return new Date().toISOString().slice(0, 10);
-}
-
-function addDays(dateStr: string, days: number): string {
-  const d = new Date(`${dateStr}T00:00:00.000Z`);
-  d.setUTCDate(d.getUTCDate() + days);
-  return d.toISOString().slice(0, 10);
-}
-
-function isISODateOnly(s: string): boolean {
-  return /^\d{4}-\d{2}-\d{2}$/.test(s);
-}
 
 export function TransactionFeeRuleForm({
   variant,
@@ -68,6 +63,7 @@ export function TransactionFeeRuleForm({
   lockGlobal,
   allowGlobalToggle,
   defaultValues,
+  lockCustomPeriod,
   isSubmitting,
   errorMessage,
   onCancel,
@@ -99,6 +95,13 @@ export function TransactionFeeRuleForm({
     if (defaultValues.effectiveTo !== undefined) setEffectiveTo(defaultValues.effectiveTo ?? "");
   }, [defaultValues]);
 
+  const lockPeriod = (lockCustomPeriod ?? false) || !!defaultValues;
+
+  useEffect(() => {
+    if (!lockPeriod) return;
+    setCustomPeriod(true);
+  }, [lockPeriod]);
+
   useEffect(() => {
     if (initialGlobal) setIsGlobalRule(true);
   }, [initialGlobal]);
@@ -122,9 +125,9 @@ export function TransactionFeeRuleForm({
 
   const summary = useMemo(() => {
     const rate = ratePercent.trim();
-    const ch =
-      TRANSACTION_FEE_PAYMENT_CHANNELS.find((c) => c.postValue === paymentChannelPostValue)
-        ?.label ?? "—";
+    const channelLabel =
+      TRANSACTION_FEE_PAYMENT_CHANNELS.find((c) => c.postValue === paymentChannelPostValue)?.label ??
+      "—";
     const period =
       (lockGlobal || isGlobalRule || variant === "global")
         ? customPeriod
@@ -135,15 +138,15 @@ export function TransactionFeeRuleForm({
           : "Indefinite";
     const global = lockGlobal || isGlobalRule || variant === "global";
     const today = todayDateString();
-    const fromDisplay = customPeriod ? (effectiveFrom || "—") : today;
-    const toDisplay = customPeriod ? (effectiveTo || "—") : addDays(today, 1);
+    const fromRaw = customPeriod ? (effectiveFrom || "—") : today;
+    const toRaw = customPeriod ? (effectiveTo || "—") : addDays(today, 1);
     return {
       feeName: feeName.trim() || "—",
-      paymentChannel: global ? "Global default" : ch,
+      paymentChannel: global ? "Global default" : channelLabel,
       rate: rate ? `${rate}%` : "—",
       period,
-      effectiveFrom: fromDisplay,
-      effectiveTo: toDisplay,
+      effectiveFrom: fromRaw === "—" ? "—" : formatDateDdMmYyyy(fromRaw),
+      effectiveTo: toRaw === "—" ? "—" : formatDateDdMmYyyy(toRaw),
       status: isActive ? "Active" : "Pending",
     };
   }, [
@@ -170,8 +173,8 @@ export function TransactionFeeRuleForm({
   async function handleSubmit() {
     const global = lockGlobal || isGlobalRule || variant === "global";
 
-    const name = feeName.trim();
-    if (!name) {
+    const trimmedFeeName = feeName.trim();
+    if (!trimmedFeeName) {
       showToast("Fee name is required.", "error");
       return;
     }
@@ -181,13 +184,13 @@ export function TransactionFeeRuleForm({
       return;
     }
 
-    const rateRaw = ratePercent.trim().replace(",", ".");
-    if (!rateRaw) {
+    const percentInput = ratePercent.trim().replace(",", ".");
+    if (!percentInput) {
       showToast("Transaction fee rate is required.", "error");
       return;
     }
-    const rate = Number(rateRaw);
-    if (!Number.isFinite(rate) || rate < 0 || rate > 100) {
+    const percentValue = Number(percentInput);
+    if (!Number.isFinite(percentValue) || percentValue < 0 || percentValue > 100) {
       showToast("Transaction fee rate must be between 0 and 100.", "error");
       return;
     }
@@ -200,7 +203,10 @@ export function TransactionFeeRuleForm({
       showToast("Start date is required.", "error");
       return;
     }
-    if (from < today) {
+    const existingFrom = defaultValues?.effectiveFrom;
+    const allowPastExistingStart =
+      !!existingFrom && isISODateOnly(existingFrom) && existingFrom === from && from < today;
+    if (from < today && !allowPastExistingStart) {
       showToast("Start date cannot be in the past.", "error");
       return;
     }
@@ -369,6 +375,12 @@ export function TransactionFeeRuleForm({
                 setEffectiveFrom={setEffectiveFrom}
                 effectiveTo={effectiveTo}
                 setEffectiveTo={setEffectiveTo}
+                lockCustomPeriod={lockPeriod}
+                allowPastStartOnEdit={
+                  !!defaultValues?.effectiveFrom &&
+                  isISODateOnly(defaultValues.effectiveFrom) &&
+                  defaultValues.effectiveFrom < todayDateString()
+                }
               />
             </div>
           </div>

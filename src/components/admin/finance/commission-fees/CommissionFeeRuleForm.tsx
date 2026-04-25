@@ -13,6 +13,12 @@ import {
   FinanceSummaryCard,
   InlineNumberField,
 } from "@/components/admin/shared/finance-create-ui";
+import {
+  addDays,
+  formatDateDdMmYyyy,
+  isISODateOnly,
+  todayDateString,
+} from "@/lib/utils";
 
 export type CommissionFeeRuleFormValues = {
   ruleName: string;
@@ -20,6 +26,8 @@ export type CommissionFeeRuleFormValues = {
   foodCategoryId: string;
   commissionPercent: string;
   isActive: boolean;
+  activatedAt?: string | null;
+  expiredAt?: string | null;
   customPeriod: boolean;
   effectiveFrom: string;
   effectiveTo: string;
@@ -37,25 +45,12 @@ type CommissionFeeRuleFormProps = {
   allowGlobalToggle: boolean;
   categoryOptions: FoodCategoryOption[];
   defaultValues: Partial<CommissionFeeRuleFormValues> | null;
+  lockCustomPeriod?: boolean;
   isSubmitting: boolean;
   errorMessage: string | null;
   onCancel: () => void;
   onSubmit: (values: CommissionFeeRuleFormValues) => Promise<void>;
 };
-
-function todayDateString(): string {
-  return new Date().toISOString().slice(0, 10);
-}
-
-function addDays(dateStr: string, days: number): string {
-  const d = new Date(`${dateStr}T00:00:00.000Z`);
-  d.setUTCDate(d.getUTCDate() + days);
-  return d.toISOString().slice(0, 10);
-}
-
-function isISODateOnly(s: string): boolean {
-  return /^\d{4}-\d{2}-\d{2}$/.test(s);
-}
 
 export function CommissionFeeRuleForm({
   title,
@@ -67,6 +62,7 @@ export function CommissionFeeRuleForm({
   allowGlobalToggle,
   categoryOptions,
   defaultValues,
+  lockCustomPeriod,
   isSubmitting,
   errorMessage,
   onCancel,
@@ -98,6 +94,13 @@ export function CommissionFeeRuleForm({
     if (defaultValues.effectiveTo !== undefined) setEffectiveTo(defaultValues.effectiveTo ?? "");
   }, [defaultValues]);
 
+  const lockPeriod = (lockCustomPeriod ?? false) || !!defaultValues;
+
+  useEffect(() => {
+    if (!lockPeriod) return;
+    setCustomPeriod(true);
+  }, [lockPeriod]);
+
   useEffect(() => {
     if (initialGlobal) setIsGlobalRule(true);
   }, [initialGlobal]);
@@ -121,25 +124,34 @@ export function CommissionFeeRuleForm({
 
   const summary = useMemo(() => {
     const rate = commissionPercent.trim();
-    const cat =
-      categoryOptions.find((c) => c.id === foodCategoryId)?.name ?? "—";
+    const categoryName = categoryOptions.find((c) => c.id === foodCategoryId)?.name ?? "—";
     const global = lockGlobal || isGlobalRule;
     const today = todayDateString();
-    const fromDisplay = customPeriod ? (effectiveFrom || "—") : today;
-    const toDisplay = customPeriod ? (effectiveTo || "—") : addDays(today, 1);
+    const fromRaw = customPeriod ? (effectiveFrom || "—") : today;
+    const toRaw = customPeriod ? (effectiveTo || "—") : addDays(today, 1);
+    const status = defaultValues?.expiredAt
+      ? "Expired"
+      : defaultValues?.activatedAt
+        ? isActive
+          ? "Active"
+          : "Inactive"
+        : "Pending";
+
     return {
       ruleName: ruleName.trim() || "—",
-      category: global ? "Global default" : cat,
+      category: global ? "Global default" : categoryName,
       commissionPercent: rate ? `${rate}%` : "—",
-      effectiveFrom: fromDisplay,
-      effectiveTo: toDisplay,
-      status: isActive ? "Active" : "Pending",
+      effectiveFrom: fromRaw === "—" ? "—" : formatDateDdMmYyyy(fromRaw),
+      effectiveTo: toRaw === "—" ? "—" : formatDateDdMmYyyy(toRaw),
+      status,
     };
   }, [
     ruleName,
     lockGlobal,
     isGlobalRule,
     isActive,
+    defaultValues?.activatedAt,
+    defaultValues?.expiredAt,
     foodCategoryId,
     commissionPercent,
     customPeriod,
@@ -166,13 +178,13 @@ export function CommissionFeeRuleForm({
       return;
     }
 
-    const pctRaw = commissionPercent.trim().replace(",", ".");
-    if (!pctRaw) {
+    const percentInput = commissionPercent.trim().replace(",", ".");
+    if (!percentInput) {
       showToast("Commission percent is required.", "error");
       return;
     }
-    const pct = Number(pctRaw);
-    if (!Number.isFinite(pct) || pct < 0 || pct > 100) {
+    const percentValue = Number(percentInput);
+    if (!Number.isFinite(percentValue) || percentValue < 0 || percentValue > 100) {
       showToast("Commission percent must be between 0 and 100.", "error");
       return;
     }
@@ -185,7 +197,10 @@ export function CommissionFeeRuleForm({
       showToast("Start date is required.", "error");
       return;
     }
-    if (from < today) {
+    const existingFrom = defaultValues?.effectiveFrom;
+    const allowPastExistingStart =
+      !!existingFrom && isISODateOnly(existingFrom) && existingFrom === from && from < today;
+    if (from < today && !allowPastExistingStart) {
       showToast("Start date cannot be in the past.", "error");
       return;
     }
@@ -352,6 +367,12 @@ export function CommissionFeeRuleForm({
                 setEffectiveFrom={setEffectiveFrom}
                 effectiveTo={effectiveTo}
                 setEffectiveTo={setEffectiveTo}
+                lockCustomPeriod={lockPeriod}
+                allowPastStartOnEdit={
+                  !!defaultValues?.effectiveFrom &&
+                  isISODateOnly(defaultValues.effectiveFrom) &&
+                  defaultValues.effectiveFrom < todayDateString()
+                }
               />
             </div>
           </div>

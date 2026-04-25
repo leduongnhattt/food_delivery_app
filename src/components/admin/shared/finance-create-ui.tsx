@@ -135,6 +135,8 @@ export function FinancePeriodFields({
   effectiveTo,
   setEffectiveTo,
   emptyHint,
+  allowPastStartOnEdit,
+  lockCustomPeriod,
 }: {
   customPeriod: boolean;
   setCustomPeriod: (next: boolean) => void;
@@ -143,12 +145,26 @@ export function FinancePeriodFields({
   effectiveTo: string;
   setEffectiveTo: (next: string) => void;
   emptyHint?: string;
+  /**
+   * When editing an existing rule whose start date is already in the past,
+   * allow keeping that value so admin can update the end date.
+   */
+  allowPastStartOnEdit?: boolean;
+  /**
+   * When editing an existing rule, period selection is not allowed to switch back
+   * to the default (non-custom) period.
+   */
+  lockCustomPeriod?: boolean;
 }) {
   const todayMin = new Date().toISOString().slice(0, 10);
+  const allowPast =
+    !!allowPastStartOnEdit &&
+    effectiveFrom &&
+    /^\d{4}-\d{2}-\d{2}$/.test(effectiveFrom) &&
+    effectiveFrom < todayMin;
+  const startMin = allowPast ? effectiveFrom : todayMin;
   const endMin = effectiveFrom && /^\d{4}-\d{2}-\d{2}$/.test(effectiveFrom)
-    ? effectiveFrom < todayMin
-      ? todayMin
-      : effectiveFrom
+    ? effectiveFrom
     : todayMin;
 
   return (
@@ -157,6 +173,7 @@ export function FinancePeriodFields({
         <input
           type="checkbox"
           checked={customPeriod}
+          disabled={lockCustomPeriod}
           onChange={(e) => setCustomPeriod(e.target.checked)}
           className="h-4 w-4 rounded border-slate-300 accent-[#2563FF]"
         />
@@ -176,7 +193,7 @@ export function FinancePeriodFields({
               value={effectiveFrom}
               onChange={setEffectiveFrom}
               mode="date"
-              min={todayMin}
+              min={startMin}
               align="start"
               triggerClassName={ADMIN_FIELD_BASE_CLASS}
             />

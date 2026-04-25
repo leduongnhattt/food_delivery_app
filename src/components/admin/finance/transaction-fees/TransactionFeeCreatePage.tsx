@@ -27,15 +27,15 @@ export function TransactionFeeCreatePage() {
 
   const loadGlobalPrefill = useCallback(async () => {
     try {
-      const g = await getTransactionFeesGlobal();
+      const globalRule = await getTransactionFeesGlobal();
       setGlobalPrefill({
-        feeName: g.RuleName ?? "",
+        feeName: globalRule.RuleName ?? "",
         isGlobalRule: true,
-        ratePercent: String(g.RatePercent),
-        isActive: g.IsActive,
+        ratePercent: String(globalRule.RatePercent),
+        isActive: globalRule.IsActive,
         customPeriod: true,
-        effectiveFrom: g.EffectiveFrom,
-        effectiveTo: g.EffectiveTo ?? "",
+        effectiveFrom: globalRule.EffectiveFrom,
+        effectiveTo: globalRule.EffectiveTo ?? "",
         paymentChannelPostValue: "",
       });
     } catch {
@@ -59,18 +59,24 @@ export function TransactionFeeCreatePage() {
 
   async function handleSubmit(values: TransactionFeeRuleFormValues) {
     setError(null);
-    const rate = Number(values.ratePercent.trim().replace(",", "."));
-    const name = values.feeName.trim();
-    if (!Number.isFinite(rate) || rate < 0 || rate > 100) return; // validated in form
-    if (!name) return; // validated in form
+    const ratePercentNumber = Number(values.ratePercent.trim().replace(",", "."));
+    const trimmedFeeName = values.feeName.trim();
+    if (
+      !Number.isFinite(ratePercentNumber) ||
+      ratePercentNumber < 0 ||
+      ratePercentNumber > 100
+    ) {
+      return; // validated in form
+    }
+    if (!trimmedFeeName) return; // validated in form
 
     setSubmitting(true);
     try {
       const global = scopeGlobal || values.isGlobalRule;
       if (global) {
         await updateTransactionFeesGlobal({
-          ruleName: name,
-          ratePercent: rate,
+          ruleName: trimmedFeeName,
+          ratePercent: ratePercentNumber,
           isActive: values.isActive,
           effectiveFrom: values.effectiveFrom.trim(),
           effectiveTo: values.effectiveTo.trim() ? values.effectiveTo.trim() : null,
@@ -80,8 +86,8 @@ export function TransactionFeeCreatePage() {
         const effectiveToTrim = values.effectiveTo.trim();
         await createTransactionFeeChannelRule({
           paymentChannel: values.paymentChannelPostValue.trim(),
-          feeName: name,
-          ratePercent: rate,
+          feeName: trimmedFeeName,
+          ratePercent: ratePercentNumber,
           isActive: values.isActive,
           effectiveFrom: values.effectiveFrom.trim(),
           effectiveTo: effectiveToTrim ? effectiveToTrim : null,

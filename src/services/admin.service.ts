@@ -23,10 +23,14 @@ import type {
   CreateEnterpriseApiResponse,
   AdminVouchersListResponse,
   AdminCommissionFeesGlobalResponse,
+  AdminCommissionFeeGlobalRuleItem,
+  AdminCommissionFeeGlobalRulesListResponse,
   AdminCommissionFeeCategoryRuleItem,
   AdminCommissionFeeCategoryRulesListResponse,
   FoodCategoriesListResponse,
   AdminTransactionFeesGlobalResponse,
+  AdminTransactionFeeGlobalRuleItem,
+  AdminTransactionFeeGlobalRulesListResponse,
   AdminTransactionFeeChannelRuleItem,
   AdminTransactionFeeChannelRulesListResponse,
 } from '@/types/admin-api.types'
@@ -388,6 +392,38 @@ export async function getCommissionFeesGlobal(): Promise<AdminCommissionFeesGlob
   )
 }
 
+export async function listCommissionFeeGlobalRules(): Promise<AdminCommissionFeeGlobalRulesListResponse> {
+  return requestJson<AdminCommissionFeeGlobalRulesListResponse>(
+    `${urlAdminCommissionFees()}/global-rules`,
+    { method: 'GET' },
+  )
+}
+
+export async function activateCommissionFeeGlobalRule(
+  ruleId: string,
+): Promise<{ success: boolean; item: AdminCommissionFeeGlobalRuleItem }> {
+  return requestJson<{ success: boolean; item: AdminCommissionFeeGlobalRuleItem }>(
+    `${urlAdminCommissionFees()}/global-rules/${encodeURIComponent(ruleId)}/activate`,
+    { method: 'PATCH' },
+  )
+}
+
+export async function updateCommissionFeeGlobalRule(
+  ruleId: string,
+  payload: {
+    ruleName?: string | null
+    commissionPercent?: number
+    isActive?: boolean
+    effectiveFrom?: string
+    effectiveTo?: string | null
+  },
+): Promise<{ success: boolean; item: AdminCommissionFeeGlobalRuleItem }> {
+  return requestJson<{ success: boolean; item: AdminCommissionFeeGlobalRuleItem }>(
+    `${urlAdminCommissionFees()}/global-rules/${encodeURIComponent(ruleId)}`,
+    { method: 'PATCH', body: JSON.stringify(payload) },
+  )
+}
+
 export async function updateCommissionFeesGlobal(payload: {
   ruleName?: string | null
   commissionPercent: number
@@ -412,7 +448,7 @@ export type ListCommissionFeeCategoryRulesParams = {
   pageSize?: number
   search?: string
   foodCategoryId?: string
-  status?: 'Pending' | 'Active' | 'Inactive'
+  status?: 'Pending' | 'Active' | 'Inactive' | 'Expired'
   isActive?: boolean
   effectiveFrom?: string
   effectiveTo?: string
@@ -501,6 +537,38 @@ export async function getTransactionFeesGlobal(): Promise<AdminTransactionFeesGl
   )
 }
 
+export async function listTransactionFeeGlobalRules(): Promise<AdminTransactionFeeGlobalRulesListResponse> {
+  return requestJson<AdminTransactionFeeGlobalRulesListResponse>(
+    `${urlAdminTransactionFees()}/global-rules`,
+    { method: 'GET' },
+  )
+}
+
+export async function activateTransactionFeeGlobalRule(
+  ruleId: string,
+): Promise<{ success: boolean; item: AdminTransactionFeeGlobalRuleItem }> {
+  return requestJson<{ success: boolean; item: AdminTransactionFeeGlobalRuleItem }>(
+    `${urlAdminTransactionFees()}/global-rules/${encodeURIComponent(ruleId)}/activate`,
+    { method: 'PATCH' },
+  )
+}
+
+export async function updateTransactionFeeGlobalRule(
+  ruleId: string,
+  payload: {
+    ruleName?: string | null
+    ratePercent?: number
+    isActive?: boolean
+    effectiveFrom?: string
+    effectiveTo?: string | null
+  },
+): Promise<{ success: boolean; item: AdminTransactionFeeGlobalRuleItem }> {
+  return requestJson<{ success: boolean; item: AdminTransactionFeeGlobalRuleItem }>(
+    `${urlAdminTransactionFees()}/global-rules/${encodeURIComponent(ruleId)}`,
+    { method: 'PATCH', body: JSON.stringify(payload) },
+  )
+}
+
 export async function updateTransactionFeesGlobal(payload: {
   ruleName?: string | null
   ratePercent?: number
@@ -526,7 +594,7 @@ export type ListTransactionFeeChannelRulesParams = {
   search?: string
   /** Cash | CreditCard | Stripe | MoMo | VNPay | BankTransfer */
   paymentChannel?: string
-  status?: 'Pending' | 'Active' | 'Inactive'
+  status?: 'Pending' | 'Active' | 'Inactive' | 'Expired'
   isActive?: boolean
   effectiveFrom?: string
   effectiveTo?: string
