@@ -24,7 +24,7 @@ export function OrderSummary({ totalItems, subtotal, deliveryFee, discount, tota
             <span className="font-medium">{formatPrice(subtotal)}</span>
           </div>
           <div className="flex justify-between">
-            <span>Commission Fee</span>
+            <span>Delivery Fee</span>
             <span className="font-medium">{formatPrice(deliveryFee)}</span>
           </div>
           {discount && (

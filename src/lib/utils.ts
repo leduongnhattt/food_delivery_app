@@ -71,6 +71,26 @@ export function clampISODate(s: string): string {
   return /^\d{4}-\d{2}-\d{2}$/.test(t) ? t : ''
 }
 
+export function todayDateString(): string {
+  return new Date().toISOString().slice(0, 10)
+}
+
+export function addDays(dateStr: string, days: number): string {
+  const d = new Date(`${dateStr}T00:00:00.000Z`)
+  d.setUTCDate(d.getUTCDate() + days)
+  return d.toISOString().slice(0, 10)
+}
+
+export function isISODateOnly(s: string): boolean {
+  return /^\d{4}-\d{2}-\d{2}$/.test(s)
+}
+
+export function formatDateDdMmYyyy(dateOnly: string): string {
+  if (!isISODateOnly(dateOnly)) return dateOnly
+  const [, m, d] = dateOnly.split("-")
+  return `${d}/${m}/${dateOnly.slice(0, 4)}`
+}
+
 /**
  * Safely calculate price to avoid floating point precision issues
  * @param price Base price

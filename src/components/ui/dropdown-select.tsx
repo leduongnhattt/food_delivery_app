@@ -5,12 +5,12 @@ import { createPortal } from "react-dom";
 import { Check, ChevronDown } from "lucide-react";
 import { mergeClasses } from "@/lib/utils";
 
-export type EnterpriseMenuSelectOption = { value: string; label: string };
+export type DropdownSelectOption = { value: string; label: string };
 
 type Props = {
   value: string;
   onChange: (next: string) => void;
-  options: EnterpriseMenuSelectOption[];
+  options: DropdownSelectOption[];
   /** Wrapper width / layout */
   className?: string;
   /** Extra classes on the trigger button (e.g. segmented left segment) */
@@ -33,7 +33,7 @@ type Props = {
 /**
  * Custom dropdown matching admin list filters (ring inset, shadow menu, slate hover).
  */
-export function EnterpriseMenuSelect({
+export function DropdownSelect({
   value,
   onChange,
   options,
@@ -141,7 +141,6 @@ export function EnterpriseMenuSelect({
                     left: menuPos.left,
                     top: menuPos.top,
                     minWidth: menuPos.width,
-                    // If forced "top", align the menu's bottom to trigger top.
                     transform: side === "top" ? "translateY(-100%)" : undefined,
                   }}
                 >

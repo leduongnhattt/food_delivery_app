@@ -17,6 +17,8 @@ export interface Restaurant {
     avatarUrl: string
     rating: number
     deliveryTime: string
+    deliveryFee?: number
+    distanceMeters?: number | null
     minimumOrder: number
     isOpen: boolean
     openHours?: string

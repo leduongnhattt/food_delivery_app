@@ -7,6 +7,11 @@ import {
   orderManagementService,
   type Order,
 } from "@/services/order-management.service";
+import {
+  csvEscapeCell,
+  downloadCsvFile,
+  makeTimestampForFilename,
+} from "@/lib/csv";
 import DeleteOrderPopup from "@/components/enterprise/orders/shared/DeleteOrderPopup";
 import { EnterpriseOrdersPrimaryTabs } from "@/components/enterprise/orders/list/EnterpriseOrdersPrimaryTabs";
 import { EnterpriseOrdersTable } from "@/components/enterprise/orders/list/EnterpriseOrdersTable";
@@ -23,9 +28,9 @@ import {
   type EnterpriseToShipSubTab,
 } from "@/lib/enterprise-orders";
 import {
-  EnterpriseMenuSelect,
-  type EnterpriseMenuSelectOption,
-} from "@/components/enterprise/orders/shared/EnterpriseMenuSelect";
+  DropdownSelect,
+  type DropdownSelectOption,
+} from "@/components/ui/dropdown-select";
 import { EnterprisePageHeader, ENTERPRISE_PANEL_CLASS } from "@/components/enterprise/EnterprisePageHeader";
 
 type SearchField = "product" | "buyer_name" | "order_id" | "tracking_number";
@@ -103,7 +108,7 @@ function chipClass(active: boolean) {
   }`;
 }
 
-const SEARCH_FIELD_OPTIONS: EnterpriseMenuSelectOption[] = [
+const SEARCH_FIELD_OPTIONS: DropdownSelectOption[] = [
   { value: "product", label: "Product" },
   { value: "buyer_name", label: "Buyer Name" },
   { value: "order_id", label: "Order ID" },
@@ -117,18 +122,18 @@ const SEARCH_FIELD_PLACEHOLDER: Record<SearchField, string> = {
   tracking_number: "Input tracking number",
 };
 
-const SHIPPING_CHANNEL_OPTIONS: EnterpriseMenuSelectOption[] = [
+const SHIPPING_CHANNEL_OPTIONS: DropdownSelectOption[] = [
   { value: "all", label: "All Channels" },
 ];
 
-const SORT_OPTIONS: EnterpriseMenuSelectOption[] = [
+const SORT_OPTIONS: DropdownSelectOption[] = [
   { value: "newest", label: "Confirmed Date (Newest First)" },
   { value: "oldest", label: "Confirmed Date (Oldest First)" },
   { value: "amount_high", label: "Order Total (High to Low)" },
   { value: "amount_low", label: "Order Total (Low to High)" },
 ];
 
-const PAGE_SIZE_OPTIONS: EnterpriseMenuSelectOption[] = [
+const PAGE_SIZE_OPTIONS: DropdownSelectOption[] = [
   { value: "12", label: "12 / page" },
   { value: "24", label: "24 / page" },
   { value: "48", label: "48 / page" },
@@ -140,6 +145,7 @@ export function EnterpriseOrdersPageClient() {
   const [sortBy, setSortBy] = useState("newest");
   const [pageSize, setPageSize] = useState<12 | 24 | 48>(12);
   const [page, setPage] = useState(1);
+  const [exporting, setExporting] = useState(false);
   const pagerRef = useRef<HTMLDivElement | null>(null);
   const scrollAfterUpdateRef = useRef(false);
   const isFetchingRef = useRef(false);
@@ -297,6 +303,61 @@ export function EnterpriseOrdersPageClient() {
   const sortedOrders = useMemo(() => {
     return orderManagementService.sortOrders(searched, sortBy);
   }, [searched, sortBy]);
+
+  const handleExport = useCallback(async () => {
+    if (exporting) return;
+    setExporting(true);
+    try {
+      const exportRows = sortedOrders;
+      if (exportRows.length === 0) {
+        showToast("No orders to export", "warning");
+        return;
+      }
+
+      const header = [
+        "OrderID",
+        "Buyer",
+        "BuyerUsername",
+        "Total",
+        "Status",
+        "OrderDate",
+        "Items",
+        "PaymentMethod",
+        "PaymentStatus",
+        "EstimatedDeliveryTime",
+        "TrackingNumber",
+      ];
+
+      const lines = [
+        header.join(","),
+        ...exportRows.map((orderRow) => {
+          const trackingNumber = orderTrackingHaystack(orderRow.metadata);
+          return [
+            csvEscapeCell(orderRow.id),
+            csvEscapeCell(orderRow.customerName),
+            csvEscapeCell(orderRow.customerUsername ?? ""),
+            csvEscapeCell(orderRow.totalAmount),
+            csvEscapeCell(orderRow.status),
+            csvEscapeCell(orderRow.createdAt),
+            csvEscapeCell(orderRow.items),
+            csvEscapeCell(orderRow.paymentMethod ?? ""),
+            csvEscapeCell(orderRow.paymentStatus ?? ""),
+            csvEscapeCell(orderRow.estimatedDeliveryTime ?? ""),
+            csvEscapeCell(trackingNumber),
+          ].join(",");
+        }),
+      ].join("\n");
+
+      const stamp = makeTimestampForFilename();
+      downloadCsvFile(`enterprise-orders-export-${stamp}.csv`, lines);
+      showToast(`Exported ${exportRows.length} orders`, "success");
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Failed to export orders";
+      showToast(msg, "error");
+    } finally {
+      setExporting(false);
+    }
+  }, [exporting, showToast, sortedOrders]);
 
   // Reset paging when the result set changes (tab, search, sort, etc.)
   useEffect(() => {
@@ -471,9 +532,10 @@ export function EnterpriseOrdersPageClient() {
             <button
               type="button"
               className="inline-flex h-9 items-center rounded-lg border border-slate-200 bg-white px-4 text-[13px] font-medium text-slate-900 shadow-sm hover:bg-slate-50"
-              onClick={() => showToast("Export is not implemented yet", "info")}
+              onClick={handleExport}
+              disabled={exporting || sortedOrders.length === 0}
             >
-              Export
+              {exporting ? "Exporting…" : "Export"}
             </button>
             <button
               type="button"
@@ -564,7 +626,7 @@ export function EnterpriseOrdersPageClient() {
 
           <div className="flex items-center gap-4">
             <div className="flex min-w-0 flex-1 items-stretch rounded border border-slate-200 bg-white focus-within:ring-2 focus-within:ring-inset focus-within:ring-sky-300">
-              <EnterpriseMenuSelect
+              <DropdownSelect
                 value={pendingSearchField}
                 onChange={(v) => setPendingSearchField(v as SearchField)}
                 options={SEARCH_FIELD_OPTIONS}
@@ -585,7 +647,7 @@ export function EnterpriseOrdersPageClient() {
               <label className="shrink-0 text-sm text-gray-600">
                 Shipping Channel
               </label>
-              <EnterpriseMenuSelect
+              <DropdownSelect
                 value={pendingShippingChannel}
                 onChange={setPendingShippingChannel}
                 options={SHIPPING_CHANNEL_OPTIONS}
@@ -621,7 +683,7 @@ export function EnterpriseOrdersPageClient() {
           </div>
           <div className="flex items-center gap-3">
             <span className="text-sm text-gray-600">Sort by:</span>
-            <EnterpriseMenuSelect
+            <DropdownSelect
               value={sortBy}
               onChange={setSortBy}
               options={SORT_OPTIONS}
@@ -696,7 +758,7 @@ export function EnterpriseOrdersPageClient() {
           </button>
 
           <div className="w-[110px]">
-            <EnterpriseMenuSelect
+            <DropdownSelect
               value={String(pageSize)}
               onChange={(v) => {
                 scrollAfterUpdateRef.current = true;

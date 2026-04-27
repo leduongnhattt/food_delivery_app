@@ -1,5 +1,4 @@
 import React, { useState } from "react";
-import { Edit, Trash2 } from "lucide-react";
 import { Food } from "./FoodList";
 import Image from "next/image";
 
@@ -7,10 +6,11 @@ export interface FoodRowProps {
   food: Food;
   onEdit?: (food: Food) => void;
   onDelete?: (food: Food) => void;
+  onToggleActive?: (food: Food) => void;
 }
 
-const FoodRow: React.FC<FoodRowProps> = ({ food, onEdit, onDelete }) => {
-  const [previewOpen, setPreviewOpen] = useState(false)
+const FoodRow: React.FC<FoodRowProps> = ({ food, onEdit, onDelete, onToggleActive }) => {
+  const [, setPreviewOpen] = useState(false)
   const [confirmOpen, setConfirmOpen] = useState(false)
   const handleEdit = () => {
     if (onEdit) {
@@ -32,98 +32,97 @@ const FoodRow: React.FC<FoodRowProps> = ({ food, onEdit, onDelete }) => {
 
   return (
     <>
-    <div className="grid grid-cols-12 gap-4 px-6 py-4 items-center hover:bg-gray-50 transition-colors">
-      {/* Image */}
-      <div className="col-span-1">
-        {food.ImageURL ? (
-          <>
-            <Image
-              width={48}
-              height={48}
-              src={food.ImageURL}
-              alt={food.DishName}
-              className="w-12 h-12 object-cover cursor-zoom-in"
-              onClick={() => setPreviewOpen(true)}
-            />
-            {previewOpen && (
-              <div
-                className="fixed inset-0 z-[100] bg-black/75 flex items-center justify-center p-2 cursor-zoom-out"
-                onClick={() => setPreviewOpen(false)}
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
+    <div className="overflow-hidden rounded border border-gray-200 bg-white">
+      <div className="grid grid-cols-12 gap-4 px-4 py-3">
+        {/* Dish */}
+        <div className="col-span-4">
+          <div className="flex items-start gap-3">
+            <div className="h-14 w-14 shrink-0 overflow-hidden rounded-md border border-gray-200 bg-gray-100">
+              {food.ImageURL ? (
+                <Image
+                  width={56}
+                  height={56}
                   src={food.ImageURL}
                   alt={food.DishName}
-                  className="max-w-[96vw] max-h-[96vh] rounded-2xl shadow-2xl object-contain"
+                  className="h-full w-full object-cover cursor-zoom-in"
+                  onClick={() => setPreviewOpen(true)}
                 />
-              </div>
-            )}
-          </>
-        ) : (
-          <div className="w-12 h-12 bg-gray-200 rounded-lg flex items-center justify-center text-gray-400">
-            <span>No Image</span>
+              ) : null}
+            </div>
+            <div className="min-w-0 flex-1 pt-0.5">
+              <p className="line-clamp-2 text-sm font-medium leading-snug text-gray-900">
+                {food.DishName}
+              </p>
+              {food.Description ? (
+                <p className="mt-1 text-xs leading-normal text-gray-500 line-clamp-2">
+                  {food.Description}
+                </p>
+              ) : null}
+            </div>
           </div>
-        )}
-      </div>
+        </div>
 
-      {/* Food Name */}
-      <div className="col-span-3">
-        <div className="font-medium text-gray-900">{food.DishName}</div>
-        {food.Description && (
-          <div className="text-sm text-gray-500 truncate">
-            {food.Description}
+        {/* Category */}
+        <div className="col-span-2">
+          <span className="inline-flex items-center rounded-full border border-blue-200 bg-blue-50 px-2 py-0.5 text-[11px] font-semibold text-blue-700">
+            {food.foodCategory.CategoryName}
+          </span>
+        </div>
+
+        {/* Price */}
+        <div className="col-span-2">
+          <span className="text-base font-semibold text-[#0070f0] tabular-nums whitespace-nowrap">
+            ${food.Price}
+          </span>
+        </div>
+
+        {/* Status */}
+        <div className="col-span-1">
+          {food.IsAvailable ? (
+            <span className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
+              Active
+            </span>
+          ) : (
+            <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-semibold text-slate-700">
+              Inactive
+            </span>
+          )}
+        </div>
+
+        {/* Updated */}
+        <div className="col-span-2 text-sm text-gray-600">
+          {food.UpdatedAt ? new Date(food.UpdatedAt).toLocaleString() : "—"}
+        </div>
+
+        {/* Actions */}
+        <div className="col-span-1">
+          <div className="flex flex-col items-start gap-1">
+            {onEdit ? (
+              <button
+                onClick={handleEdit}
+                className="text-sm font-medium text-[#0070f0] hover:text-[#0050c0] hover:underline"
+              >
+                Edit
+              </button>
+            ) : null}
+            {onToggleActive ? (
+              <button
+                type="button"
+                onClick={() => onToggleActive(food)}
+                className="text-sm font-medium text-[#0070f0] hover:text-[#0050c0] hover:underline"
+              >
+                {food.IsAvailable ? "Deactivate" : "Activate"}
+              </button>
+            ) : null}
+            {onDelete ? (
+              <button
+                onClick={handleDelete}
+                className="text-sm font-medium text-red-600 hover:underline"
+              >
+                Delete
+              </button>
+            ) : null}
           </div>
-        )}
-      </div>
-
-      {/* Category */}
-      <div className="col-span-2">
-        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-          {food.foodCategory.CategoryName}
-        </span>
-      </div>
-
-      {/* Price */}
-      <div className="col-span-2">
-        <span className="text-gray-900 font-medium">
-          ${food.Price}
-        </span>
-      </div>
-
-      {/* Availability */}
-      <div className="col-span-2">
-        {food.IsAvailable ? (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-            Selling
-          </span>
-        ) : (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-200 text-gray-700">
-            Unavailable
-          </span>
-        )}
-      </div>
-
-      {/* Actions */}
-      <div className="col-span-2">
-        <div className="inline-flex items-center border rounded-md overflow-hidden">
-          {onEdit && (
-            <button
-              onClick={handleEdit}
-              className="p-2 bg-white text-blue-500 hover:bg-blue-50 hover:text-blue-600 transition-colors"
-              title="Edit food item"
-            >
-              <Edit size={18} />
-            </button>
-          )}
-          {onDelete && (
-            <button
-              onClick={handleDelete}
-              className="p-2 bg-white text-red-500 hover:bg-red-50 hover:text-red-600 transition-colors border-l border-gray-300"
-              title="Delete food item"
-            >
-              <Trash2 size={18} />
-            </button>
-          )}
         </div>
       </div>
     </div>

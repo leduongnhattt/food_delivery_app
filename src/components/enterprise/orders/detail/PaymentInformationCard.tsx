@@ -98,6 +98,7 @@ export function PaymentInformationCard(props: {
                 <div className="text-sm text-gray-500">Shipping Fee Paid by Buyer</div>
                 <div className="text-sm text-gray-500">Shipping Fee Charged by Logistic Provider</div>
                 <div className="text-gray-900">Fees &amp; Charges</div>
+                <div className="text-sm text-gray-500">Commission fee (platform take-rate)</div>
                 <div className="flex items-center justify-end gap-1 pt-1.5 font-medium text-gray-900">
                   Order Income
                 </div>
@@ -109,6 +110,7 @@ export function PaymentInformationCard(props: {
                 <div className="text-gray-900">{money(props.shippingFeePaidByBuyer)}</div>
                 <div className="text-sm text-gray-500">{money(props.shippingFeePaidByBuyer)}</div>
                 <div className="text-sm text-gray-500">{money(0)}</div>
+                <div className="text-gray-900">{money(0)}</div>
                 <div className="text-gray-900">-{money(props.commission)}</div>
                 <div className="text-2xl font-medium text-[#2563FF]">{money(props.netEstimate)}</div>
               </div>

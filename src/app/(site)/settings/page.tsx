@@ -9,6 +9,10 @@ import { ArrowLeft, Globe, Bell, Shield, Palette, Moon, Sun, Save, CheckCircle2 
 import { useState, useEffect } from 'react'
 import { AuthGuard } from '@/components/auth/auth-guard'
 import { getServerApiBase } from '@/lib/http'
+import {
+  DropdownSelect,
+  type DropdownSelectOption,
+} from '@/components/ui/dropdown-select'
 
 export default function SettingsPage() {
   const router = useRouter()
@@ -17,7 +21,7 @@ export default function SettingsPage() {
   const [isLoading, setIsLoading] = useState(true)
   
   // Settings state
-  const [settings, setSettings] = useState({
+  const defaultSettings = {
     // Language & Region
     language: 'en',
     timezone: 'Asia/Ho_Chi_Minh',
@@ -37,7 +41,9 @@ export default function SettingsPage() {
     // Appearance
     theme: 'light',
     fontSize: 'medium'
-  })
+  }
+
+  const [settings, setSettings] = useState(defaultSettings)
 
   // Load settings on mount
   useEffect(() => {
@@ -55,14 +61,15 @@ export default function SettingsPage() {
         if (response.ok) {
           const data = await response.json()
           if (data.settings) {
-            setSettings(data.settings)
+            setSettings((prev) => ({ ...prev, ...data.settings }))
           }
         } else {
           // Fallback: load from localStorage
           const saved = localStorage.getItem('userSettings')
           if (saved) {
             try {
-              setSettings(JSON.parse(saved))
+              const parsed = JSON.parse(saved)
+              setSettings((prev) => ({ ...prev, ...parsed }))
             } catch (e) {
               console.error('Error parsing saved settings:', e)
             }
@@ -74,7 +81,8 @@ export default function SettingsPage() {
         const saved = localStorage.getItem('userSettings')
         if (saved) {
           try {
-            setSettings(JSON.parse(saved))
+            const parsed = JSON.parse(saved)
+            setSettings((prev) => ({ ...prev, ...parsed }))
           } catch (e) {
             console.error('Error parsing saved settings:', e)
           }
@@ -102,6 +110,16 @@ export default function SettingsPage() {
     { value: 'Asia/Seoul', label: 'Seoul (UTC+9)' },
     { value: 'UTC', label: 'UTC (UTC+0)' }
   ]
+
+  const languageOptions: DropdownSelectOption[] = languages.map((lang) => ({
+    value: lang.code,
+    label: `${lang.flag} ${lang.name}`,
+  }))
+
+  const timezoneOptions: DropdownSelectOption[] = timezones.map((tz) => ({
+    value: tz.value,
+    label: tz.label,
+  }))
 
 
   // Auto-save notification settings when changed
@@ -171,20 +189,7 @@ export default function SettingsPage() {
   }
 
   const handleReset = () => {
-    setSettings({
-      language: 'en',
-      timezone: 'Asia/Ho_Chi_Minh',
-      emailNotifications: true,
-      pushNotifications: true,
-      orderUpdates: true,
-      promotions: false,
-      marketing: false,
-      profileVisibility: 'public',
-      dataSharing: false,
-      twoFactorAuth: false,
-      theme: 'light',
-      fontSize: 'medium'
-    })
+    setSettings(defaultSettings)
   }
 
   if (isLoading) {
@@ -244,43 +249,28 @@ export default function SettingsPage() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-2">
                       <Label htmlFor="language" className="text-slate-700 font-medium">Language</Label>
-                      <Select 
-                        value={settings.language} 
-                        onValueChange={(value) => setSettings({...settings, language: value})}
-                      >
-                        <SelectTrigger className="w-full h-11 border-slate-200 focus:border-blue-500 focus:ring-blue-500">
-                          <SelectValue placeholder="Select language" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {languages.map((lang) => (
-                            <SelectItem key={lang.code} value={lang.code} className="cursor-pointer">
-                              <div className="flex items-center gap-3 py-1">
-                                <span className="text-xl">{lang.flag}</span>
-                                <span className="font-medium">{lang.name}</span>
-                              </div>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <DropdownSelect
+                        value={settings.language}
+                        onChange={(value) => setSettings({ ...settings, language: value })}
+                        options={languageOptions}
+                        className="w-full"
+                        menuClassName="min-w-[16rem]"
+                        usePortal
+                        aria-label="Select language"
+                      />
                     </div>
                     
                     <div className="space-y-2">
                       <Label htmlFor="timezone" className="text-slate-700 font-medium">Timezone</Label>
-                      <Select 
-                        value={settings.timezone} 
-                        onValueChange={(value) => setSettings({...settings, timezone: value})}
-                      >
-                        <SelectTrigger className="w-full h-11 border-slate-200 focus:border-blue-500 focus:ring-blue-500">
-                          <SelectValue placeholder="Select timezone" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {timezones.map((tz) => (
-                            <SelectItem key={tz.value} value={tz.value} className="cursor-pointer">
-                              {tz.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <DropdownSelect
+                        value={settings.timezone}
+                        onChange={(value) => setSettings({ ...settings, timezone: value })}
+                        options={timezoneOptions}
+                        className="w-full"
+                        menuClassName="min-w-[18rem]"
+                        usePortal
+                        aria-label="Select timezone"
+                      />
                     </div>
                   </div>
                 </CardContent>
@@ -369,7 +359,7 @@ export default function SettingsPage() {
                     <Label htmlFor="profileVisibility" className="text-slate-700 font-medium">Profile Visibility</Label>
                     <Select 
                       value={settings.profileVisibility} 
-                      onValueChange={(value) => setSettings({...settings, profileVisibility: value})}
+                        onValueChange={(value: string) => setSettings({...settings, profileVisibility: value})}
                     >
                       <SelectTrigger className="w-full h-11 border-slate-200 focus:border-emerald-500 focus:ring-emerald-500">
                         <SelectValue placeholder="Select visibility" />
@@ -422,7 +412,7 @@ export default function SettingsPage() {
                       <Label htmlFor="theme" className="text-slate-700 font-medium">Theme</Label>
                       <Select 
                         value={settings.theme} 
-                        onValueChange={(value) => setSettings({...settings, theme: value})}
+                        onValueChange={(value: string) => setSettings({...settings, theme: value})}
                       >
                         <SelectTrigger className="w-full h-11 border-slate-200 focus:border-purple-500 focus:ring-purple-500">
                           <SelectValue placeholder="Select theme" />
@@ -454,7 +444,7 @@ export default function SettingsPage() {
                       <Label htmlFor="fontSize" className="text-slate-700 font-medium">Font Size</Label>
                       <Select 
                         value={settings.fontSize} 
-                        onValueChange={(value) => setSettings({...settings, fontSize: value})}
+                        onValueChange={(value: string) => setSettings({...settings, fontSize: value})}
                       >
                         <SelectTrigger className="w-full h-11 border-slate-200 focus:border-purple-500 focus:ring-purple-500">
                           <SelectValue placeholder="Select font size" />

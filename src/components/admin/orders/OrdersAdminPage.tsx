@@ -11,6 +11,7 @@ import OrderStatusSelect from "./OrderStatusSelect";
 import OrderSearch from "./OrderSearch";
 import { getActionMenuPosition } from "@/components/admin/enterprises/list/utils";
 import { Pagination } from "@/components/ui/pagination";
+import { useToast } from "@/contexts/toast-context";
 
 const statusColorMap: Record<string, string> = {
   Pending: "bg-amber-50 text-amber-700 border-amber-200",
@@ -43,6 +44,7 @@ const PAGE_SIZE_OPTIONS = [12, 24, 48] as const;
 export default function OrdersAdminPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { showToast } = useToast();
 
   const statusFilter = searchParams.get("status") || "all";
   const paymentMethodFilter = searchParams.get("paymentMethod") || "";
@@ -357,8 +359,12 @@ export default function OrdersAdminPage() {
       a.click();
       a.remove();
       URL.revokeObjectURL(url);
+
+      showToast(`Exported ${rows.length} orders`, "success");
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to export orders");
+      const msg = e instanceof Error ? e.message : "Failed to export orders";
+      setError(msg);
+      showToast(msg, "error");
     } finally {
       setExporting(false);
     }
@@ -420,7 +426,17 @@ export default function OrdersAdminPage() {
               className="w-full flex items-center px-3 py-2 text-[12px] leading-4 font-normal text-[oklch(0.208_0.042_265.755)] hover:bg-slate-50 text-left"
               onClick={() => {
                 const row = orders.find((x) => x.OrderID === actionMenu.orderId);
-                if (row) exportOrderRow(row);
+                try {
+                  if (!row) {
+                    showToast("Order row not found", "error");
+                  } else {
+                    exportOrderRow(row);
+                    showToast(`Exported order ${row.OrderID}`, "success");
+                  }
+                } catch (e) {
+                  const msg = e instanceof Error ? e.message : "Failed to export row";
+                  showToast(msg, "error");
+                }
                 setActionMenu(null);
               }}
             >

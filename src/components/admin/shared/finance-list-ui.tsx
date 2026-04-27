@@ -32,6 +32,7 @@ export function FinanceGlobalDefaultCard({
   effectiveFrom,
   actionLabel,
   onAction,
+  actionDisabled,
 }: {
   ruleId?: string | null;
   rateLabel: string;
@@ -39,6 +40,7 @@ export function FinanceGlobalDefaultCard({
   effectiveFrom?: string | null;
   actionLabel: string;
   onAction: () => void;
+  actionDisabled?: boolean;
 }) {
   return (
     <div className="rounded-lg border border-slate-200 bg-white overflow-hidden">
@@ -62,7 +64,8 @@ export function FinanceGlobalDefaultCard({
 
         <button
           type="button"
-          className="shrink-0 inline-flex h-8 min-h-8 items-center rounded-md border border-[#93C5FD] bg-white px-4 text-[12px] font-medium text-[#2563FF] hover:bg-[#EFF6FF] transition-colors"
+          disabled={actionDisabled}
+          className="shrink-0 inline-flex h-8 min-h-8 items-center rounded-md border border-[#93C5FD] bg-white px-4 text-[12px] font-medium text-[#2563FF] hover:bg-[#EFF6FF] transition-colors disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-white"
           onClick={onAction}
         >
           {actionLabel}

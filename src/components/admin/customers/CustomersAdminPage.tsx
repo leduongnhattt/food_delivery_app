@@ -4,7 +4,7 @@ import { formatDate } from "@/lib/utils"
 import { Check, ChevronDown, Lock, Search, Unlock } from "lucide-react"
 import { Pagination } from "@/components/ui/pagination"
 import { ADMIN_MENU_TRIGGER_CLASS } from "@/components/admin/shared/admin-field-classes"
-import { EnterpriseMenuSelect } from "@/components/enterprise/orders/shared/EnterpriseMenuSelect"
+import { DropdownSelect } from "@/components/ui/dropdown-select"
 import { useAdminCustomersPage } from "@/hooks/admin-hooks"
 
 export default function CustomersAdminPage() {
@@ -57,7 +57,7 @@ export default function CustomersAdminPage() {
             <div className="w-full flex-1 min-w-0">
               {/* Segmented search (match Orders list): mode select + input share one border */}
               <div className="flex min-w-0 flex-1 items-stretch rounded border border-slate-200 bg-white focus-within:ring-2 focus-within:ring-inset focus-within:ring-sky-300">
-                <EnterpriseMenuSelect
+                <DropdownSelect
                   value={searchField}
                   onChange={setSearchField}
                   options={qModeOptions}

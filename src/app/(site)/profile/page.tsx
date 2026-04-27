@@ -114,7 +114,10 @@ export default function ProfilePage() {
   }
 
   const handleResendCode = async () => {
-    await resendCode()
+    const ok = await resendCode()
+    if (ok) {
+      showToast('Verification code resent.', 'success', 3000)
+    }
   }
 
   const handleUpdatePassword = async () => {
@@ -137,7 +140,10 @@ export default function ProfilePage() {
   }
 
   const handleSendForgotPasswordCode = async () => {
-    await sendForgotPasswordCode()
+    const ok = await sendForgotPasswordCode()
+    if (ok) {
+      showToast('Verification code sent to your email.', 'success', 3500)
+    }
   }
 
   const handleVerifyForgotPasswordCode = async () => {

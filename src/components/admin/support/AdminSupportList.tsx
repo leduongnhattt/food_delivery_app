@@ -14,7 +14,7 @@ import {
 import { fetchAdminSupportTickets } from "@/services/admin-support.service"
 import type { AdminSupportTicketListItem } from "@/types/support-api.types"
 import { mergeClasses, formatDate } from "@/lib/utils"
-import { EnterpriseMenuSelect } from "@/components/enterprise/orders/shared/EnterpriseMenuSelect"
+import { DropdownSelect } from "@/components/ui/dropdown-select"
 import {
   SUPPORT_CATEGORY_FILTER_OPTIONS,
   SupportCategoryLabel,
@@ -174,7 +174,7 @@ export default function AdminSupportList() {
             <div className={FILTER_SEARCH_WRAP}>
               {/* Segmented search: mode select + input share one border */}
               <div className="flex min-w-0 items-stretch rounded border border-slate-200 bg-white focus-within:ring-2 focus-within:ring-inset focus-within:ring-sky-300">
-                <EnterpriseMenuSelect
+                <DropdownSelect
                   value={qMode}
                   onChange={(next) => {
                     setQMode(next as any)

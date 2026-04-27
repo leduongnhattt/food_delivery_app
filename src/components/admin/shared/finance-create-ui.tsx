@@ -71,25 +71,31 @@ export function FinanceCreateActions({
   createLabel,
   onCancel,
   onCreate,
+  submitDisabled,
+  cancelDisabled,
 }: {
   cancelLabel?: string;
   createLabel: string;
   onCancel: () => void;
   onCreate?: () => void;
+  submitDisabled?: boolean;
+  cancelDisabled?: boolean;
 }) {
   return (
     <div className="flex items-center justify-end gap-3 pt-1">
       <button
         type="button"
         onClick={onCancel}
-        className="inline-flex h-8 min-h-8 min-w-[110px] items-center justify-center rounded-md border border-slate-200 bg-white px-4 text-[12px] font-medium text-slate-700 hover:bg-slate-50 transition-colors"
+        disabled={cancelDisabled}
+        className="inline-flex h-8 min-h-8 min-w-[110px] items-center justify-center rounded-md border border-slate-200 bg-white px-4 text-[12px] font-medium text-slate-700 hover:bg-slate-50 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
       >
         {cancelLabel ?? "Cancel"}
       </button>
       <button
         type="button"
         onClick={onCreate}
-        className="inline-flex h-8 min-h-8 min-w-[110px] items-center justify-center rounded-md border border-[#2563FF] bg-[#2563FF] px-4 text-[12px] font-medium text-white hover:bg-[#1E4FE6] transition-colors"
+        disabled={submitDisabled}
+        className="inline-flex h-8 min-h-8 min-w-[110px] items-center justify-center rounded-md border border-[#2563FF] bg-[#2563FF] px-4 text-[12px] font-medium text-white hover:bg-[#1E4FE6] transition-colors disabled:cursor-not-allowed disabled:opacity-50"
       >
         {createLabel}
       </button>
@@ -129,6 +135,8 @@ export function FinancePeriodFields({
   effectiveTo,
   setEffectiveTo,
   emptyHint,
+  allowPastStartOnEdit,
+  lockCustomPeriod,
 }: {
   customPeriod: boolean;
   setCustomPeriod: (next: boolean) => void;
@@ -137,13 +145,35 @@ export function FinancePeriodFields({
   effectiveTo: string;
   setEffectiveTo: (next: string) => void;
   emptyHint?: string;
+  /**
+   * When editing an existing rule whose start date is already in the past,
+   * allow keeping that value so admin can update the end date.
+   */
+  allowPastStartOnEdit?: boolean;
+  /**
+   * When editing an existing rule, period selection is not allowed to switch back
+   * to the default (non-custom) period.
+   */
+  lockCustomPeriod?: boolean;
 }) {
+  const todayMin = new Date().toISOString().slice(0, 10);
+  const allowPast =
+    !!allowPastStartOnEdit &&
+    effectiveFrom &&
+    /^\d{4}-\d{2}-\d{2}$/.test(effectiveFrom) &&
+    effectiveFrom < todayMin;
+  const startMin = allowPast ? effectiveFrom : todayMin;
+  const endMin = effectiveFrom && /^\d{4}-\d{2}-\d{2}$/.test(effectiveFrom)
+    ? effectiveFrom
+    : todayMin;
+
   return (
     <div className="space-y-3">
       <label className="flex items-center gap-2 text-[12px] text-slate-700">
         <input
           type="checkbox"
           checked={customPeriod}
+          disabled={lockCustomPeriod}
           onChange={(e) => setCustomPeriod(e.target.checked)}
           className="h-4 w-4 rounded border-slate-300 accent-[#2563FF]"
         />
@@ -163,6 +193,7 @@ export function FinancePeriodFields({
               value={effectiveFrom}
               onChange={setEffectiveFrom}
               mode="date"
+              min={startMin}
               align="start"
               triggerClassName={ADMIN_FIELD_BASE_CLASS}
             />
@@ -181,21 +212,21 @@ export function FinancePeriodFields({
               value={effectiveTo}
               onChange={setEffectiveTo}
               mode="date"
+              min={endMin}
               align="start"
               triggerClassName={ADMIN_FIELD_BASE_CLASS}
             />
           </div>
         </div>
       ) : (
-        <div className="rounded border border-blue-100 bg-blue-50 px-3 py-2 text-[12px] text-slate-600">
-          <div className="flex items-start gap-2">
-            <Info className="mt-0.5 h-4 w-4 text-blue-500" aria-hidden="true" />
-            <div>
-              {emptyHint ??
-                "This rule has no custom period and will remain active indefinitely."}
+        emptyHint ? (
+          <div className="rounded border border-blue-100 bg-blue-50 px-3 py-2 text-[12px] text-slate-600">
+            <div className="flex items-start gap-2">
+              <Info className="mt-0.5 h-4 w-4 text-blue-500" aria-hidden="true" />
+              <div>{emptyHint}</div>
             </div>
           </div>
-        </div>
+        ) : null
       )}
     </div>
   );

@@ -1,7 +1,8 @@
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { PasswordStrength } from '@/components/ui/password-strength'
-import { X, Eye, EyeOff, Mail, Check } from 'lucide-react'
+import { X, Eye, EyeOff } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
 
 /**
  * Modal for selecting email to send reset code
@@ -26,6 +27,22 @@ export function EmailSelectionModal({
   onSendCode,
   onClose
 }: EmailSelectionModalProps) {
+  const [localEmail, setLocalEmail] = useState(selectedEmail ?? '')
+  const [localError, setLocalError] = useState<string | null>(null)
+
+  useEffect(() => {
+    setLocalEmail(selectedEmail ?? '')
+    setLocalError(null)
+  }, [selectedEmail, isOpen])
+
+  const normalizedAllowed = useMemo(
+    () => (emails ?? []).map((e) => String(e || '').trim().toLowerCase()).filter(Boolean),
+    [emails],
+  )
+
+  const normalizedInput = (localEmail || '').trim().toLowerCase()
+  const isAllowed = normalizedInput ? normalizedAllowed.includes(normalizedInput) : false
+
   if (!isOpen) return null
 
   return (
@@ -42,36 +59,42 @@ export function EmailSelectionModal({
           <p className="text-sm text-gray-600">
             Choose the email address where you want to receive the verification code.
           </p>
-          
-          <div className="space-y-2">
-            {emails.map((email) => (
-              <button
-                key={email}
-                type="button"
-                onClick={() => onSelectEmail(email)}
-                className={`w-full p-3 rounded-lg border-2 transition-all text-left ${
-                  selectedEmail === email
-                    ? 'border-orange-600 bg-orange-50'
-                    : 'border-gray-200 hover:border-gray-300 bg-white'
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <Mail className="w-5 h-5 text-gray-500" />
-                    <span className="text-sm font-medium text-gray-900">{email}</span>
-                  </div>
-                  {selectedEmail === email && (
-                    <Check className="w-5 h-5 text-orange-600" />
-                  )}
-                </div>
-              </button>
-            ))}
+
+          <div>
+            <label className="block text-sm font-medium mb-2 text-gray-700">Email</label>
+            <Input
+              value={localEmail}
+              onChange={(e) => {
+                const v = e.target.value
+                setLocalEmail(v)
+                setLocalError(null)
+                onSelectEmail(v)
+              }}
+              className="border-gray-300 focus:border-orange-600 focus:ring-orange-600 h-11 rounded-lg"
+              placeholder="Enter your email"
+              inputMode="email"
+              autoComplete="email"
+            />
+            {!localError && localEmail.trim() && !isAllowed ? (
+              <p className="mt-2 text-xs text-rose-600">
+                This email is not associated with your account.
+              </p>
+            ) : null}
+            {localError ? (
+              <p className="mt-2 text-xs text-rose-600">{localError}</p>
+            ) : null}
           </div>
 
           <Button
             className="bg-orange-600 hover:bg-orange-700 text-white w-full"
-            disabled={!selectedEmail || sending}
-            onClick={onSendCode}
+            disabled={!localEmail.trim() || sending || !isAllowed}
+            onClick={() => {
+              if (!isAllowed) {
+                setLocalError("Email is not associated with your account.")
+                return
+              }
+              onSendCode()
+            }}
           >
             {sending ? (
               <div className="flex items-center">

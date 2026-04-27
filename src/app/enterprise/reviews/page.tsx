@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   Star,
@@ -22,10 +22,11 @@ import {
   requestReviewVisibility
 } from "@/services/enterprise-reviews";
 import {
-  EnterpriseMenuSelect,
-  type EnterpriseMenuSelectOption,
-} from "@/components/enterprise/orders/shared/EnterpriseMenuSelect";
+  DropdownSelect,
+  type DropdownSelectOption,
+} from "@/components/ui/dropdown-select";
 import { EnterprisePageHeader, ENTERPRISE_PANEL_CLASS } from "@/components/enterprise/EnterprisePageHeader";
+import { Pagination } from "@/components/ui/pagination";
 
 const defaultFilters: Required<ReviewFilters> = {
   q: "",
@@ -45,15 +46,21 @@ const ratingOptions = [
   { label: "1 star", value: "1" }
 ];
 
-const ratingMenuOptions: EnterpriseMenuSelectOption[] = ratingOptions.map((o) => ({
+const ratingMenuOptions: DropdownSelectOption[] = ratingOptions.map((o) => ({
   value: o.value,
   label: o.label,
 }));
 
-const sortMenuOptions: EnterpriseMenuSelectOption[] = [
+const sortMenuOptions: DropdownSelectOption[] = [
   { value: "newest", label: "Newest first" },
   { value: "oldest", label: "Oldest first" },
 ];
+
+function initials(name: string | null | undefined): string {
+  const parts = (name ?? "").trim().split(/\s+/).filter(Boolean);
+  const head = parts.slice(0, 2).map((p) => p[0]?.toUpperCase() ?? "").join("");
+  return head || "NA";
+}
 
 const filterKeys: Array<keyof ReviewFilters> = ["q", "rating", "status", "startDate", "endDate", "sort"];
 
@@ -100,10 +107,36 @@ export default function EnterpriseReviewsPage() {
   const [requestReason, setRequestReason] = useState("");
   const [submittingRequest, setSubmittingRequest] = useState(false);
 
+  const PAGE_SIZE_OPTIONS = [12, 24, 48] as const;
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState<(typeof PAGE_SIZE_OPTIONS)[number]>(12);
+
+  const statusMenuOptions: DropdownSelectOption[] = useMemo(() => {
+    if (!supportsVisibility) {
+      return [{ value: "all", label: "All status" }];
+    }
+    return [
+      { value: "all", label: "All status" },
+      { value: "active", label: "Active" },
+      { value: "hidden", label: "Hidden" },
+    ];
+  }, [supportsVisibility]);
+
   useEffect(() => {
     const next = buildFiltersFromSearchParams();
     setFilters((prev) => (areFiltersEqual(prev, next) ? prev : next));
   }, [buildFiltersFromSearchParams]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [filters]);
+
+  const pagedReviews = (() => {
+    const totalPages = Math.max(1, Math.ceil(reviews.length / pageSize));
+    const safePage = Math.min(Math.max(1, page), totalPages);
+    const start = (safePage - 1) * pageSize;
+    return reviews.slice(start, start + pageSize);
+  })();
 
   const updateURL = (nextFilters: ReviewFilters) => {
     const normalized = normalizeFilters(nextFilters);
@@ -306,7 +339,7 @@ export default function EnterpriseReviewsPage() {
               />
             </div>
 
-            <EnterpriseMenuSelect
+            <DropdownSelect
               value={filters.rating ?? "all"}
               onChange={(v) => handleFilterChange("rating", v)}
               options={ratingMenuOptions}
@@ -316,27 +349,17 @@ export default function EnterpriseReviewsPage() {
               aria-label="Filter by rating"
             />
 
-            <div className="flex rounded-xl border border-slate-200 overflow-hidden">
-              {["all", "active", "hidden"].map((status) => {
-                const disabled = status !== "all" && !supportsVisibility;
-                return (
-                  <button
-                    key={status}
-                    onClick={() => handleFilterChange("status", status)}
-                    disabled={disabled}
-                    className={`flex-1 px-3 py-2 text-sm font-medium capitalize ${
-                      filters.status === status
-                        ? "bg-indigo-500 text-white"
-                        : "bg-white text-slate-600 hover:bg-slate-50"
-                    } ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}
-                  >
-                    {status}
-                  </button>
-                );
-              })}
-            </div>
+            <DropdownSelect
+              value={filters.status ?? "all"}
+              onChange={(v) => handleFilterChange("status", v)}
+              options={statusMenuOptions}
+              className="w-full min-w-0"
+              menuClassName="min-w-[11rem]"
+              triggerClassName="rounded-xl"
+              aria-label="Filter reviews by status"
+            />
 
-            <EnterpriseMenuSelect
+            <DropdownSelect
               value={filters.sort ?? "newest"}
               onChange={(v) => handleFilterChange("sort", v)}
               options={sortMenuOptions}
@@ -392,90 +415,121 @@ export default function EnterpriseReviewsPage() {
               No reviews found for the selected filters.
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-slate-100">
-                <thead>
-                  <tr className="text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-                    <th className="px-6 py-4">Customer</th>
-                    <th className="px-6 py-4">Rating</th>
-                    <th className="px-6 py-4">Comment</th>
-                    <th className="px-6 py-4">Created</th>
-                    <th className="px-6 py-4">Status</th>
-                    <th className="px-6 py-4 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 bg-white/60">
-                  {reviews.map((review) => (
-                    <tr key={review.id} className="hover:bg-slate-50/70 transition-colors">
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className="h-10 w-10 rounded-full bg-gradient-to-r from-indigo-500 to-purple-500 text-white font-semibold flex items-center justify-center">
-                            {review.customerName.charAt(0).toUpperCase()}
+            <div>
+              <div className="sticky top-[13px] z-20 mb-3 rounded border border-gray-200 bg-gray-50 px-4 py-3">
+                <div className="grid grid-cols-12 gap-4 text-sm text-gray-900">
+                  <div className="col-span-4 font-medium">Customer</div>
+                  <div className="col-span-2 font-medium">Rating</div>
+                  <div className="col-span-3 font-medium">Comment</div>
+                  <div className="col-span-2 font-medium">Created</div>
+                  <div className="col-span-1 font-medium text-right">Actions</div>
+                </div>
+              </div>
+
+              <div className="space-y-3 pb-6">
+                {pagedReviews.map((review) => (
+                  <div
+                    key={review.id}
+                    className="overflow-hidden rounded border border-gray-200 bg-white"
+                  >
+                    <div className="grid grid-cols-12 gap-4 px-4 py-3">
+                      <div className="col-span-4 min-w-0">
+                        <div className="flex min-w-0 items-center gap-3">
+                          <div className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-100 text-xs font-semibold text-blue-700">
+                            {initials(review.customerName)}
                           </div>
-                          <div>
-                            <p className="font-semibold text-slate-900">{review.customerName}</p>
-                            {review.customerEmail && (
-                              <p className="text-xs text-slate-500">{review.customerEmail}</p>
-                            )}
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-medium text-gray-900">
+                              {review.customerName}
+                            </p>
+                            {review.customerEmail ? (
+                              <p className="truncate text-xs text-gray-500">
+                                {review.customerEmail}
+                              </p>
+                            ) : null}
+                            <div className="mt-1">
+                              <span
+                                className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold ${
+                                  review.isHidden
+                                    ? "border-rose-200 bg-rose-50 text-rose-700"
+                                    : "border-emerald-200 bg-emerald-50 text-emerald-700"
+                                }`}
+                              >
+                                {review.isHidden ? "Hidden" : "Active"}
+                              </span>
+                            </div>
                           </div>
                         </div>
-                      </td>
-                      <td className="px-6 py-4">
+                      </div>
+
+                      <div className="col-span-2">
                         <div className="flex items-center gap-2">
                           <div className="flex gap-0.5">
                             {Array.from({ length: 5 }).map((_, index) => (
                               <Star
                                 key={index}
-                                className={`w-4 h-4 ${
-                                  index < review.rating ? "text-yellow-400 fill-yellow-400" : "text-slate-200"
+                                className={`h-4 w-4 ${
+                                  index < review.rating
+                                    ? "fill-yellow-400 text-yellow-400"
+                                    : "text-slate-200"
                                 }`}
                               />
                             ))}
                           </div>
-                          <span className="text-sm text-slate-600">{review.rating}/5</span>
+                          <span className="text-sm text-gray-700 tabular-nums">
+                            {review.rating}/5
+                          </span>
                         </div>
-                      </td>
-                      <td className="px-6 py-4 max-w-md">
-                        <p className="text-sm text-slate-700 line-clamp-3">{review.comment || "—"}</p>
-                      </td>
-                      <td className="px-6 py-4 text-sm text-slate-600">
+                      </div>
+
+                      <div className="col-span-3 min-w-0">
+                        <p className="line-clamp-3 text-sm text-gray-700">
+                          {review.comment || "—"}
+                        </p>
+                      </div>
+
+                      <div className="col-span-2 text-sm text-gray-600">
                         {new Date(review.createdAt).toLocaleString()}
-                      </td>
-                      <td className="px-6 py-4">
-                        <span
-                          className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${
-                            review.isHidden
-                              ? "bg-rose-50 text-rose-700 border border-rose-100"
-                              : "bg-emerald-50 text-emerald-700 border border-emerald-100"
-                          }`}
-                        >
-                          {review.isHidden ? "Hidden" : "Active"}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-right">
+                      </div>
+
+                      <div className="col-span-1 flex justify-end">
                         <button
                           onClick={() => openRequestModal(review)}
-                          className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold border border-indigo-200 text-indigo-600 hover:bg-indigo-50 transition-colors"
+                          className="inline-flex h-8 items-center gap-2 rounded bg-white px-3 text-xs font-medium text-[#0070f0] hover:bg-blue-50"
                         >
                           {review.isHidden ? (
                             <>
-                              <Eye className="w-4 h-4" />
-                              Request show
+                              <Eye className="h-4 w-4" />
+                              Show
                             </>
                           ) : (
                             <>
-                              <EyeOff className="w-4 h-4" />
-                              Request hide
+                              <EyeOff className="h-4 w-4" />
+                              Hide
                             </>
                           )}
                         </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
+
+          {!loading && reviews.length > 0 ? (
+            <Pagination
+              page={page}
+              pageSize={pageSize}
+              total={reviews.length}
+              onPageChange={(n) => setPage(n)}
+              onPageSizeChange={(n) => {
+                setPageSize(n as any);
+                setPage(1);
+              }}
+              pageSizeOptions={PAGE_SIZE_OPTIONS}
+            />
+          ) : null}
         </div>
 
       {requestReview && (

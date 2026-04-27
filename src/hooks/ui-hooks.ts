@@ -2,6 +2,7 @@
 
 import { useCallback, useRef, useState, useEffect, type RefObject } from "react"
 import { PasswordService } from "@/services/password.service"
+import { changePassword } from "@/services/change-password.service"
 
 export function usePasswordToggle() {
   const [showPassword, setShowPassword] = useState(false)
@@ -20,6 +21,8 @@ export interface PasswordChangeState {
   code: string
   codeError: string | null
   sending: boolean
+  /** true once a reset code was successfully sent for the current flow */
+  codeSent: boolean
   resendIn: number
   currentPassword: string
   newPassword: string
@@ -43,6 +46,7 @@ export function usePasswordChange(email: string) {
     code: "",
     codeError: null,
     sending: false,
+    codeSent: false,
     resendIn: 0,
     currentPassword: "",
     newPassword: "",
@@ -60,14 +64,13 @@ export function usePasswordChange(email: string) {
 
   useEffect(() => {
     if (!state.isCodeModalOpen) return
-
-    setState((prev) => ({ ...prev, resendIn: 60 }))
+    if (state.resendIn <= 0) return
     const timer = setInterval(() => {
       setState((prev) => ({ ...prev, resendIn: prev.resendIn > 0 ? prev.resendIn - 1 : 0 }))
     }, 1000)
 
     return () => clearInterval(timer)
-  }, [state.isCodeModalOpen])
+  }, [state.isCodeModalOpen, state.resendIn])
 
   const updateState = (updates: Partial<PasswordChangeState>) => {
     setState((prev) => ({ ...prev, ...updates }))
@@ -75,27 +78,18 @@ export function usePasswordChange(email: string) {
 
   const startPasswordChange = async () => {
     updateState({
+      // Show change password form immediately (no email code in this flow).
       isChangePwdModalOpen: true,
-      canEditPassword: false,
+      isCodeModalOpen: false,
+      canEditPassword: true,
       code: "",
       codeError: null,
-      sending: true,
+      sending: false,
+      resendIn: 0,
+      resetTokenId: null,
+      forgotPasswordEmail: null,
+      selectedEmail: null,
     })
-
-    try {
-      const result = await PasswordService.sendResetCode(email)
-      if (!result.success) {
-        throw new Error(result.error || "Failed to send code")
-      }
-
-      setTimeout(() => {
-        updateState({ isChangePwdModalOpen: false, isCodeModalOpen: true })
-      }, 1500)
-    } catch (error) {
-      console.error("Failed to send reset code:", error)
-    } finally {
-      updateState({ sending: false })
-    }
   }
 
   const handleCodeChange = (value: string) => {
@@ -130,18 +124,22 @@ export function usePasswordChange(email: string) {
     }
   }
 
-  const resendCode = async () => {
+  const resendCode = async (): Promise<boolean> => {
     updateState({ sending: true })
     try {
       const emailToUse = state.forgotPasswordEmail || email
-      const result = await PasswordService.resendResetCode(emailToUse)
+      const result = state.codeSent
+        ? await PasswordService.resendResetCode(emailToUse)
+        : await PasswordService.sendResetCode(emailToUse)
       if (result.success) {
-        updateState({ resendIn: 60 })
+        updateState({ resendIn: 60, codeSent: true, codeError: null })
+        return true
       } else {
         throw new Error(result.error || "Failed to resend code")
       }
     } catch (error) {
       console.error("Failed to resend code:", error)
+      return false
     } finally {
       updateState({ sending: false })
     }
@@ -165,16 +163,29 @@ export function usePasswordChange(email: string) {
       return false
     }
 
-    if (!state.resetTokenId) {
-      updateState({ pwdError: "Verification required" })
-      return false
-    }
-
     try {
-      const result = await PasswordService.resetPassword(state.resetTokenId, state.newPassword)
-      if (!result.success) {
-        updateState({ pwdError: result.error || "Failed to update password" })
-        return false
+      // Forgot password flow uses verification code + reset token.
+      if (state.forgotPasswordEmail) {
+        if (!state.resetTokenId) {
+          updateState({ pwdError: "Verification required" })
+          return false
+        }
+
+        const result = await PasswordService.resetPassword(state.resetTokenId, state.newPassword)
+        if (!result.success) {
+          updateState({ pwdError: result.error || "Failed to update password" })
+          return false
+        }
+      } else {
+        // Normal change password (authenticated) uses current password verification.
+        const result = await changePassword({
+          currentPassword: state.currentPassword,
+          newPassword: state.newPassword,
+        })
+        if (!result.success) {
+          updateState({ pwdError: result.error?.message || "Failed to change password" })
+          return false
+        }
       }
 
       updateState({
@@ -183,6 +194,8 @@ export function usePasswordChange(email: string) {
         currentPassword: "",
         newPassword: "",
         confirmPassword: "",
+        forgotPasswordEmail: null,
+        selectedEmail: null,
       })
 
       return true
@@ -194,7 +207,7 @@ export function usePasswordChange(email: string) {
   }
 
   const closeCodeModal = () => {
-    updateState({ isCodeModalOpen: false, isChangePwdModalOpen: false })
+    updateState({ isCodeModalOpen: false, isChangePwdModalOpen: false, resendIn: 0, codeSent: false })
   }
 
   const closePasswordModal = () => {
@@ -209,6 +222,8 @@ export function usePasswordChange(email: string) {
       forgotPasswordEmail: null,
       code: "",
       codeError: null,
+      codeSent: false,
+      resendIn: 0,
       newPassword: "",
       confirmPassword: "",
       pwdError: null,
@@ -219,9 +234,16 @@ export function usePasswordChange(email: string) {
     updateState({ selectedEmail })
   }
 
-  const sendForgotPasswordCode = async () => {
+  const sendForgotPasswordCode = async (): Promise<boolean> => {
     if (!state.selectedEmail) {
-      return
+      return false
+    }
+
+    // Security: only allow sending reset codes to emails associated with this session/user.
+    // In profile context, allowed list is the user's email(s); at minimum, match the primary email.
+    if (state.selectedEmail.trim().toLowerCase() !== email.trim().toLowerCase()) {
+      updateState({ codeError: "Selected email is not associated with your account." })
+      return false
     }
 
     updateState({ sending: true })
@@ -229,7 +251,7 @@ export function usePasswordChange(email: string) {
       const result = await PasswordService.sendResetCode(state.selectedEmail)
       if (!result.success) {
         updateState({ codeError: result.error || "Failed to send code", sending: false })
-        return
+        return false
       }
 
       updateState({
@@ -238,10 +260,14 @@ export function usePasswordChange(email: string) {
         forgotPasswordEmail: state.selectedEmail,
         code: "",
         codeError: null,
+        codeSent: true,
+        resendIn: 60,
       })
+      return true
     } catch (error) {
       console.error("Failed to send reset code:", error)
       updateState({ codeError: "Failed to send code. Please try again.", sending: false })
+      return false
     } finally {
       updateState({ sending: false })
     }
@@ -275,6 +301,7 @@ export function usePasswordChange(email: string) {
         confirmPassword: "",
         showNew: false,
         showConfirm: false,
+        resendIn: 0,
       })
 
       return true
@@ -341,6 +368,8 @@ export function usePasswordChange(email: string) {
       forgotPasswordEmail: null,
       code: "",
       codeError: null,
+      codeSent: false,
+      resendIn: 0,
       newPassword: "",
       confirmPassword: "",
       showNew: false,
