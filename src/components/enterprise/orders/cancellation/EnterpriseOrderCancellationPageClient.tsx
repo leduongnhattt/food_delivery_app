@@ -12,13 +12,14 @@ import {
   initials,
   pickMetaBool,
   pickMetaString,
-} from "@/lib/enterprise-ui-helpers";
-import { useDismissablePopover } from "@/hooks/useDismissablePopover";
+} from "@/lib/enterprise-orders";
+import { useDismissablePopover } from "@/hooks/ui-hooks";
 import { CopyToClipboardButton } from "@/components/enterprise/CopyToClipboardButton";
 import {
-  EnterpriseMenuSelect,
-  type EnterpriseMenuSelectOption,
-} from "@/components/enterprise/orders/shared/EnterpriseMenuSelect";
+  DropdownSelect,
+  type DropdownSelectOption,
+} from "@/components/ui/dropdown-select";
+import { Pagination } from "@/components/ui/pagination";
 
 function norm(s: string | null | undefined): string {
   return (s || "").trim().toLowerCase();
@@ -73,7 +74,7 @@ function matchesReasonFilter(reasonCode: string, filter: ReasonFilterKey): boole
 
 type CancellationSearchField = "order_id" | "buyer_name";
 
-const CANCELLATION_SEARCH_OPTIONS: EnterpriseMenuSelectOption[] = [
+const CANCELLATION_SEARCH_OPTIONS: DropdownSelectOption[] = [
   { value: "order_id", label: "Order ID" },
   { value: "buyer_name", label: "Buyer name" },
 ];
@@ -106,6 +107,10 @@ export function EnterpriseOrderCancellationPageClient() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [allOrders, setAllOrders] = useState<Order[]>([]);
+
+  const PAGE_SIZE_OPTIONS = [12, 24, 48] as const;
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState<(typeof PAGE_SIZE_OPTIONS)[number]>(12);
 
   const [searchField, setSearchField] = useState<CancellationSearchField>("order_id");
   const [searchQuery, setSearchQuery] = useState("");
@@ -170,6 +175,17 @@ export function EnterpriseOrderCancellationPageClient() {
     });
   }, [cancelledOnlyOrders, dateRangeKey, reasonFilterKey, searchField, searchQuery]);
 
+  useEffect(() => {
+    setPage(1);
+  }, [searchField, searchQuery, dateRangeKey, reasonFilterKey]);
+
+  const pagedOrders = useMemo(() => {
+    const totalPages = Math.max(1, Math.ceil(visibleOrders.length / pageSize));
+    const safePage = Math.min(Math.max(1, page), totalPages);
+    const start = (safePage - 1) * pageSize;
+    return visibleOrders.slice(start, start + pageSize);
+  }, [page, pageSize, visibleOrders]);
+
   return (
     <div className="w-full space-y-6">
       <EnterprisePageHeader
@@ -182,7 +198,7 @@ export function EnterpriseOrderCancellationPageClient() {
           <div className="flex min-w-0 flex-1 flex-col gap-1">
             <label className="text-xs font-medium text-gray-600">Search</label>
             <div className="flex min-w-0 items-stretch rounded border border-slate-200 bg-white focus-within:ring-2 focus-within:ring-inset focus-within:ring-sky-300">
-              <EnterpriseMenuSelect
+              <DropdownSelect
                 value={searchField}
                 onChange={(v) => setSearchField(v as CancellationSearchField)}
                 options={CANCELLATION_SEARCH_OPTIONS}
@@ -382,7 +398,7 @@ export function EnterpriseOrderCancellationPageClient() {
                   </td>
                 </tr>
               ) : (
-                visibleOrders.map((o) => {
+                pagedOrders.map((o) => {
                   const meta = o.metadata;
                   const cancelledAtIso = pickMetaString(meta, "cancelledAt");
                   const cancelReason = pickMetaString(meta, "cancelReason");
@@ -478,6 +494,21 @@ export function EnterpriseOrderCancellationPageClient() {
             </tbody>
           </table>
         </div>
+
+        {!loading && visibleOrders.length > 0 ? (
+          <Pagination
+            page={page}
+            pageSize={pageSize}
+            total={visibleOrders.length}
+            onPageChange={(n) => setPage(n)}
+            onPageSizeChange={(n) => {
+              setPageSize(n as any);
+              setPage(1);
+            }}
+            pageSizeOptions={PAGE_SIZE_OPTIONS}
+            leftSlot={null}
+          />
+        ) : null}
       </div>
 
     </div>

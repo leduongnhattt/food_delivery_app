@@ -3,9 +3,9 @@
 import { useEffect, useMemo, useRef, useState, useTransition } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useToast } from "@/contexts/toast-context"
-import { useTimeHhmm } from "@/hooks/use-time-hhmm"
-import { useAuthValidation } from "@/hooks/use-auth-validation"
-import { usePasswordToggle } from "@/hooks/use-password-toggle"
+import { useTimeHhmm } from "@/hooks/ui-hooks"
+import { useAuthValidation } from "@/hooks/auth-hooks"
+import { usePasswordToggle } from "@/hooks/ui-hooks"
 import {
   enterpriseActivationSendOtp,
   enterpriseActivationStep1,

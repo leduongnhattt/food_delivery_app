@@ -4,9 +4,9 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useCallback } from 'react'
 import { ChevronDown } from 'lucide-react'
 
-type RangeOption = '30d' | '90d' | '1y'
+type RangeOption = '7d' | '30d' | '90d' | '1y'
 
-export default function RangeSelect({ current }: { current: string | undefined }) {
+export default function RangeSelect({ current }: { current?: string | undefined }) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -24,19 +24,20 @@ export default function RangeSelect({ current }: { current: string | undefined }
   )
 
   return (
-    <div className="relative inline-flex items-center">
+    <div className="relative flex w-full min-w-0 items-stretch">
       <select
         id="range"
         name="range"
         defaultValue={current || '30d'}
         onChange={handleChange}
-        className="h-9 appearance-none text-sm rounded-lg border border-slate-200 bg-white pr-8 pl-3 shadow-sm hover:border-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-emerald-400 transition-colors"
+        className="h-8 w-full min-w-0 flex-1 appearance-none rounded-md border border-slate-200 bg-white pl-2 pr-7 text-xs shadow-sm hover:border-slate-300 focus:outline-none focus:ring-1 focus:ring-emerald-400 focus:border-emerald-400 transition-colors"
       >
+        <option value="7d">Last 7 days</option>
         <option value="30d">Last 30 days</option>
         <option value="90d">Last 90 days</option>
         <option value="1y">Last 1 year</option>
       </select>
-      <ChevronDown className="pointer-events-none absolute right-2 h-4 w-4 text-slate-500" />
+      <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-500" />
     </div>
   )
 }

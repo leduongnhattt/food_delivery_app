@@ -2,7 +2,7 @@
 import { useRouter } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 import { Headphones } from 'lucide-react'
-import { useAccountHeader } from '@/hooks/use-account-header'
+import { useAccountHeader } from '@/hooks/account-hooks'
 
 type UserLike = {
   username?: string | null

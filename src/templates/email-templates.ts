@@ -1,4 +1,4 @@
-import { EMAIL_TEMPLATES } from '@/lib/constants';
+import { EMAIL_TEMPLATES } from '@/lib/app-constants';
 
 /**
  * Generate password reset email HTML template

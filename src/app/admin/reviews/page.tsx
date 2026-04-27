@@ -1,5 +1,5 @@
 import { Suspense } from "react"
-import ReviewsAdminPage from "@/components/admin/reviews/ReviewsAdminPage"
+import ReviewsAdminPage from "@/components/admin/platform/reviews/ReviewsAdminPage"
 
 export default function AdminReviewsPage() {
   return (

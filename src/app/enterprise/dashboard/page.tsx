@@ -5,7 +5,7 @@ import { useToast } from "@/contexts/toast-context";
 import { Activity } from "lucide-react";
 import StatsCards from "@/components/enterprise/dashboard/StatsCards";
 import RecentOrders from "@/components/enterprise/dashboard/RecentOrders";
-import { getServerApiBase } from "@/lib/http-client";
+import { getServerApiBase } from "@/lib/http";
 import { buildAuthHeader } from "@/lib/auth-helpers";
 import { EnterprisePageHeader } from "@/components/enterprise/EnterprisePageHeader";
 

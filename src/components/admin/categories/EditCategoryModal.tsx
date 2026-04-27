@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo } from 'react'
 import { Edit3 } from 'lucide-react'
-import { validateCategoryForm, canProceedCategoryForm, CategoryFormData } from '@/lib/admin-categories-validation'
+import { validateCategoryForm, canProceedCategoryForm, CategoryFormData } from '@/lib/admin-validation'
 
 interface EditCategoryModalProps {
   isOpen: boolean

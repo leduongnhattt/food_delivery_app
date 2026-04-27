@@ -1,9 +1,7 @@
 import { apiClient, type ApiResponse } from './api'
 import { API_BASE_URL } from './api'
 import { Restaurant } from '@/types/models'
-import { BaseService } from '@/lib/base-service'
-import { buildQueryString, requestJson } from '@/lib/http-client'
-import { createDebouncedApiCall } from '@/lib/debounce'
+import { BaseService, buildQueryString, requestJson, createDebouncedApiCall } from '@/lib/http'
 
 /** Base URL for restaurants APIs (Nest or Next). */
 function getRestaurantsBase(): string {

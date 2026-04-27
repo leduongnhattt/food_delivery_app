@@ -1,5 +1,5 @@
 import React from 'react'
-import { cn } from '@/lib/utils'
+import { mergeClasses } from '@/lib/utils'
 
 interface LoadingProps {
   size?: 'sm' | 'md' | 'lg'
@@ -14,9 +14,9 @@ export function Loading({ size = 'md', className }: LoadingProps) {
   }
   
   return (
-    <div className={cn("flex items-center justify-center", className)}>
+    <div className={mergeClasses("flex items-center justify-center", className)}>
       <div
-        className={cn(
+        className={mergeClasses(
           "animate-spin rounded-full border-2 border-gray-300 border-t-transparent",
           sizes[size]
         )}

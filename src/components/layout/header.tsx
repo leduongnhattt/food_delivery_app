@@ -2,7 +2,7 @@
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { useCart } from '@/hooks/use-cart'
-import { useAuth } from '@/hooks/use-auth'
+import { useAuth } from '@/hooks/auth-hooks'
 import { CartSidebar } from '@/components/cart/cart-sidebar'
 import { useRouter } from 'next/navigation';
 import { UserMenu } from '@/components/layout/user-menu'

@@ -1,6 +1,6 @@
 "use client";
 
-import { orderStatusLabel } from "@/lib/order-status.labels";
+import { orderStatusLabel } from "@/lib/orders";
 
 const FLOW = [
   "Pending",

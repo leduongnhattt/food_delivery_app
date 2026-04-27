@@ -11,8 +11,8 @@ import { VerifyCodeModal } from '@/components/profile/VerifyCodeModal'
 import { ChangePasswordModal } from '@/components/profile/ChangePasswordModal'
 import { EmailSelectionModal, ForgotPasswordNewPasswordModal } from '@/components/profile/ForgotPasswordModals'
 import { NotificationToast } from '@/components/profile/NotificationToast'
-import { useProfileData } from '@/hooks/use-profile-data'
-import { usePasswordChange } from '@/hooks/use-password-change'
+import { useProfileData } from '@/hooks/account-hooks'
+import { usePasswordChange } from '@/hooks/ui-hooks'
 import { useToast } from '@/contexts/toast-context'
 import { useDeliveryDestination } from '@/contexts/delivery-destination-context'
 
@@ -114,7 +114,10 @@ export default function ProfilePage() {
   }
 
   const handleResendCode = async () => {
-    await resendCode()
+    const ok = await resendCode()
+    if (ok) {
+      showToast('Verification code resent.', 'success', 3000)
+    }
   }
 
   const handleUpdatePassword = async () => {
@@ -137,7 +140,10 @@ export default function ProfilePage() {
   }
 
   const handleSendForgotPasswordCode = async () => {
-    await sendForgotPasswordCode()
+    const ok = await sendForgotPasswordCode()
+    if (ok) {
+      showToast('Verification code sent to your email.', 'success', 3500)
+    }
   }
 
   const handleVerifyForgotPasswordCode = async () => {

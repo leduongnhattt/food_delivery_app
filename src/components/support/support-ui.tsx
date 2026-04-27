@@ -1,4 +1,4 @@
-import { cn } from '@/lib/utils'
+import { mergeClasses } from '@/lib/utils'
 
 const STATUS_STYLES: Record<string, string> = {
   Pending: 'bg-amber-100 text-amber-900 border-amber-200',
@@ -21,7 +21,7 @@ export function SupportStatusBadge({ status }: { status: string }) {
   const label = STATUS_LABEL[status] ?? status
   return (
     <span
-      className={cn(
+      className={mergeClasses(
         'inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold tracking-wide',
         cls,
       )}

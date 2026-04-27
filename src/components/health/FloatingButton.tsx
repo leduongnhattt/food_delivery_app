@@ -1,7 +1,7 @@
 'use client'
 import React, { useState, useRef, useEffect } from 'react'
 import Image from 'next/image'
-import { BASE_IMAGE_URL } from '@/lib/constants'
+import { BASE_IMAGE_URL } from '@/lib/app-constants'
 
 interface FloatingButtonProps {
   className?: string

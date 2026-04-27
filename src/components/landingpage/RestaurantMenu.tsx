@@ -1,7 +1,6 @@
 import React from "react";
 import RestaurantCard from "./RestaurantCard";
-import { useRestaurantList } from '@/hooks/use-restaurant-list';
-import { CATALOG_REFETCH_INTERVAL_MS } from '@/hooks/catalog-refetch';
+import { useRestaurantList, CATALOG_REFETCH_INTERVAL_MS } from '@/hooks/catalog-hooks';
 import { Loading } from '@/components/ui/loading';
 import { ErrorDisplay } from '@/components/ui/error-display';
 import { Restaurant as ApiRestaurant, RestaurantCardData } from '@/types/models';

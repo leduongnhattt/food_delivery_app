@@ -3,7 +3,7 @@
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { formatPrice, formatDate } from '@/lib/utils'
-import { canReorderCustomerStatus } from '@/lib/order-utils'
+import { canReorderCustomerStatus } from '@/lib/orders'
 import { Order } from '@/services/order.service'
 import { 
   Clock, 

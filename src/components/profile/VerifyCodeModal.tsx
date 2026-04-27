@@ -45,7 +45,7 @@ export function VerifyCodeModal({
             placeholder="Enter verification code"
             value={code}
             onChange={(e) => onCodeChange(e.target.value)}
-            className="border-gray-300 focus:border-orange-600 focus:ring-orange-600 h-11 rounded-lg"
+            className="h-11 rounded-lg border-gray-300 focus-visible:ring-0 focus-visible:ring-offset-0 focus:border-orange-600"
           />
           {codeError && <div className="text-sm text-red-600">{codeError}</div>}
           <div className="flex items-center justify-end gap-2">

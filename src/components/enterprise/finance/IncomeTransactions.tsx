@@ -7,13 +7,13 @@ import {
   formatDateShort,
 } from "@/lib/utils";
 import {
-  EnterpriseMenuSelect,
-  type EnterpriseMenuSelectOption,
-} from "@/components/enterprise/orders/shared/EnterpriseMenuSelect";
+  DropdownSelect,
+  type DropdownSelectOption,
+} from "@/components/ui/dropdown-select";
 
 export type MoneyFlow = "all" | "in" | "out";
 export type TxType = "order_income" | "withdrawal" | "adjustment" | "refund";
-export type TxStatus = "all" | "success" | "pending" | "failed";
+export type TxStatus = "all" | "success" | "pending" | "failed" | "expired";
 
 export type IncomeTxRow = {
   id: string;
@@ -24,14 +24,15 @@ export type IncomeTxRow = {
   referenceId?: string | null;
   moneyFlow: "in" | "out";
   amount: number;
-  status: "success" | "pending" | "failed";
+  status: "success" | "pending" | "failed" | "expired";
 };
 
-const STATUS_OPTIONS: EnterpriseMenuSelectOption[] = [
+const STATUS_OPTIONS: DropdownSelectOption[] = [
   { value: "all", label: "All" },
   { value: "pending", label: "Pending" },
   { value: "success", label: "Success" },
   { value: "failed", label: "Failed" },
+  { value: "expired", label: "Expired" },
 ];
 
 export function IncomeTransactions({
@@ -174,7 +175,7 @@ export function IncomeTransactions({
 
         <div className="flex flex-wrap items-center gap-2">
           <span className="w-36 text-xs text-gray-500">Status</span>
-          <EnterpriseMenuSelect
+          <DropdownSelect
             value={txStatus}
             onChange={(v) => setTxStatus(v as TxStatus)}
             options={STATUS_OPTIONS}
@@ -279,7 +280,9 @@ export function IncomeTransactions({
                   <td className="py-3 text-gray-600">{formatDateShort(tx.createdAtISO)}</td>
                   <td className="py-3 text-center text-gray-600">{tx.moneyFlow}</td>
                   <td className="py-3 pr-4 text-right font-semibold text-gray-900">{formatCurrency(tx.amount)}</td>
-                  <td className="py-3 text-right text-gray-600">{tx.status}</td>
+                  <td className="py-3 text-right text-gray-600">
+                    {tx.status === "expired" ? "Expired" : tx.status}
+                  </td>
                 </tr>
               ))}
             </tbody>

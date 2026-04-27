@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { X } from "lucide-react";
-import { ENTERPRISE_PAYOUT_PROVIDERS, ENTERPRISE_VN_BANK_NAMES } from "@/lib/enterprise-bank-names";
+import { ENTERPRISE_PAYOUT_PROVIDERS, ENTERPRISE_VN_BANK_NAMES } from "@/lib/enterprise-finance";
 import type { FieldErrors } from "@/services/enterprise-bank-accounts.service";
 
 export type AddBankAccountFormData = {

@@ -10,7 +10,7 @@ import {
   buildQueryString,
   getServerApiBase,
   requestJson,
-} from '@/lib/http-client'
+} from '@/lib/http'
 import type {
   AdminCustomersListResponse,
   AdminEnterprisesListResponse,
@@ -22,6 +22,17 @@ import type {
   CreateAdminVoucherResponse,
   CreateEnterpriseApiResponse,
   AdminVouchersListResponse,
+  AdminCommissionFeesGlobalResponse,
+  AdminCommissionFeeGlobalRuleItem,
+  AdminCommissionFeeGlobalRulesListResponse,
+  AdminCommissionFeeCategoryRuleItem,
+  AdminCommissionFeeCategoryRulesListResponse,
+  FoodCategoriesListResponse,
+  AdminTransactionFeesGlobalResponse,
+  AdminTransactionFeeGlobalRuleItem,
+  AdminTransactionFeeGlobalRulesListResponse,
+  AdminTransactionFeeChannelRuleItem,
+  AdminTransactionFeeChannelRulesListResponse,
 } from '@/types/admin-api.types'
 
 /** Body for `POST` enterprise onboarding on Nest. */
@@ -110,6 +121,14 @@ function urlAdminVouchers(): string {
 
 function urlAdminDashboardSummary(): string {
   return `${nestApiBase()}/admin/dashboard/summary`
+}
+
+function urlAdminCommissionFees(): string {
+  return `${nestApiBase()}/admin/finance/commission-fees`
+}
+
+function urlAdminTransactionFees(): string {
+  return `${nestApiBase()}/admin/finance/transaction-fees`
 }
 
 /** Normalizes `HeadersInit` so `buildAuthHeader` can merge Bearer tokens. */
@@ -364,6 +383,303 @@ export async function fetchAdminDashboardSummary(params: {
   const qs = buildQueryString({ range: params.range })
   const url = qs ? `${urlAdminDashboardSummary()}?${qs}` : urlAdminDashboardSummary()
   return requestJson<AdminDashboardSummaryResponse>(url, { method: 'GET' })
+}
+
+export async function getCommissionFeesGlobal(): Promise<AdminCommissionFeesGlobalResponse> {
+  return requestJson<AdminCommissionFeesGlobalResponse>(
+    `${urlAdminCommissionFees()}/global`,
+    { method: 'GET' },
+  )
+}
+
+export async function listCommissionFeeGlobalRules(): Promise<AdminCommissionFeeGlobalRulesListResponse> {
+  return requestJson<AdminCommissionFeeGlobalRulesListResponse>(
+    `${urlAdminCommissionFees()}/global-rules`,
+    { method: 'GET' },
+  )
+}
+
+export async function activateCommissionFeeGlobalRule(
+  ruleId: string,
+): Promise<{ success: boolean; item: AdminCommissionFeeGlobalRuleItem }> {
+  return requestJson<{ success: boolean; item: AdminCommissionFeeGlobalRuleItem }>(
+    `${urlAdminCommissionFees()}/global-rules/${encodeURIComponent(ruleId)}/activate`,
+    { method: 'PATCH' },
+  )
+}
+
+export async function updateCommissionFeeGlobalRule(
+  ruleId: string,
+  payload: {
+    ruleName?: string | null
+    commissionPercent?: number
+    isActive?: boolean
+    effectiveFrom?: string
+    effectiveTo?: string | null
+  },
+): Promise<{ success: boolean; item: AdminCommissionFeeGlobalRuleItem }> {
+  return requestJson<{ success: boolean; item: AdminCommissionFeeGlobalRuleItem }>(
+    `${urlAdminCommissionFees()}/global-rules/${encodeURIComponent(ruleId)}`,
+    { method: 'PATCH', body: JSON.stringify(payload) },
+  )
+}
+
+export async function updateCommissionFeesGlobal(payload: {
+  ruleName?: string | null
+  commissionPercent: number
+  isActive?: boolean
+  effectiveFrom?: string
+  effectiveTo?: string | null
+}): Promise<{ success: boolean; DefaultID: string; CommissionPercent: number }> {
+  return requestJson(`${urlAdminCommissionFees()}/global`, {
+    method: 'PATCH',
+    body: JSON.stringify({
+      ruleName: payload.ruleName ?? undefined,
+      commissionPercent: payload.commissionPercent,
+      isActive: payload.isActive,
+      effectiveFrom: payload.effectiveFrom,
+      effectiveTo: payload.effectiveTo,
+    }),
+  })
+}
+
+export type ListCommissionFeeCategoryRulesParams = {
+  page?: number
+  pageSize?: number
+  search?: string
+  foodCategoryId?: string
+  status?: 'Pending' | 'Active' | 'Inactive' | 'Expired'
+  isActive?: boolean
+  effectiveFrom?: string
+  effectiveTo?: string
+}
+
+export async function listCommissionFeeCategoryRules(
+  params: ListCommissionFeeCategoryRulesParams,
+): Promise<AdminCommissionFeeCategoryRulesListResponse> {
+  const qs = buildQueryString({
+    page: params.page,
+    pageSize: params.pageSize,
+    search: params.search,
+    foodCategoryId: params.foodCategoryId,
+    status: params.status,
+    isActive:
+      params.isActive === undefined
+        ? undefined
+        : params.isActive
+          ? 'true'
+          : 'false',
+    effectiveFrom: params.effectiveFrom,
+    effectiveTo: params.effectiveTo,
+  })
+  const url = qs
+    ? `${urlAdminCommissionFees()}/category-rules?${qs}`
+    : `${urlAdminCommissionFees()}/category-rules`
+  return requestJson<AdminCommissionFeeCategoryRulesListResponse>(url, {
+    method: 'GET',
+  })
+}
+
+export async function getCommissionFeeCategoryRule(
+  commissionDefaultId: string,
+): Promise<AdminCommissionFeeCategoryRuleItem> {
+  return requestJson(
+    `${urlAdminCommissionFees()}/category-rules/${encodeURIComponent(commissionDefaultId)}`,
+    { method: 'GET' },
+  )
+}
+
+export async function createCommissionFeeCategoryRule(payload: {
+  foodCategoryId: string
+  ruleName?: string | null
+  commissionPercent: number
+  isActive?: boolean
+  effectiveFrom: string
+  effectiveTo?: string | null
+}): Promise<{ success: boolean; item: AdminCommissionFeeCategoryRuleItem }> {
+  return requestJson(`${urlAdminCommissionFees()}/category-rules`, {
+    method: 'POST',
+    body: JSON.stringify({
+      foodCategoryId: payload.foodCategoryId,
+      ruleName: payload.ruleName ?? undefined,
+      commissionPercent: payload.commissionPercent,
+      isActive: payload.isActive,
+      effectiveFrom: payload.effectiveFrom,
+      effectiveTo: payload.effectiveTo ?? undefined,
+    }),
+  })
+}
+
+export async function updateCommissionFeeCategoryRule(
+  commissionDefaultId: string,
+  payload: {
+    foodCategoryId?: string
+    ruleName?: string | null
+    commissionPercent?: number
+    isActive?: boolean
+    effectiveFrom?: string
+    effectiveTo?: string | null
+  },
+): Promise<{ success: boolean; item: AdminCommissionFeeCategoryRuleItem }> {
+  return requestJson(
+    `${urlAdminCommissionFees()}/category-rules/${encodeURIComponent(commissionDefaultId)}`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    },
+  )
+}
+
+export async function getTransactionFeesGlobal(): Promise<AdminTransactionFeesGlobalResponse> {
+  return requestJson<AdminTransactionFeesGlobalResponse>(
+    `${urlAdminTransactionFees()}/global`,
+    { method: 'GET' },
+  )
+}
+
+export async function listTransactionFeeGlobalRules(): Promise<AdminTransactionFeeGlobalRulesListResponse> {
+  return requestJson<AdminTransactionFeeGlobalRulesListResponse>(
+    `${urlAdminTransactionFees()}/global-rules`,
+    { method: 'GET' },
+  )
+}
+
+export async function activateTransactionFeeGlobalRule(
+  ruleId: string,
+): Promise<{ success: boolean; item: AdminTransactionFeeGlobalRuleItem }> {
+  return requestJson<{ success: boolean; item: AdminTransactionFeeGlobalRuleItem }>(
+    `${urlAdminTransactionFees()}/global-rules/${encodeURIComponent(ruleId)}/activate`,
+    { method: 'PATCH' },
+  )
+}
+
+export async function updateTransactionFeeGlobalRule(
+  ruleId: string,
+  payload: {
+    ruleName?: string | null
+    ratePercent?: number
+    isActive?: boolean
+    effectiveFrom?: string
+    effectiveTo?: string | null
+  },
+): Promise<{ success: boolean; item: AdminTransactionFeeGlobalRuleItem }> {
+  return requestJson<{ success: boolean; item: AdminTransactionFeeGlobalRuleItem }>(
+    `${urlAdminTransactionFees()}/global-rules/${encodeURIComponent(ruleId)}`,
+    { method: 'PATCH', body: JSON.stringify(payload) },
+  )
+}
+
+export async function updateTransactionFeesGlobal(payload: {
+  ruleName?: string | null
+  ratePercent?: number
+  isActive?: boolean
+  effectiveFrom?: string
+  effectiveTo?: string | null
+}): Promise<{ success: boolean; DefaultID: string; RatePercent: number }> {
+  return requestJson(`${urlAdminTransactionFees()}/global`, {
+    method: 'PATCH',
+    body: JSON.stringify({
+      ruleName: payload.ruleName ?? undefined,
+      ratePercent: payload.ratePercent,
+      isActive: payload.isActive,
+      effectiveFrom: payload.effectiveFrom,
+      effectiveTo: payload.effectiveTo,
+    }),
+  })
+}
+
+export type ListTransactionFeeChannelRulesParams = {
+  page?: number
+  pageSize?: number
+  search?: string
+  /** Cash | CreditCard | Stripe | MoMo | VNPay | BankTransfer */
+  paymentChannel?: string
+  status?: 'Pending' | 'Active' | 'Inactive' | 'Expired'
+  isActive?: boolean
+  effectiveFrom?: string
+  effectiveTo?: string
+}
+
+export async function listTransactionFeeChannelRules(
+  params: ListTransactionFeeChannelRulesParams,
+): Promise<AdminTransactionFeeChannelRulesListResponse> {
+  const qs = buildQueryString({
+    page: params.page,
+    pageSize: params.pageSize,
+    search: params.search,
+    paymentChannel: params.paymentChannel,
+    status: params.status,
+    isActive:
+      params.isActive === undefined
+        ? undefined
+        : params.isActive
+          ? 'true'
+          : 'false',
+    effectiveFrom: params.effectiveFrom,
+    effectiveTo: params.effectiveTo,
+  })
+  const url = qs
+    ? `${urlAdminTransactionFees()}/channel-rules?${qs}`
+    : `${urlAdminTransactionFees()}/channel-rules`
+  return requestJson<AdminTransactionFeeChannelRulesListResponse>(url, {
+    method: 'GET',
+  })
+}
+
+export async function getTransactionFeeChannelRule(
+  feeId: string,
+): Promise<AdminTransactionFeeChannelRuleItem> {
+  return requestJson(
+    `${urlAdminTransactionFees()}/channel-rules/${encodeURIComponent(feeId)}`,
+    { method: 'GET' },
+  )
+}
+
+export async function createTransactionFeeChannelRule(payload: {
+  paymentChannel: string
+  feeName: string
+  ratePercent: number
+  isActive?: boolean
+  effectiveFrom: string
+  effectiveTo?: string | null
+}): Promise<{ success: boolean; item: AdminTransactionFeeChannelRuleItem }> {
+  return requestJson(`${urlAdminTransactionFees()}/channel-rules`, {
+    method: 'POST',
+    body: JSON.stringify({
+      paymentChannel: payload.paymentChannel,
+      feeName: payload.feeName,
+      ratePercent: payload.ratePercent,
+      isActive: payload.isActive,
+      effectiveFrom: payload.effectiveFrom,
+      effectiveTo: payload.effectiveTo ?? undefined,
+    }),
+  })
+}
+
+export async function updateTransactionFeeChannelRule(
+  feeId: string,
+  payload: {
+    paymentChannel?: string
+    feeName?: string
+    ratePercent?: number
+    isActive?: boolean
+    effectiveFrom?: string
+    effectiveTo?: string | null
+  },
+): Promise<{ success: boolean; item: AdminTransactionFeeChannelRuleItem }> {
+  return requestJson(
+    `${urlAdminTransactionFees()}/channel-rules/${encodeURIComponent(feeId)}`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    },
+  )
+}
+
+export async function fetchFoodCategoriesList(): Promise<FoodCategoriesListResponse> {
+  return requestJson<FoodCategoriesListResponse>(urlCategories(), {
+    method: 'GET',
+  })
 }
 
 /**

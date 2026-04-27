@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/contexts/toast-context";
 import { Food } from "./FoodList";
 import { buildAuthHeader } from "@/lib/auth-helpers";
-import { getServerApiBase } from "@/lib/http-client";
+import { getServerApiBase } from "@/lib/http";
 import { Category } from "@/types/models";
 
 interface EditFoodPopupProps {

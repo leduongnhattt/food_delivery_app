@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import Image from 'next/image'
 import { useToast } from '@/contexts/toast-context'
-import { useAuth } from '@/hooks/use-auth'
+import { useAuth } from '@/hooks/auth-hooks'
 import { useTranslations } from '@/lib/i18n'
 import { createReview } from '@/services/review.service'
 

@@ -4,16 +4,16 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import React, { useState, useEffect, useCallback } from "react";
 import { useToast } from "@/contexts/toast-context";
-import { useAccountHeader } from "@/hooks/use-account-header";
+import { useAccountHeader } from "@/hooks/account-hooks";
 import { buildAuthHeader, getAuthToken } from "@/lib/auth-helpers";
-import { getServerApiBase } from "@/lib/http-client";
+import { getServerApiBase } from "@/lib/http";
 import { User, Camera, Save } from "lucide-react";
 import Image from "next/image";
 import { EnterprisePageHeader } from "@/components/enterprise/EnterprisePageHeader";
-import { cn } from "@/lib/utils";
+import { mergeClasses } from "@/lib/utils";
 
 /** Match admin Edit Enterprise field density. Resets shadcn Input ring/offset so focus is a single ring, not stacked on defaults. */
-const profileFieldClass = cn(
+const profileFieldClass = mergeClasses(
   "block h-8 w-full rounded border border-slate-300 bg-gradient-to-b from-slate-100/35 to-white px-2.5 text-[13px] leading-8 text-slate-900",
   "shadow-[inset_0_1px_0_rgba(255,255,255,0.65)]",
   "placeholder:text-slate-400",
@@ -41,13 +41,11 @@ export default function EnterpriseProfile() {
 
   // Validation functions
   const validateEnterpriseName = (name: string) => {
-    // Chỉ cho phép chữ cái, số, khoảng trắng và một số ký tự đặc biệt cơ bản
     const regex = /^[a-zA-ZÀ-ỹ0-9\s&.,()-]+$/;
     return regex.test(name);
   };
 
   const validatePhoneNumber = (phone: string) => {
-    // Chỉ cho phép số và dấu +, -, (), khoảng trắng
     const regex = /^[\d\s+()-]+$/;
     return regex.test(phone);
   };
@@ -74,7 +72,6 @@ export default function EnterpriseProfile() {
       setDescription(enterprise.Description || "");
       setOpenHours(enterprise.OpenHours || "");
       setCloseHours(enterprise.CloseHours || "");
-      // Use database avatar as primary source, accountHeader as fallback
       const avatarUrl = enterprise.account.Avatar || accountHeader.avatar || "";
       setAvatar(avatarUrl);
     } catch (error) {
@@ -334,7 +331,7 @@ export default function EnterpriseProfile() {
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className={cn(
+              className={mergeClasses(
                 "min-h-[8rem] w-full resize-y rounded border border-slate-300 bg-gradient-to-b from-slate-100/35 to-white px-2.5 py-2 text-[13px] leading-snug text-slate-900 shadow-[inset_0_1px_0_rgba(255,255,255,0.65)] placeholder:text-slate-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/35"
               )}
               rows={5}

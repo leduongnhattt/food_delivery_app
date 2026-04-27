@@ -18,7 +18,7 @@ import {
   copyText,
   maskPhone,
 } from "@/components/enterprise/orders/detail/order-detail-helpers";
-import { cancelReasonLabel, initials, pickMetaString } from "@/lib/enterprise-ui-helpers";
+import { cancelReasonLabel, initials, pickMetaString } from "@/lib/enterprise-orders";
 
 export function EnterpriseOrderCancellationDetailPageClient() {
   const params = useParams();

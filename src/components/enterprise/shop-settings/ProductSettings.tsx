@@ -3,9 +3,9 @@
 import React, { useMemo, useState } from "react";
 import { useToast } from "@/contexts/toast-context";
 import {
-  EnterpriseMenuSelect,
-  type EnterpriseMenuSelectOption,
-} from "@/components/enterprise/orders/shared/EnterpriseMenuSelect";
+  DropdownSelect,
+  type DropdownSelectOption,
+} from "@/components/ui/dropdown-select";
 import {
   Select,
   SelectContent,
@@ -43,7 +43,7 @@ export function ProductSettings() {
     [],
   );
 
-  const newItemStatusOptions: EnterpriseMenuSelectOption[] = useMemo(
+  const newItemStatusOptions: DropdownSelectOption[] = useMemo(
     () => [
       { value: "visible", label: "Visible" },
       { value: "hidden", label: "Hidden" },
@@ -107,7 +107,7 @@ export function ProductSettings() {
                       New item status
                     </div>
                     <div className="mt-1">
-                      <EnterpriseMenuSelect
+                      <DropdownSelect
                         value={productNewItemStatus}
                         onChange={(v) =>
                           setProductNewItemStatus(

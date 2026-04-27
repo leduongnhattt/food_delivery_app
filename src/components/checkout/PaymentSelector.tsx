@@ -1,6 +1,10 @@
 'use client'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { CHECKOUT_PAYMENT_METHOD, CHECKOUT_PAYMENT_METHOD_UI_ORDER, type CheckoutPaymentMethod } from '@/lib/payment-method'
+import {
+  CHECKOUT_PAYMENT_METHOD,
+  CHECKOUT_PAYMENT_METHOD_UI_ORDER,
+  type CheckoutPaymentMethod,
+} from '@/lib/orders'
 
 interface PaymentSelectorProps {
   method: CheckoutPaymentMethod

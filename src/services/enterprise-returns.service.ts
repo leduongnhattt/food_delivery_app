@@ -1,4 +1,4 @@
-import { getServerApiBase, requestJson } from "@/lib/http-client";
+import { getServerApiBase, requestJson } from "@/lib/http";
 
 export type ReturnRequestStatus =
   | "PendingReview"

@@ -6,7 +6,7 @@ import RestaurantMenu from '@/components/landingpage/RestaurantMenu'
 import HealthChatbot from '@/components/health/HealthChatbot'
 import React from 'react'
 import { CategoryService, type CategoryDto } from '@/services/category.service'
-import { getCategoryIcon, getCategoryTone } from '@/lib/category-icons'
+import { getCategoryIcon, getCategoryTone } from '@/lib/app-constants'
 import { useRouter } from 'next/navigation'
 
 export default function HomePage() {

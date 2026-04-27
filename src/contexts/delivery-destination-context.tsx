@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { useAuth } from '@/hooks/use-auth'
+import { useAuth } from '@/hooks/auth-hooks'
 import { CustomerService, type CustomerMe } from '@/services/customer.service'
 
 export type DeliveryDestination = {

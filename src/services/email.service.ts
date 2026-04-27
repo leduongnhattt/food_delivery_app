@@ -1,5 +1,5 @@
 import nodemailer from 'nodemailer';
-import { EMAIL_TEMPLATES } from '@/lib/constants';
+import { EMAIL_TEMPLATES } from '@/lib/app-constants';
 import {
   generatePasswordResetEmail,
   generatePasswordResetSuccessEmail

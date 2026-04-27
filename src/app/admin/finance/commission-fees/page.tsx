@@ -1,10 +1,5 @@
-import FinanceSettingsPlaceholderPage from "@/components/admin/finance/FinanceSettingsPlaceholderPage"
+import { CommissionFeesPage } from "@/components/admin/finance/commission-fees/CommissionFeesPage"
 
 export default function AdminCommissionFeesPage() {
-  return (
-    <FinanceSettingsPlaceholderPage
-      title="Commission Fees"
-      description="Configure platform commission rates and rules for orders and settlements."
-    />
-  )
+  return <CommissionFeesPage />
 }

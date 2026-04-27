@@ -1,6 +1,6 @@
 // Base API configuration
 import { refreshAccessToken, setAuthToken } from '@/lib/auth-helpers'
-import { getServerApiBase } from '@/lib/http-client'
+import { getServerApiBase } from '@/lib/http'
 
 export const API_BASE_URL =
     getServerApiBase().replace(/\/$/, '')

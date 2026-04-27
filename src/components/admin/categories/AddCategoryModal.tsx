@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, useTransition } from 'react'
 import { Tag, FileText } from 'lucide-react'
-import { validateCategoryForm, canProceedCategoryForm, CategoryFormData } from '@/lib/admin-categories-validation'
+import { validateCategoryForm, canProceedCategoryForm, CategoryFormData } from '@/lib/admin-validation'
 import { useToast } from '@/contexts/toast-context'
 import { createCategory } from '@/services/admin.service'
 

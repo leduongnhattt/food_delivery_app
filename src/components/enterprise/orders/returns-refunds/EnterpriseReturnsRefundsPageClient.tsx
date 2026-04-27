@@ -9,11 +9,12 @@ import {
   type ReturnRequestStatus,
 } from "@/services/enterprise-returns.service";
 import { ConfirmActionModal } from "@/components/enterprise/ConfirmActionModal";
-import { compactId, initials, shortId } from "@/lib/enterprise-ui-helpers";
+import { compactId, initials, shortId } from "@/lib/enterprise-orders";
 import {
-  EnterpriseMenuSelect,
-  type EnterpriseMenuSelectOption,
-} from "@/components/enterprise/orders/shared/EnterpriseMenuSelect";
+  DropdownSelect,
+  type DropdownSelectOption,
+} from "@/components/ui/dropdown-select";
+import { Pagination } from "@/components/ui/pagination";
 
 type TabKey = "All" | "Approved" | "Rejected" | "Completed";
 
@@ -64,7 +65,7 @@ function solutionLabel(s: string): string {
 
 type ReturnsSearchField = "order_id" | "buyer_name";
 
-const RETURNS_SEARCH_OPTIONS: EnterpriseMenuSelectOption[] = [
+const RETURNS_SEARCH_OPTIONS: DropdownSelectOption[] = [
   { value: "order_id", label: "Order ID" },
   { value: "buyer_name", label: "Buyer name" },
 ];
@@ -94,6 +95,10 @@ export function EnterpriseReturnsRefundsPageClient() {
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<TabKey>("All");
   const [rows, setRows] = useState<EnterpriseReturnRequestRow[]>([]);
+
+  const PAGE_SIZE_OPTIONS = [12, 24, 48] as const;
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState<(typeof PAGE_SIZE_OPTIONS)[number]>(12);
 
   const [pendingSearchField, setPendingSearchField] = useState<ReturnsSearchField>("order_id");
   const [pendingSearch, setPendingSearch] = useState("");
@@ -196,6 +201,17 @@ export function EnterpriseReturnsRefundsPageClient() {
     return sorted;
   }, [pendingRefundPendingOnly, pendingSearch, pendingSearchField, rows, sortBy, tab]);
 
+  useEffect(() => {
+    setPage(1);
+  }, [pendingRefundPendingOnly, pendingSearch, pendingSearchField, sortBy, tab]);
+
+  const pagedVisible = useMemo(() => {
+    const totalPages = Math.max(1, Math.ceil(visible.length / pageSize));
+    const safePage = Math.min(Math.max(1, page), totalPages);
+    const start = (safePage - 1) * pageSize;
+    return visible.slice(start, start + pageSize);
+  }, [page, pageSize, visible]);
+
   const counts = useMemo(() => {
     const base = rows.filter((r) => {
       if (pendingRefundPendingOnly && !r.order?.refundPending) return false;
@@ -279,7 +295,7 @@ export function EnterpriseReturnsRefundsPageClient() {
           {/* Search row + sort (search filters as you type, like My Orders) */}
           <div className="flex flex-wrap items-center gap-3">
             <div className="flex min-w-0 flex-1 items-stretch rounded border border-slate-200 bg-white focus-within:ring-2 focus-within:ring-inset focus-within:ring-sky-300">
-              <EnterpriseMenuSelect
+              <DropdownSelect
                 value={pendingSearchField}
                 onChange={(v) => setPendingSearchField(v as ReturnsSearchField)}
                 options={RETURNS_SEARCH_OPTIONS}
@@ -422,7 +438,7 @@ export function EnterpriseReturnsRefundsPageClient() {
             </div>
           ) : (
             <div className="space-y-3 pb-6">
-              {visible.map((r) => {
+              {pagedVisible.map((r) => {
                 const first = r.items[0];
                 const more = Math.max(0, r.items.length - 1);
                 return (
@@ -556,6 +572,20 @@ export function EnterpriseReturnsRefundsPageClient() {
             </div>
           )}
         </div>
+        
+        {!loading && visible.length > 0 ? (
+          <Pagination
+            page={page}
+            pageSize={pageSize}
+            total={visible.length}
+            onPageChange={(n) => setPage(n)}
+            onPageSizeChange={(n) => {
+              setPageSize(n as any);
+              setPage(1);
+            }}
+            pageSizeOptions={PAGE_SIZE_OPTIONS}
+          />
+        ) : null}
       </div>
 
       <ConfirmActionModal

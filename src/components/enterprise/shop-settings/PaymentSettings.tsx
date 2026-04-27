@@ -3,9 +3,9 @@
 import React, { useMemo, useState } from "react";
 import { useToast } from "@/contexts/toast-context";
 import {
-  EnterpriseMenuSelect,
-  type EnterpriseMenuSelectOption,
-} from "@/components/enterprise/orders/shared/EnterpriseMenuSelect";
+  DropdownSelect,
+  type DropdownSelectOption,
+} from "@/components/ui/dropdown-select";
 
 type PaymentTabKey = "payment-methods" | "payout" | "billing";
 
@@ -26,7 +26,7 @@ export function PaymentSettings() {
     [],
   );
 
-  const preferredPaymentOptions: EnterpriseMenuSelectOption[] = useMemo(
+  const preferredPaymentOptions: DropdownSelectOption[] = useMemo(
     () => [
       { value: "cod", label: "Cash on delivery" },
       { value: "stripe", label: "Card / Stripe" },
@@ -156,7 +156,7 @@ export function PaymentSettings() {
                     Preferred method
                   </div>
                   <div className="mt-1">
-                    <EnterpriseMenuSelect
+                    <DropdownSelect
                       value={preferredPaymentMethod}
                       onChange={(v) =>
                         setPreferredPaymentMethod(

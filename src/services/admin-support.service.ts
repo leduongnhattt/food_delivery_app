@@ -1,7 +1,7 @@
 /**
  * Admin support tickets API (Nest `/admin/support/*`).
  */
-import { buildQueryString, getServerApiBase, requestJson } from '@/lib/http-client'
+import { buildQueryString, getServerApiBase, requestJson } from '@/lib/http'
 import type {
   AdminSupportTicketDetailResponse,
   AdminSupportTicketsResponse,

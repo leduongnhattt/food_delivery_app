@@ -1,10 +1,5 @@
-import FinanceSettingsPlaceholderPage from "@/components/admin/finance/FinanceSettingsPlaceholderPage"
+import { TransactionFeesPage } from "@/components/admin/finance/transaction-fees/TransactionFeesPage"
 
 export default function AdminTransactionFeesPage() {
-  return (
-    <FinanceSettingsPlaceholderPage
-      title="Transaction Fees"
-      description="Set fees applied per transaction type (e.g. cards, wallets, refunds)."
-    />
-  )
+  return <TransactionFeesPage />
 }
