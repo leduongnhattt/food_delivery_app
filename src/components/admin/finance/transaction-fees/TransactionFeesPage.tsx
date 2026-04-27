@@ -91,7 +91,7 @@ export function TransactionFeesPage() {
   const [rows, setRows] = useState<AdminTransactionFeeChannelRuleItem[]>([]);
   const [total, setTotal] = useState(0);
   const [listLoading, setListLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [, setError] = useState<string | null>(null);
   const [toggleBusyId, setToggleBusyId] = useState<string | null>(null);
   const [activateConfirmRow, setActivateConfirmRow] =
     useState<AdminTransactionFeeChannelRuleItem | null>(null);

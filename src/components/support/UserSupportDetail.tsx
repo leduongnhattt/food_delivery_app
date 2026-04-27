@@ -27,6 +27,10 @@ import {
   SupportStatusBadge,
 } from "@/components/support/support-ui"
 import { useToast } from "@/contexts/toast-context"
+import {
+  DropdownSelect,
+  type DropdownSelectOption,
+} from "@/components/ui/dropdown-select"
 
 export default function UserSupportDetail({ basePath }: { basePath: string }) {
   const params = useParams()
@@ -43,6 +47,9 @@ export default function UserSupportDetail({ basePath }: { basePath: string }) {
   const [subject, setSubject] = useState("")
   const [description, setDescription] = useState("")
   const [category, setCategory] = useState("General")
+  const categoryOptions: DropdownSelectOption[] = useState(() =>
+    SUPPORT_CATEGORY_CREATE_OPTIONS.map((o) => ({ value: o.value, label: o.label })),
+  )[0]
 
   const base = basePath.replace(/\/$/, "")
 
@@ -347,18 +354,14 @@ export default function UserSupportDetail({ basePath }: { basePath: string }) {
                 <label className="block text-sm font-medium text-slate-700 mb-1">
                   Category
                 </label>
-                <select
+                <DropdownSelect
                   value={category}
-                  onChange={(e) => setCategory(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
-                  disabled={!isPending}
-                >
-                  {SUPPORT_CATEGORY_CREATE_OPTIONS.map((o) => (
-                    <option key={o.value} value={o.value}>
-                      {o.label}
-                    </option>
-                  ))}
-                </select>
+                  onChange={setCategory}
+                  options={categoryOptions}
+                  className="w-full"
+                  menuClassName="min-w-[14rem]"
+                  aria-label="Ticket category"
+                />
               </div>
 
               <div>

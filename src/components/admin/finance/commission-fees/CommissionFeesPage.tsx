@@ -145,7 +145,7 @@ export function CommissionFeesPage() {
       });
       setRows(listResponse.items);
       setTotal(listResponse.total);
-    } catch (e) {
+    } catch {
       if (!silent) {
         setRows([]);
         setTotal(0);

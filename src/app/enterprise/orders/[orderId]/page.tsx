@@ -138,7 +138,6 @@ export default function EnterpriseOrderDetailPage() {
 
   const subtotal = order.orderDetails.reduce((s, l) => s + l.subTotal, 0);
   const commission = order.commissionAmount ?? 0;
-  const netEstimate = order.totalAmount - commission;
   const buyerName = order.customer.fullName || order.customer.username || "—";
   const buyerPhone = maskPhone(order.customer.phoneNumber);
   const noteLimit = 200;
@@ -151,6 +150,9 @@ export default function EnterpriseOrderDetailPage() {
   const shippingFeePaidByBuyer = clampMoney(
     Math.max(0, orderTotal - merchandiseSubtotal),
   );
+  // Current business rule: enterprise self-delivers by default.
+  // Order income includes buyer-paid shipping fee.
+  const netEstimate = orderTotal - commission;
 
   const statusDisplay = buildStatusDisplay(stLower);
   const logisticsTimelineItems = buildLogisticsTimelineItems({

@@ -11,9 +11,9 @@ import {
 import { useAdminSearchInput } from "@/hooks/admin-hooks";
 import { DateTimePickerField } from "@/components/ui/date-time-picker";
 import {
-  EnterpriseMenuSelect,
-  type EnterpriseMenuSelectOption,
-} from "@/components/enterprise/orders/shared/EnterpriseMenuSelect";
+  DropdownSelect,
+  type DropdownSelectOption,
+} from "@/components/ui/dropdown-select";
 
 const PAYMENT_METHODS = [
   { value: "", label: "All Methods" },
@@ -74,7 +74,7 @@ export default function OrderSearch({
     setQModeState(qModeParam);
   }, [qModeParam]);
 
-  const searchModeOptions = useMemo<EnterpriseMenuSelectOption[]>(
+  const searchModeOptions = useMemo<DropdownSelectOption[]>(
     () => [
       { value: "buyer", label: "Name" },
       { value: "orderId", label: "Order ID" },
@@ -238,7 +238,7 @@ export default function OrderSearch({
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-12 sm:items-end">
         <div className="w-full min-w-0 sm:col-span-9">
           <div className="flex min-w-0 flex-1 items-stretch rounded border border-slate-200 bg-white focus-within:ring-2 focus-within:ring-inset focus-within:ring-sky-300">
-            <EnterpriseMenuSelect
+            <DropdownSelect
               value={qMode}
               onChange={setQMode}
               options={searchModeOptions}

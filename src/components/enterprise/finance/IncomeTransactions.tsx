@@ -7,9 +7,9 @@ import {
   formatDateShort,
 } from "@/lib/utils";
 import {
-  EnterpriseMenuSelect,
-  type EnterpriseMenuSelectOption,
-} from "@/components/enterprise/orders/shared/EnterpriseMenuSelect";
+  DropdownSelect,
+  type DropdownSelectOption,
+} from "@/components/ui/dropdown-select";
 
 export type MoneyFlow = "all" | "in" | "out";
 export type TxType = "order_income" | "withdrawal" | "adjustment" | "refund";
@@ -27,7 +27,7 @@ export type IncomeTxRow = {
   status: "success" | "pending" | "failed" | "expired";
 };
 
-const STATUS_OPTIONS: EnterpriseMenuSelectOption[] = [
+const STATUS_OPTIONS: DropdownSelectOption[] = [
   { value: "all", label: "All" },
   { value: "pending", label: "Pending" },
   { value: "success", label: "Success" },
@@ -175,7 +175,7 @@ export function IncomeTransactions({
 
         <div className="flex flex-wrap items-center gap-2">
           <span className="w-36 text-xs text-gray-500">Status</span>
-          <EnterpriseMenuSelect
+          <DropdownSelect
             value={txStatus}
             onChange={(v) => setTxStatus(v as TxStatus)}
             options={STATUS_OPTIONS}

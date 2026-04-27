@@ -30,8 +30,6 @@ import {
 import { OrderService } from '@/services/order.service'
 import type { Order } from '@/services/order.service'
 
-// Constants
-const DEFAULT_COMMISSION_FEE = 0.5
 const RESTAURANT_LOGO_DEBOUNCE_MS = 200
 
 // Offers now loaded from API
@@ -99,9 +97,9 @@ export default function CheckoutPage() {
     rating: number
     deliveryTime: string
     address: string
+    deliveryFee: number
   } | null>(null)
   const [availableVouchers, setAvailableVouchers] = useState<{ code: string, amount?: number, percent?: number, minOrder?: number }[]>([])
-  const [commissionFee, setCommissionFee] = useState<number>(DEFAULT_COMMISSION_FEE)
   const [isPlacingOrder, setIsPlacingOrder] = useState(false)
   const hasLoadedVouchersRef = useRef(false)
   const [reorderSourceOrder, setReorderSourceOrder] = useState<Order | null>(null)
@@ -172,7 +170,8 @@ export default function CheckoutPage() {
     0
   )
   const voucherDiscount = appliedVoucher?.discount || 0
-  const total = Math.max(0, subtotal + commissionFee - voucherDiscount)
+  const deliveryFee = restaurantInfo?.deliveryFee ?? 0
+  const total = Math.max(0, subtotal + deliveryFee - voucherDiscount)
 
   const effectivePhone = useMemo(
     () =>
@@ -212,6 +211,7 @@ export default function CheckoutPage() {
             rating: Number(restaurant?.rating ?? 0),
             deliveryTime: restaurant?.deliveryTime || '—',
             address: restaurant?.address || '—',
+            deliveryFee: Number(restaurant?.deliveryFee ?? 0) || 0,
           })
           if (restaurant?.avatarUrl) setRestaurantLogo(restaurant.avatarUrl)
         })
@@ -221,6 +221,7 @@ export default function CheckoutPage() {
             rating: 0,
             deliveryTime: '—',
             address: '—',
+            deliveryFee: 0,
           })
         })
     }, RESTAURANT_LOGO_DEBOUNCE_MS)
@@ -238,16 +239,7 @@ export default function CheckoutPage() {
 
   // restaurantLogo is handled by restaurantInfo fetch above
 
-  // Load commission fee from API based on restaurant
-  useEffect(() => {
-    const first = selectedCartItems[0]?.menuItem
-    if (!first?.restaurantId) return
-    RestaurantService.getCommission(first.restaurantId)
-      .then((res) => {
-        if (res?.success) setCommissionFee(Number(res.commissionFee) || 0)
-      })
-      .catch(() => {})
-  }, [selectedCartItems])
+  // Note: Commission is a platform take-rate (deducted from enterprise settlement), not a customer fee.
 
   // Load vouchers exactly once per mount – avoids StrictMode double fetch & polling noise
   useEffect(() => {
@@ -652,7 +644,7 @@ export default function CheckoutPage() {
               <OrderSummary
                 totalItems={totalItems}
                 subtotal={subtotal}
-                deliveryFee={commissionFee}
+                deliveryFee={deliveryFee}
                 discount={appliedVoucher ? { code: appliedVoucher.code, amount: appliedVoucher.discount } : null}
                 total={total}
                 buttonText={getCheckoutPrimaryButtonLabel(

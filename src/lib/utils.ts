@@ -87,7 +87,7 @@ export function isISODateOnly(s: string): boolean {
 
 export function formatDateDdMmYyyy(dateOnly: string): string {
   if (!isISODateOnly(dateOnly)) return dateOnly
-  const [_y, m, d] = dateOnly.split("-")
+  const [, m, d] = dateOnly.split("-")
   return `${d}/${m}/${dateOnly.slice(0, 4)}`
 }
 

@@ -23,9 +23,13 @@ import {
 } from "@/components/support/support-ui"
 import { useToast } from "@/contexts/toast-context"
 import { EnterprisePageHeader } from "@/components/enterprise/EnterprisePageHeader"
+import {
+  DropdownSelect,
+  type DropdownSelectOption,
+} from "@/components/ui/dropdown-select"
 
 const STATUS_FILTER = [
-  { value: "", label: "All statuses" },
+  { value: "__all__", label: "All statuses" },
   { value: "Pending", label: "Pending" },
   { value: "InProgress", label: "In progress" },
   { value: "Resolved", label: "Resolved" },
@@ -56,6 +60,20 @@ export default function UserSupportList({
   const [submitting, setSubmitting] = useState(false)
 
   const queryKey = useMemo(() => status, [status])
+
+  const statusOptions: DropdownSelectOption[] = useMemo(
+    () => STATUS_FILTER,
+    [],
+  )
+
+  const categoryOptions: DropdownSelectOption[] = useMemo(
+    () =>
+      SUPPORT_CATEGORY_CREATE_OPTIONS.map((o) => ({
+        value: o.value,
+        label: o.label,
+      })),
+    [],
+  )
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -193,21 +211,14 @@ export default function UserSupportList({
       )}
 
       <div className="max-w-md">
-        <label className="sr-only" htmlFor="support-status-filter">
-          Status
-        </label>
-        <select
-          id="support-status-filter"
-          value={status}
-          onChange={(e) => setStatus(e.target.value)}
-          className="w-full rounded-xl border border-slate-200 bg-white py-2.5 px-4 text-sm font-medium text-slate-800 shadow-sm focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
-        >
-          {STATUS_FILTER.map((o) => (
-            <option key={o.value || "all"} value={o.value}>
-              {o.label}
-            </option>
-          ))}
-        </select>
+        <DropdownSelect
+          value={status || "__all__"}
+          onChange={(v: string) => setStatus(v === "__all__" ? "" : v)}
+          options={statusOptions}
+          className="w-full"
+          menuClassName="min-w-[14rem]"
+          aria-label="Filter by status"
+        />
       </div>
 
       <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
@@ -285,17 +296,14 @@ export default function UserSupportList({
                 <label className="block text-sm font-medium text-slate-700 mb-1">
                   Category
                 </label>
-                <select
+                <DropdownSelect
                   value={category}
-                  onChange={(e) => setCategory(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
-                >
-                  {SUPPORT_CATEGORY_CREATE_OPTIONS.map((o) => (
-                    <option key={o.value} value={o.value}>
-                      {o.label}
-                    </option>
-                  ))}
-                </select>
+                  onChange={setCategory}
+                  options={categoryOptions}
+                  className="w-full"
+                  menuClassName="min-w-[14rem]"
+                  aria-label="Ticket category"
+                />
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">
