@@ -7,6 +7,9 @@ import HealthAnalysis from './HealthAnalysis'
 import ExerciseRecommendations from './ExerciseRecommendations'
 import FoodRecommendations from './FoodRecommendations'
 import MealPlan from './MealPlan'
+import AiInsights from './AiInsights'
+import AiRecommendations from './AiRecommendations'
+import PersonalityProfile from './PersonalityProfile'
 
 interface RecommendationsDisplayProps {
   geminiAnalysis: GeminiHealthAnalysis | null
@@ -41,6 +44,9 @@ export default function RecommendationsDisplay({ geminiAnalysis, onReset }: Reco
             <ExerciseRecommendations exercises={geminiAnalysis.exerciseRecommendations} />
             <FoodRecommendations foods={geminiAnalysis.foodRecommendations} />
             <MealPlan mealPlan={geminiAnalysis.weeklyMealPlan} />
+            <AiInsights items={geminiAnalysis.aiInsights} />
+            <AiRecommendations items={geminiAnalysis.aiRecommendations} />
+            <PersonalityProfile profile={geminiAnalysis.personalityProfile} />
             
             {/* Basic Recommendations */}
             <div className="bg-white p-4 rounded-lg shadow-sm border">
