@@ -6,6 +6,8 @@ import { usePathname } from "next/navigation";
 import {
   Globe,
   LogOut,
+  Bell,
+  Trash2,
   Settings,
   User,
   ChevronDown,
@@ -16,6 +18,7 @@ import { useAuth } from "@/hooks/auth-hooks";
 import { useAccountHeader, useAPICache } from "@/hooks/account-hooks";
 import { buildAuthHeader } from "@/lib/auth-helpers";
 import { getServerApiBase } from "@/lib/http";
+import { useEnterpriseNotifications } from "@/hooks/use-enterprise-notifications";
 
 type NavChild = { href: string; label: string };
 type NavSection = { key: string; label: string; defaultOpen?: boolean; children: NavChild[] };
@@ -55,6 +58,14 @@ const NAV_SECTIONS: NavSection[] = [
     children: [
       { href: "/enterprise/income", label: "My Income" },
       { href: "/enterprise/bank-accounts", label: "Bank Accounts" },
+    ],
+  },
+  {
+    key: "promotion",
+    label: "PROMOTION",
+    defaultOpen: true,
+    children: [
+      { href: "/enterprise/discount", label: "Voucher Management" },
     ],
   },
   {
@@ -170,6 +181,7 @@ export default function EnterpriseNavbar() {
   const [enterpriseName, setEnterpriseName] = useState<string>("Enterprise")
   const [logoUrl, setLogoUrl] = useState<string | null>(null)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
+  const [notiOpen, setNotiOpen] = useState(false)
   const [openSections, setOpenSections] = useState<Record<string, boolean>>(() => {
     const init: Record<string, boolean> = {};
     NAV_SECTIONS.forEach((s) => {
@@ -225,6 +237,25 @@ export default function EnterpriseNavbar() {
     };
   }, [userMenuOpen]);
 
+  useEffect(() => {
+    if (!notiOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setNotiOpen(false);
+    };
+    const onMouseDown = (e: MouseEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (!target) return;
+      const inside = target.closest("[data-enterprise-notifications]");
+      if (!inside) setNotiOpen(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("mousedown", onMouseDown);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("mousedown", onMouseDown);
+    };
+  }, [notiOpen]);
+
 
   const { data: enterpriseData } = useAPICache({
     key: 'enterprise-profile',
@@ -252,6 +283,16 @@ export default function EnterpriseNavbar() {
   useEffect(() => {
     setLogoUrl(accountHeader.avatar);
   }, [accountHeader.avatar]);
+
+  const {
+    unreadCount,
+    items: notifications,
+    markRead,
+    markAllRead,
+    deleteNotification,
+    refresh: refreshNotifications,
+    armSound,
+  } = useEnterpriseNotifications({ enabled: !!user });
 
   return (
     <div
@@ -330,8 +371,134 @@ export default function EnterpriseNavbar() {
           </div>
 
           {/* Enterprise Info */}
-          <div className="relative" data-enterprise-user-menu>
-            <button
+          <div className="relative flex items-center gap-2">
+            {/* Notifications */}
+            <div className="relative" data-enterprise-notifications>
+              <button
+                type="button"
+                onMouseDown={(ev) => ev.stopPropagation()}
+                onClick={(ev) => {
+                  ev.stopPropagation();
+                  void armSound();
+                  setNotiOpen((v) => !v);
+                  void refreshNotifications({ silent: true });
+                }}
+                className="relative inline-flex h-9 w-9 items-center justify-center rounded-md hover:bg-gray-50"
+                aria-label="Open notifications"
+                aria-haspopup="menu"
+                aria-expanded={notiOpen}
+              >
+                <Bell className="h-5 w-5 text-gray-700" />
+                {unreadCount > 0 ? (
+                  <span className="absolute -top-0.5 -right-0.5 min-w-5 h-5 px-1 rounded-full bg-red-600 text-white text-[11px] leading-5 text-center font-semibold">
+                    {unreadCount > 99 ? "99+" : unreadCount}
+                  </span>
+                ) : null}
+              </button>
+
+              {notiOpen ? (
+                <div
+                  role="menu"
+                  className="absolute right-0 mt-2 w-96 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-lg"
+                >
+                  <div className="flex items-center justify-between px-4 py-3">
+                    <div className="text-sm font-semibold text-gray-900">Notifications</div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        className="text-xs font-medium text-blue-600 hover:text-blue-700"
+                        onClick={() => void refreshNotifications()}
+                      >
+                        Refresh
+                      </button>
+                      <button
+                        type="button"
+                        className="text-xs font-medium text-slate-600 hover:text-slate-800"
+                        onClick={() => void markAllRead()}
+                        disabled={unreadCount <= 0}
+                      >
+                        Mark all read
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="max-h-[360px] overflow-y-auto border-t border-gray-200">
+                    {notifications.length === 0 ? (
+                      <div className="px-4 py-10 text-center text-sm text-gray-500">
+                        No notifications yet.
+                      </div>
+                    ) : (
+                      <ul className="divide-y divide-gray-100">
+                        {notifications.map((n) => {
+                          const orderId =
+                            n.data && typeof n.data === "object" && !Array.isArray(n.data) && "orderId" in (n.data as any)
+                              ? String((n.data as any).orderId)
+                              : "";
+                          const href = orderId ? `/enterprise/orders/${encodeURIComponent(orderId)}` : "/enterprise/orders";
+                          const unread = !n.readAt;
+                          return (
+                            <li key={n.id}>
+                              <div
+                                className={[
+                                  "px-4 py-3 hover:bg-gray-50",
+                                  unread ? "bg-blue-50/50" : "",
+                                ].join(" ")}
+                              >
+                                <div className="flex items-start justify-between gap-3">
+                                  <div className="min-w-0">
+                                    <Link
+                                      href={href}
+                                      onClick={() => {
+                                        setNotiOpen(false);
+                                        if (unread) void markRead(n.id);
+                                      }}
+                                      className="block"
+                                    >
+                                      <div className="text-sm font-semibold text-gray-900 truncate">
+                                        {n.title}
+                                      </div>
+                                    {n.body ? (
+                                      <div className="mt-0.5 text-sm text-gray-600 line-clamp-2">
+                                        {n.body}
+                                      </div>
+                                    ) : null}
+                                    <div className="mt-1 text-xs text-gray-400">
+                                      {new Date(n.createdAt).toLocaleString("vi-VN")}
+                                    </div>
+                                    </Link>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    {unread ? (
+                                      <span className="mt-1 inline-flex h-2.5 w-2.5 rounded-full bg-blue-600" />
+                                    ) : null}
+                                    <button
+                                      type="button"
+                                      className="inline-flex h-8 w-8 items-center justify-center rounded-md text-gray-500 hover:bg-gray-100 hover:text-gray-800"
+                                      aria-label="Delete notification"
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        void deleteNotification(n.id);
+                                      }}
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
+                  </div>
+                </div>
+              ) : null}
+            </div>
+
+            {/* Enterprise user menu */}
+            <div className="relative" data-enterprise-user-menu>
+              <button
               type="button"
               onMouseDown={(ev) => ev.stopPropagation()}
               onClick={(ev) => {
@@ -444,6 +611,7 @@ export default function EnterpriseNavbar() {
                 </div>
               </div>
             ) : null}
+            </div>
           </div>
           {previewOpen && logoUrl && (
             <div
