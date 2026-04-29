@@ -5,6 +5,7 @@ import { formatDate } from "@/lib/utils"
 import type { AuditLogRow } from "@/components/admin/platform/audit-logs/types"
 import { StatusPill } from "@/components/admin/platform/audit-logs/ui/StatusPill"
 import { PAGE_SIZE_OPTIONS } from "@/components/admin/platform/audit-logs/constants"
+import { ArrowUpDown } from "lucide-react"
 
 export function AuditLogsTableCard({
   rows,
@@ -13,6 +14,8 @@ export function AuditLogsTableCard({
   setPage,
   pageSize,
   setPageSize,
+  order,
+  onToggleOrder,
 }: {
   rows: AuditLogRow[]
   total: number
@@ -20,6 +23,8 @@ export function AuditLogsTableCard({
   setPage: (p: number) => void
   pageSize: (typeof PAGE_SIZE_OPTIONS)[number]
   setPageSize: (n: (typeof PAGE_SIZE_OPTIONS)[number]) => void
+  order: "asc" | "desc"
+  onToggleOrder: () => void
 }) {
   return (
     <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
@@ -38,7 +43,16 @@ export function AuditLogsTableCard({
           <thead>
             <tr className="bg-slate-50 text-left border-b border-slate-200">
               <th className="py-2 pr-2 pl-4 align-top text-[11px] font-bold uppercase tracking-wide text-slate-600 sm:text-[12px] sm:normal-case sm:tracking-normal">
-                Timestamp
+                <button
+                  type="button"
+                  onClick={onToggleOrder}
+                  className="inline-flex items-center gap-1 hover:opacity-80"
+                  aria-label="Sort by Timestamp"
+                >
+                  Timestamp
+                  <ArrowUpDown className="h-3.5 w-3.5 text-slate-500" />
+                  <span className="sr-only">{order}</span>
+                </button>
               </th>
               <th className="py-2 pr-2 align-top text-[11px] font-bold uppercase tracking-wide text-slate-600 sm:text-[12px] sm:normal-case sm:tracking-normal">
                 User
@@ -103,6 +117,7 @@ export function AuditLogsTableCard({
         pageSize={pageSize}
         total={total}
         onPageChange={(nextPage) => setPage(nextPage)}
+        pageSizeOptions={[12, 20, 50]}
         onPageSizeChange={(n) => {
           setPageSize(n as (typeof PAGE_SIZE_OPTIONS)[number])
           setPage(1)

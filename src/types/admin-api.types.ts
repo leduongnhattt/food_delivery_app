@@ -147,6 +147,20 @@ export type CreateAdminVoucherResponse = {
   voucher: Record<string, unknown>;
 };
 
+export type UpdateAdminVoucherPayload = {
+  Code: string;
+  ExpiryDate: string;
+  DiscountPercent?: number | null;
+  DiscountAmount?: number | null;
+  MinOrderValue?: number | null;
+  MaxUsage?: number | null;
+};
+
+export type UpdateAdminVoucherResponse = {
+  success: boolean;
+  voucher: Record<string, unknown>;
+};
+
 export type CreateEnterpriseApiResponse = {
   success: boolean;
   enterprise: Record<string, unknown>;
@@ -154,19 +168,32 @@ export type CreateEnterpriseApiResponse = {
 
 export type AdminVoucherListItem = {
   id: string;
+  enterpriseId?: string | null;
+  adminId?: string | null;
   code: string;
   discountPercent: number | null;
   discountAmount: number | null;
+  createdBy?: string | null;
   status: string;
   expiryDate: string | null;
   maxUsage: number | null;
   usedCount: number;
+  minOrderValue?: number | null;
   createdAt: string;
+  updatedAt?: string | null;
   enterpriseName: string | null;
+  createdByLabel?: string | null;
 };
 
 export type AdminVouchersListResponse = {
   items: AdminVoucherListItem[];
+  total: number;
+  page: number;
+  limit: number;
+};
+
+export type AdminVoucherDetailResponse = {
+  voucher: AdminVoucherListItem;
 };
 
 export type AdminDashboardSummaryResponse = {
@@ -178,6 +205,37 @@ export type AdminDashboardSummaryResponse = {
   ordersCount: number;
   revenueOrders: Array<{ orderDate: string; totalAmount: number }>;
   pendingVouchersTop: AdminVoucherListItem[];
+};
+
+export type AdminAuditLogRow = {
+  AuditLogID: string;
+  CreatedAt: string;
+  User: string;
+  Role: string;
+  Module: string;
+  Action: string;
+  Status: "Success" | "Failure";
+  Description: string;
+  IpAddress: string;
+};
+
+export type AdminAuditLogsListResponse = {
+  items: AdminAuditLogRow[];
+  total: number;
+  page: number;
+  limit: number;
+};
+
+export type AdminAuditLogOptionUser = { id: string; label: string };
+export type AdminAuditLogRangeOption = { id: string; label: string };
+
+export type AdminAuditLogsOptionsResponse = {
+  users: AdminAuditLogOptionUser[];
+  roles: string[];
+  modules: string[];
+  actions: string[];
+  statuses: string[];
+  ranges: AdminAuditLogRangeOption[];
 };
 
 /** UI row model for the admin reviews table (mapped from Nest admin reviews API). */

@@ -105,6 +105,7 @@ export function DateTimePickerField({
   triggerClassName,
   popoverClassName,
   align = "end",
+  disableFlip,
 }: {
   value?: string
   onChange: (next: string) => void
@@ -117,9 +118,16 @@ export function DateTimePickerField({
   triggerClassName?: string
   popoverClassName?: string
   align?: "start" | "end"
+  /**
+   * When true, always open the popover below the trigger.
+   * Useful inside scrollable containers where "flip" feels jarring.
+   */
+  disableFlip?: boolean
 }) {
   const rootRef = useRef<HTMLDivElement | null>(null)
+  const popoverRef = useRef<HTMLDivElement | null>(null)
   const [open, setOpen] = useState(false)
+  const [openUpwards, setOpenUpwards] = useState(false)
 
   const selectedDate = useMemo(() => {
     if (!value) return null
@@ -136,6 +144,28 @@ export function DateTimePickerField({
     const base = selectedDate ?? new Date()
     setView({ year: base.getFullYear(), month0: base.getMonth() })
   }, [open, selectedDate])
+
+  useEffect(() => {
+    if (!open) return
+    if (disableFlip) {
+      setOpenUpwards(false)
+      return
+    }
+    setOpenUpwards(false)
+    const raf = window.requestAnimationFrame(() => {
+      const root = rootRef.current
+      const pop = popoverRef.current
+      if (!root || !pop) return
+      const rootRect = root.getBoundingClientRect()
+      const popRect = pop.getBoundingClientRect()
+      const gutter = 12
+      const spaceBelow = window.innerHeight - rootRect.bottom
+      const spaceAbove = rootRect.top
+      const needsFlip = spaceBelow < popRect.height + gutter && spaceAbove > popRect.height + gutter
+      setOpenUpwards(needsFlip)
+    })
+    return () => window.cancelAnimationFrame(raf)
+  }, [open, disableFlip])
 
   useEffect(() => {
     if (!open) return
@@ -242,12 +272,14 @@ export function DateTimePickerField({
 
       {open ? (
         <div
+          ref={popoverRef}
           role="dialog"
           aria-label="Date picker"
           className={mergeClasses(
-            "absolute z-50 mt-1 w-[272px] max-w-[calc(100vw-2rem)] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg",
+            "absolute z-50 w-[272px] max-w-[calc(100vw-2rem)] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg",
             // keep a small gutter from viewport edges
             align === "end" ? "right-2" : "left-2",
+            openUpwards ? "bottom-full mb-1" : "top-full mt-1",
             popoverClassName,
           )}
         >

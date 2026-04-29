@@ -10,6 +10,7 @@ import { useSearchParams } from "next/navigation";
 import { getServerApiBase } from "@/lib/http";
 import { buildAuthHeader } from "@/lib/auth-helpers";
 import { EnterprisePageHeader, ENTERPRISE_PANEL_CLASS } from "@/components/enterprise/EnterprisePageHeader";
+import { DateTimePickerField } from "@/components/ui/date-time-picker";
 
 export default function AdminDashboardPage() {
   const [entepriseData, setEnterpriseData] = useState<any>(null);
@@ -18,12 +19,12 @@ export default function AdminDashboardPage() {
   const searchParams = useSearchParams();
   
   // Get search and filter parameters
-  const status = (searchParams.get('status') || 'all') as 'all' | 'approved' | 'pending';
+  const status = (searchParams.get('status') || 'all') as 'all' | 'approved' | 'pending' | 'rejected' | 'expired';
   const search = searchParams.get('q') || '';
 
   // form states
   const [couponCode, setCouponCode] = useState("");
-  const [expire, setExpire] = useState("");
+  const [expire, setExpire] = useState(""); // yyyy-mm-ddThh:mm
   const [percentDiscount, setPercentDiscount] = useState("");
   const [discountAmount, setDiscountAmount] = useState("");
   const [minOrderValue, setMinOrderValue] = useState("");
@@ -90,10 +91,11 @@ export default function AdminDashboardPage() {
     }
 
     const selectedDate = new Date(value);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0); // Reset time to start of day
+    if (Number.isNaN(selectedDate.getTime())) {
+      return "Expire date is invalid";
+    }
 
-    if (selectedDate <= today) {
+    if (selectedDate.getTime() <= Date.now()) {
       return "Expire date must be in the future";
     }
 
@@ -291,9 +293,12 @@ export default function AdminDashboardPage() {
 
   // Filter vouchers based on search and status
   const filteredVouchers = (entepriseData?.vouchers || []).filter((voucher: Voucher) => {
+    const voucherStatus = String(voucher.Status || "").toLowerCase();
     // Filter by status
-    if (status === 'approved' && voucher.Status !== 'Approved') return false;
-    if (status === 'pending' && voucher.Status !== 'Pending') return false;
+    if (status === 'approved' && voucherStatus !== 'approved') return false;
+    if (status === 'pending' && voucherStatus !== 'pending') return false;
+    if (status === 'rejected' && voucherStatus !== 'rejected') return false;
+    if (status === 'expired' && voucherStatus !== 'expired') return false;
     
     // Filter by search
     if (search) {
@@ -506,15 +511,16 @@ export default function AdminDashboardPage() {
                   <Calendar className="mr-2 inline h-4 w-4" />
                   Expiry Date
                 </label>
-                <input
-                  type="date"
-                  min={new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split("T")[0]}
-                  max={new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]}
+                <DateTimePickerField
                   value={expire}
-                  onChange={(e) => handleExpireChange(e.target.value)}
-                  className={`w-full rounded-lg border-0 px-4 py-3 text-[12px] leading-4 font-normal text-[oklch(0.208_0.042_265.755)] ring ring-inset ${
-                    errors.expire ? "ring-red-300" : "ring-gray-300"
+                  onChange={handleExpireChange}
+                  mode="datetime"
+                  min={new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10)}
+                  max={new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)}
+                  triggerClassName={`w-full rounded-lg border-0 px-4 py-3 text-[12px] leading-4 font-normal text-[oklch(0.208_0.042_265.755)] ring ring-inset ${
+                    errors.expire ? "ring-red-300 focus-visible:ring-red-300" : "ring-gray-300"
                   } focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500`}
+                  align="start"
                 />
                 {errors.expire && (
                   <p className="mt-1 text-xs leading-4 font-normal text-red-500">

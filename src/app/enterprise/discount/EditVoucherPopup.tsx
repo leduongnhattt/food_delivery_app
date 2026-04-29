@@ -5,6 +5,7 @@ import { useToast } from "@/contexts/toast-context";
 import { getServerApiBase } from "@/lib/http";
 import { buildAuthHeader } from "@/lib/auth-helpers";
 import { Calendar, Percent, Tag } from "lucide-react";
+import { DateTimePickerField } from "@/components/ui/date-time-picker";
 
 interface EditVoucherPopupProps {
   open: boolean;
@@ -25,7 +26,7 @@ export default function EditVoucherPopup({
   const [minOrderValue, setMinOrderValue] = useState<number>(0);
   const [maxUsage, setMaxUsage] = useState<number>(0);
   const [discountType, setDiscountType] = useState<"percent" | "amount">("percent");
-  const [expiryDate, setExpiryDate] = useState("");
+  const [expiryDateTime, setExpiryDateTime] = useState(""); // yyyy-mm-ddThh:mm
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { showToast } = useToast();
@@ -38,10 +39,14 @@ export default function EditVoucherPopup({
       setMinOrderValue(voucher.MinOrderValue || 0);
       setMaxUsage(voucher.MaxUsage || 0);
       setDiscountType(voucher.DiscountPercent ? "percent" : "amount");
-      // Format date for input field (YYYY-MM-DD)
-      const date = new Date(voucher.ExpiryDate);
-      const formattedDate = date.toISOString().split("T")[0];
-      setExpiryDate(formattedDate);
+      // Format for DateTimePickerField (YYYY-MM-DDTHH:mm)
+      const d = new Date(voucher.ExpiryDate);
+      const pad = (n: number) => String(n).padStart(2, "0");
+      const formatted =
+        Number.isNaN(d.getTime())
+          ? ""
+          : `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+      setExpiryDateTime(formatted);
     }
   }, [voucher]);
 
@@ -63,7 +68,7 @@ export default function EditVoucherPopup({
       return;
     }
 
-    if (!expiryDate) {
+    if (!expiryDateTime) {
       setError("Expiry date is required");
       return;
     }
@@ -74,7 +79,7 @@ export default function EditVoucherPopup({
       const payload: any = {
         VoucherID: voucher?.VoucherID,
         Code: code,
-        ExpiryDate: expiryDate,
+        ExpiryDate: expiryDateTime,
       };
 
       if (discountType === "percent") {
@@ -267,12 +272,13 @@ export default function EditVoucherPopup({
               <Calendar className="mr-2 inline h-4 w-4" />
               Expiry Date *
             </label>
-            <input
-              type="date"
-              value={expiryDate}
-              onChange={(e) => setExpiryDate(e.target.value)}
+            <DateTimePickerField
+              value={expiryDateTime}
+              onChange={setExpiryDateTime}
+              mode="datetime"
+              triggerClassName="w-full rounded-lg border-0 px-4 py-3 text-[12px] leading-4 font-normal text-[oklch(0.208_0.042_265.755)] ring ring-inset ring-gray-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 disabled:opacity-70"
               disabled={loading}
-              className="w-full rounded-lg border-0 px-4 py-3 text-[12px] leading-4 font-normal text-[oklch(0.208_0.042_265.755)] ring ring-inset ring-gray-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 disabled:opacity-70"
+              align="start"
             />
           </div>
 

@@ -102,9 +102,17 @@ const VoucherList: React.FC<VoucherListProps> = ({
                   {voucher.ExpiryDate ? new Date(voucher.ExpiryDate).toLocaleDateString("vi-VN") : "N/A"}
                 </td>
                 <td className="py-3 pr-4">
-                  {voucher.Status === "Approved" ? (
+                  {String(voucher.Status || "").toLowerCase() === "approved" ? (
                     <span className="text-xs px-2 py-1 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
                       Approved
+                    </span>
+                  ) : String(voucher.Status || "").toLowerCase() === "rejected" ? (
+                    <span className="text-xs px-2 py-1 rounded bg-rose-50 text-rose-700 border border-rose-200">
+                      Rejected
+                    </span>
+                  ) : String(voucher.Status || "").toLowerCase() === "expired" ? (
+                    <span className="text-xs px-2 py-1 rounded bg-slate-50 text-slate-700 border border-slate-200">
+                      Expired
                     </span>
                   ) : (
                     <span className="text-xs px-2 py-1 rounded bg-amber-50 text-amber-700 border border-amber-200">

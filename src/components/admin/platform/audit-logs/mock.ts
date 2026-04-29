@@ -9,10 +9,8 @@ export function mockAuditLogs(): AuditLogRow[] {
       role: "admin",
       module: "commission_fee",
       action: "UPDATE",
-      stage: "persist",
       status: "Success",
       description: "Commission fee 'Anhnh test exclude' deactivated",
-      entityId: "conf_0LKYPRDCRSE7T7DNFQATYSEDH1",
       ipAddress: "42.118.128.117",
     },
     {
@@ -22,10 +20,8 @@ export function mockAuditLogs(): AuditLogRow[] {
       role: "admin",
       module: "commission_fee",
       action: "CREATE",
-      stage: "persist",
       status: "Success",
       description: "Commission fee 'Anhnh test exclude' created",
-      entityId: "conf_0LKYPRDCRSE7T7DNFQATYSEDH2",
       ipAddress: "42.118.128.137",
     },
     {
@@ -35,10 +31,8 @@ export function mockAuditLogs(): AuditLogRow[] {
       role: "admin",
       module: "commission_fee",
       action: "UPDATE",
-      stage: "response",
       status: "Success",
       description: "Commission fee 'Sig Comm - Include' updated",
-      entityId: "conf_0LKYPRDCRSE7T7DNFQATYSEDH3",
       ipAddress: "38.187.36.103",
     },
     {
@@ -48,10 +42,8 @@ export function mockAuditLogs(): AuditLogRow[] {
       role: "system",
       module: "service_fee",
       action: "UPDATE",
-      stage: "persist",
       status: "Success",
       description: "Service fee 'Platform service fee' deactivated",
-      entityId: "conf_0LKYPRDCRSE7T7DNFQATYSEDH4",
       ipAddress: "135.185.57.28",
     },
   ]
@@ -60,7 +52,6 @@ export function mockAuditLogs(): AuditLogRow[] {
     ...rows[idx % rows.length],
     id: `m-${idx + 1}`,
     timestamp: new Date(Date.now() - (idx + 1) * 36e5).toISOString(),
-    entityId: `${rows[idx % rows.length].entityId}_${idx + 1}`,
   }))
 
   return [...rows, ...more].sort((a, b) => b.timestamp.localeCompare(a.timestamp))

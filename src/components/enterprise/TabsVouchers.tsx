@@ -3,7 +3,7 @@
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useTransition } from 'react'
 
-type TabKey = 'all' | 'approved' | 'pending'
+type TabKey = 'all' | 'approved' | 'pending' | 'rejected' | 'expired'
 
 export default function TabsVouchers({ current, search }: { current: TabKey; search: string }) {
   const router = useRouter()
@@ -41,6 +41,8 @@ export default function TabsVouchers({ current, search }: { current: TabKey; sea
       {renderTabButton('all', 'All')}
       {renderTabButton('approved', 'Approved')}
       {renderTabButton('pending', 'Pending')}
+      {renderTabButton('rejected', 'Rejected')}
+      {renderTabButton('expired', 'Expired')}
     </div>
   )
 }

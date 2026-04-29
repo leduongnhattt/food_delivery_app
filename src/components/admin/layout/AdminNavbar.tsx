@@ -64,7 +64,7 @@ const NAV_SECTIONS: {
     title: "CATALOG",
     items: [
       { href: "/admin/categories", label: "Categories" },
-      { href: "/admin/discount", label: "Discount" },
+      { href: "/admin/vouchers", label: "Vouchers" },
       { href: "/admin/reviews", label: "Reviews" },
     ],
   },
