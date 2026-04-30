@@ -52,6 +52,21 @@ export default function HealthAnalysis({ analysis }: HealthAnalysisProps) {
           </ul>
         </div>
       )}
+
+      {/* Health Insights */}
+      {analysis.healthInsights.length > 0 && (
+        <div className="bg-blue-50 p-3 rounded-lg">
+          <h5 className="font-medium text-blue-800 mb-2">Health Insights</h5>
+          <ul className="text-sm text-blue-800 space-y-1">
+            {analysis.healthInsights.map((insight, index) => (
+              <li key={index} className="flex items-start gap-2">
+                <span className="text-blue-500">•</span>
+                {insight}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   )
 }

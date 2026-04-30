@@ -7,9 +7,7 @@ export function StatusPill({ status }: { status: AuditLogStatus }) {
   const style =
     status === "Success"
       ? "bg-emerald-50 text-emerald-700 ring-emerald-100"
-      : status === "Failed"
-        ? "bg-rose-50 text-rose-700 ring-rose-100"
-        : "bg-amber-50 text-amber-700 ring-amber-100"
+      : "bg-rose-50 text-rose-700 ring-rose-100"
 
   return (
     <span

@@ -110,7 +110,7 @@ export default function HealthChatbot({ className = '' }: HealthChatbotProps) {
     setIsAnalyzing(true)
     try {
       const base = getServerApiBase()
-      const response = await fetch(`${base}/health/gemini-analyze`, {
+      const response = await fetch(`${base}/health/ai-analyze`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

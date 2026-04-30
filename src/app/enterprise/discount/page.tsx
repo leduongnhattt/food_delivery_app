@@ -1,16 +1,16 @@
 "use client";
 import { useEffect, useState } from "react";
 import { Voucher, VoucherList } from "./VoucherList";
-import { Button } from "@/components/ui/button";
 import EditVoucherPopup from "./EditVoucherPopup";
 import { useToast } from "@/contexts/toast-context";
-import { Calendar, Percent, Tag, Plus, Sparkles } from "lucide-react";
+import { Calendar, Percent, Tag, Sparkles } from "lucide-react";
 import VoucherSearch from "@/components/enterprise/VoucherSearch";
 import TabsVouchers from "@/components/enterprise/TabsVouchers";
 import { useSearchParams } from "next/navigation";
 import { getServerApiBase } from "@/lib/http";
 import { buildAuthHeader } from "@/lib/auth-helpers";
 import { EnterprisePageHeader, ENTERPRISE_PANEL_CLASS } from "@/components/enterprise/EnterprisePageHeader";
+import { DateTimePickerField } from "@/components/ui/date-time-picker";
 
 export default function AdminDashboardPage() {
   const [entepriseData, setEnterpriseData] = useState<any>(null);
@@ -19,12 +19,12 @@ export default function AdminDashboardPage() {
   const searchParams = useSearchParams();
   
   // Get search and filter parameters
-  const status = (searchParams.get('status') || 'all') as 'all' | 'approved' | 'pending';
+  const status = (searchParams.get('status') || 'all') as 'all' | 'approved' | 'pending' | 'rejected' | 'expired';
   const search = searchParams.get('q') || '';
 
   // form states
   const [couponCode, setCouponCode] = useState("");
-  const [expire, setExpire] = useState("");
+  const [expire, setExpire] = useState(""); // yyyy-mm-ddThh:mm
   const [percentDiscount, setPercentDiscount] = useState("");
   const [discountAmount, setDiscountAmount] = useState("");
   const [minOrderValue, setMinOrderValue] = useState("");
@@ -91,10 +91,11 @@ export default function AdminDashboardPage() {
     }
 
     const selectedDate = new Date(value);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0); // Reset time to start of day
+    if (Number.isNaN(selectedDate.getTime())) {
+      return "Expire date is invalid";
+    }
 
-    if (selectedDate <= today) {
+    if (selectedDate.getTime() <= Date.now()) {
       return "Expire date must be in the future";
     }
 
@@ -292,9 +293,12 @@ export default function AdminDashboardPage() {
 
   // Filter vouchers based on search and status
   const filteredVouchers = (entepriseData?.vouchers || []).filter((voucher: Voucher) => {
+    const voucherStatus = String(voucher.Status || "").toLowerCase();
     // Filter by status
-    if (status === 'approved' && voucher.Status !== 'Approved') return false;
-    if (status === 'pending' && voucher.Status !== 'Pending') return false;
+    if (status === 'approved' && voucherStatus !== 'approved') return false;
+    if (status === 'pending' && voucherStatus !== 'pending') return false;
+    if (status === 'rejected' && voucherStatus !== 'rejected') return false;
+    if (status === 'expired' && voucherStatus !== 'expired') return false;
     
     // Filter by search
     if (search) {
@@ -320,296 +324,255 @@ export default function AdminDashboardPage() {
         />
       </div>
 
-      <div className="mx-auto max-w-7xl">
-        {/* Content Grid */}
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
-          {/* Left: Create Voucher Form */}
-          <div className="lg:col-span-5">
-            <div className="sticky top-4 space-y-6">
-              {/* Create Voucher Card */}
-              <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-                <div className="mb-6 flex items-center gap-3">
-                  <div className="rounded-lg bg-purple-100 p-2">
-                    <Plus className="h-5 w-5 text-purple-600" />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-900">Create New Voucher</h3>
-                    <p className="text-sm text-gray-500">Set up discount codes for your customers</p>
-                  </div>
-                </div>
-
-                <div className="space-y-6">
-                  {/* Coupon Code */}
-                  <div>
-                    <label className="mb-2 block text-sm font-medium text-gray-700">
-                      <Tag className="mr-2 inline h-4 w-4" />
-                      Coupon Code
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="e.g., SAVE20, WELCOME10"
-                      value={couponCode}
-                      onChange={(e) => handleCouponCodeChange(e.target.value)}
-                      className={`w-full rounded-lg border px-4 py-3 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-purple-500 ${
-                        errors.couponCode ? "border-red-300" : "border-gray-300"
-                      }`}
-                    />
-                    {errors.couponCode && (
-                      <p className="mt-1 text-sm text-red-500">{errors.couponCode}</p>
-                    )}
-                  </div>
-
-                  {/* Discount Type Selection */}
-                  <div>
-                    <label className="mb-2 block text-sm font-medium text-gray-700">
-                      Discount Type
-                    </label>
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setDiscountType("percent")}
-                        className={`flex-1 rounded-lg border px-4 py-3 text-sm font-medium transition-colors ${
-                          discountType === "percent"
-                            ? "border-purple-500 bg-purple-50 text-purple-700"
-                            : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
-                        }`}
-                      >
-                        <Percent className="mr-2 inline h-4 w-4" />
-                        Percentage
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setDiscountType("amount")}
-                        className={`flex-1 rounded-lg border px-4 py-3 text-sm font-medium transition-colors ${
-                          discountType === "amount"
-                            ? "border-purple-500 bg-purple-50 text-purple-700"
-                            : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
-                        }`}
-                      >
-                        <Tag className="mr-2 inline h-4 w-4" />
-                        Fixed Amount
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Discount Value */}
-                  {discountType === "percent" ? (
-                    <div>
-                      <label className="mb-2 block text-sm font-medium text-gray-700">
-                        <Percent className="mr-2 inline h-4 w-4" />
-                        Discount Percentage
-                      </label>
-                      <div className="relative">
-                        <input
-                          type="number"
-                          min="0"
-                          max="100"
-                          step="0.01"
-                          placeholder="0.00"
-                          value={percentDiscount}
-                          onChange={(e) => handlePercentDiscountChange(e.target.value)}
-                          className={`w-full rounded-lg border px-4 py-3 pr-8 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-purple-500 ${
-                            errors.percentDiscount ? "border-red-300" : "border-gray-300"
-                          }`}
-                        />
-                        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400">
-                          %
-                        </div>
-                      </div>
-                      {errors.percentDiscount && (
-                        <p className="mt-1 text-sm text-red-500">{errors.percentDiscount}</p>
-                      )}
-                    </div>
-                  ) : (
-                    <div>
-                      <label className="mb-2 block text-sm font-medium text-gray-700">
-                        <Tag className="mr-2 inline h-4 w-4" />
-                        Discount Amount
-                      </label>
-                      <div className="relative">
-                        <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
-                          $
-                        </div>
-                        <input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          placeholder="0.00"
-                          value={discountAmount}
-                          onChange={(e) => setDiscountAmount(e.target.value)}
-                          className={`w-full rounded-lg border px-4 py-3 pl-8 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-purple-500 ${
-                            errors.discountAmount ? "border-red-300" : "border-gray-300"
-                          }`}
-                        />
-                      </div>
-                      {errors.discountAmount && (
-                        <p className="mt-1 text-sm text-red-500">{errors.discountAmount}</p>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Minimum Order Value */}
-                  <div>
-                    <label className="mb-2 block text-sm font-medium text-gray-700">
-                      <Tag className="mr-2 inline h-4 w-4" />
-                      Minimum Order Value (Optional)
-                    </label>
-                    <div className="relative">
-                      <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
-                        $
-                      </div>
-                      <input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        placeholder="0.00"
-                        value={minOrderValue}
-                        onChange={(e) => setMinOrderValue(e.target.value)}
-                        className={`w-full rounded-lg border px-4 py-3 pl-8 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-purple-500 ${
-                          errors.minOrderValue ? "border-red-300" : "border-gray-300"
-                        }`}
-                      />
-                    </div>
-                    {errors.minOrderValue && (
-                      <p className="mt-1 text-sm text-red-500">{errors.minOrderValue}</p>
-                    )}
-                  </div>
-
-                  {/* Max Usage */}
-                  <div>
-                    <label className="mb-2 block text-sm font-medium text-gray-700">
-                      <Tag className="mr-2 inline h-4 w-4" />
-                      Max Usage (Optional)
-                    </label>
-                    <input
-                      type="number"
-                      min="1"
-                      placeholder="Unlimited"
-                      value={maxUsage}
-                      onChange={(e) => setMaxUsage(e.target.value)}
-                      className={`w-full rounded-lg border px-4 py-3 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-purple-500 ${
-                        errors.maxUsage ? "border-red-300" : "border-gray-300"
-                      }`}
-                    />
-                    <p className="mt-1 text-xs text-gray-500">
-                      Maximum number of times this voucher can be used. Leave empty for unlimited usage.
-                    </p>
-                    {errors.maxUsage && (
-                      <p className="mt-1 text-sm text-red-500">{errors.maxUsage}</p>
-                    )}
-                  </div>
-
-                  {/* Expiry Date */}
-                  <div>
-                    <label className="mb-2 block text-sm font-medium text-gray-700">
-                      <Calendar className="mr-2 inline h-4 w-4" />
-                      Expiry Date
-                    </label>
-                    <input
-                      type="date"
-                      min={new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split("T")[0]}
-                      max={new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]}
-                      value={expire}
-                      onChange={(e) => handleExpireChange(e.target.value)}
-                      className={`w-full rounded-lg border px-4 py-3 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-purple-500 ${
-                        errors.expire ? "border-red-300" : "border-gray-300"
-                      }`}
-                    />
-                    {errors.expire && (
-                      <p className="mt-1 text-sm text-red-500">{errors.expire}</p>
-                    )}
-                  </div>
-
-                  {/* Submit Button */}
-                  <Button
-                    onClick={handleAddVoucher}
-                    disabled={loading}
-                    className="w-full bg-purple-600 text-white hover:bg-purple-700 disabled:bg-gray-300"
-                  >
-                    {loading ? (
-                      <div className="flex items-center justify-center">
-                        <div className="mr-2 h-4 w-4 animate-spin rounded-full border-b-2 border-white"></div>
-                        Creating...
-                      </div>
-                    ) : (
-                      "Create Voucher"
-                    )}
-                  </Button>
-                </div>
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
+        <div className="lg:col-span-5">
+          <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+            <div className="mb-6 flex items-center gap-3">
+              <div className="rounded-lg bg-purple-100 p-2">
+                <Sparkles className="h-5 w-5 text-purple-600" />
               </div>
-
-              {/* Live Preview Card */}
-              <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
-                <div className="bg-gradient-to-r from-purple-500 to-pink-500 p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="text-white">
-                      <div className="text-sm font-medium">Preview Voucher</div>
-                      <div className="text-xs opacity-90">How it will appear to customers</div>
-                    </div>
-                    <div className="rounded-full bg-white/20 p-2">
-                      <Tag className="h-4 w-4 text-white" />
-                    </div>
-                  </div>
-                </div>
-                <div className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="text-sm font-semibold text-gray-900">
-                        {couponCode || "COUPON_CODE"}
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        {discountType === "percent" 
-                          ? (percentDiscount ? `${percentDiscount}% OFF` : "0% OFF")
-                          : (discountAmount ? `$${discountAmount} OFF` : "$0 OFF")
-                        }
-                      </div>
-                    </div>
-                    <div className="rounded-full bg-purple-50 px-3 py-1 text-xs font-semibold text-purple-600">
-                      {expire ? new Date(expire).toLocaleDateString('vi-VN') : "Expires Soon"}
-                    </div>
-                  </div>
-                </div>
+              <div>
+                <h3 className="text-[14px] leading-[18px] font-medium text-[oklch(0.21_0.034_264.665)]">
+                  Create New Voucher
+                </h3>
+                <p className="mt-1 text-[12px] leading-4 font-normal text-[oklch(0.551_0.027_264.364)]">
+                  Set up discount codes for your customers
+                </p>
               </div>
             </div>
-          </div>
 
-          {/* Right: Voucher List */}
-          <div className="lg:col-span-7">
-            <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-              <div className="mb-6 flex items-center justify-between">
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900">Your Vouchers</h3>
-                  <p className="text-sm text-gray-500">Manage existing discount codes</p>
-                </div>
-                <div className="text-sm text-gray-500">
-                  {filteredVouchers.length} of {entepriseData?.vouchers?.length || 0} total
-                </div>
-              </div>
-              
-              {/* Search and Tabs Section */}
-              <div className="mb-6 space-y-4">
-                <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                  <TabsVouchers current={status} search={search} />
-                  <VoucherSearch currentStatus={status} currentSearch={search} />
-                </div>
-                
-                {/* Search Results Info */}
-                {(search || status !== 'all') && (
-                  <div className="text-sm text-gray-600">
-                    {search ? (
-                      <span>Found {filteredVouchers.length} voucher{filteredVouchers.length !== 1 ? 's' : ''} matching "{search}"</span>
-                    ) : (
-                      <span>Showing {filteredVouchers.length} {status} voucher{filteredVouchers.length !== 1 ? 's' : ''}</span>
-                    )}
-                  </div>
+            <div className="space-y-6">
+              <div>
+                <label className="mb-2 block text-[12px] leading-4 font-medium text-gray-700">
+                  <Tag className="mr-2 inline h-4 w-4" />
+                  Coupon Code
+                </label>
+                <input
+                  value={couponCode}
+                  onChange={(e) => handleCouponCodeChange(e.target.value)}
+                  className={`w-full rounded-lg border-0 px-4 py-3 text-[12px] leading-4 font-normal text-[oklch(0.208_0.042_265.755)] ring ring-inset ${
+                    errors.couponCode ? "ring-red-300" : "ring-gray-300"
+                  } focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500`}
+                  placeholder="e.g., SAVE20, WELCOME10"
+                />
+                {errors.couponCode && (
+                  <p className="mt-1 text-xs leading-4 font-normal text-red-500">
+                    {errors.couponCode}
+                  </p>
                 )}
               </div>
-              
-              <VoucherList
-                vouchers={filteredVouchers}
-                onEdit={handleEdit}
-              />
+
+              <div>
+                <label className="mb-2 block text-[12px] leading-4 font-medium text-gray-700">
+                  Discount Type
+                </label>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setDiscountType("percent")}
+                    className={`flex-1 rounded-lg border px-4 py-3 text-[13px] leading-4 font-medium ${
+                      discountType === "percent"
+                        ? "border-purple-500 bg-purple-50 text-purple-700"
+                        : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+                    }`}
+                  >
+                    <Percent className="mr-2 inline h-4 w-4" />
+                    Percentage
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDiscountType("amount")}
+                    className={`flex-1 rounded-lg border px-4 py-3 text-[13px] leading-4 font-medium ${
+                      discountType === "amount"
+                        ? "border-purple-500 bg-purple-50 text-purple-700"
+                        : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+                    }`}
+                  >
+                    <Tag className="mr-2 inline h-4 w-4" />
+                    Fixed Amount
+                  </button>
+                </div>
+              </div>
+
+              {discountType === "percent" ? (
+                <div>
+                  <label className="mb-2 block text-[12px] leading-4 font-medium text-gray-700">
+                    <Percent className="mr-2 inline h-4 w-4" />
+                    Discount Percentage
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="0.01"
+                      value={percentDiscount}
+                      onChange={(e) => handlePercentDiscountChange(e.target.value)}
+                      className={`w-full rounded-lg border-0 px-4 py-3 pr-8 text-[12px] leading-4 font-normal text-[oklch(0.208_0.042_265.755)] ring ring-inset ${
+                        errors.percentDiscount ? "ring-red-300" : "ring-gray-300"
+                      } focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500`}
+                      placeholder="0.00"
+                    />
+                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400">
+                      %
+                    </div>
+                  </div>
+                  {errors.percentDiscount && (
+                    <p className="mt-1 text-xs leading-4 font-normal text-red-500">
+                      {errors.percentDiscount}
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <div>
+                  <label className="mb-2 block text-[12px] leading-4 font-medium text-gray-700">
+                    <Tag className="mr-2 inline h-4 w-4" />
+                    Discount Amount
+                  </label>
+                  <div className="relative">
+                    <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
+                      $
+                    </div>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={discountAmount}
+                      onChange={(e) => setDiscountAmount(e.target.value)}
+                      className={`w-full rounded-lg border-0 px-4 py-3 pl-8 text-[12px] leading-4 font-normal text-[oklch(0.208_0.042_265.755)] ring ring-inset ${
+                        errors.discountAmount ? "ring-red-300" : "ring-gray-300"
+                      } focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500`}
+                      placeholder="0.00"
+                    />
+                  </div>
+                  {errors.discountAmount && (
+                    <p className="mt-1 text-xs leading-4 font-normal text-red-500">
+                      {errors.discountAmount}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              <div>
+                <label className="mb-2 block text-[12px] leading-4 font-medium text-gray-700">
+                  <Tag className="mr-2 inline h-4 w-4" />
+                  Minimum Order Value (Optional)
+                </label>
+                <div className="relative">
+                  <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
+                    $
+                  </div>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={minOrderValue}
+                    onChange={(e) => setMinOrderValue(e.target.value)}
+                    className={`w-full rounded-lg border-0 px-4 py-3 pl-8 text-[12px] leading-4 font-normal text-[oklch(0.208_0.042_265.755)] ring ring-inset ${
+                      errors.minOrderValue ? "ring-red-300" : "ring-gray-300"
+                    } focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500`}
+                    placeholder="0.00"
+                  />
+                </div>
+                {errors.minOrderValue && (
+                  <p className="mt-1 text-xs leading-4 font-normal text-red-500">
+                    {errors.minOrderValue}
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <label className="mb-2 block text-[12px] leading-4 font-medium text-gray-700">
+                  <Tag className="mr-2 inline h-4 w-4" />
+                  Max Usage (Optional)
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  value={maxUsage}
+                  onChange={(e) => setMaxUsage(e.target.value)}
+                  className={`w-full rounded-lg border-0 px-4 py-3 text-[12px] leading-4 font-normal text-[oklch(0.208_0.042_265.755)] ring ring-inset ${
+                    errors.maxUsage ? "ring-red-300" : "ring-gray-300"
+                  } focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500`}
+                  placeholder="Unlimited"
+                />
+                <p className="mt-1 text-xs leading-4 font-normal text-gray-500">
+                  Maximum number of times this voucher can be used. Leave empty for unlimited usage.
+                </p>
+                {errors.maxUsage && (
+                  <p className="mt-1 text-xs leading-4 font-normal text-red-500">
+                    {errors.maxUsage}
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <label className="mb-2 block text-[12px] leading-4 font-medium text-gray-700">
+                  <Calendar className="mr-2 inline h-4 w-4" />
+                  Expiry Date
+                </label>
+                <DateTimePickerField
+                  value={expire}
+                  onChange={handleExpireChange}
+                  mode="datetime"
+                  min={new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10)}
+                  max={new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)}
+                  triggerClassName={`w-full rounded-lg border-0 px-4 py-3 text-[12px] leading-4 font-normal text-[oklch(0.208_0.042_265.755)] ring ring-inset ${
+                    errors.expire ? "ring-red-300 focus-visible:ring-red-300" : "ring-gray-300"
+                  } focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500`}
+                  align="start"
+                />
+                {errors.expire && (
+                  <p className="mt-1 text-xs leading-4 font-normal text-red-500">
+                    {errors.expire}
+                  </p>
+                )}
+              </div>
+
+              <button
+                onClick={handleAddVoucher}
+                disabled={loading}
+                className="w-full rounded-lg bg-purple-600 text-[13px] leading-4 font-medium text-white py-3 hover:bg-purple-700 disabled:bg-gray-300"
+              >
+                {loading ? "Creating..." : "Create Voucher"}
+              </button>
             </div>
+          </div>
+        </div>
+
+        <div className="lg:col-span-7 rounded-2xl border border-slate-200 bg-white p-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div className="min-w-0">
+              <h2 className="text-[14px] leading-[18px] font-medium text-[oklch(0.21_0.034_264.665)]">
+                Discounts
+              </h2>
+              <p className="mt-1 text-[13px] leading-[18px] font-medium text-[oklch(0.551_0.027_264.364)]">
+                Manage discount vouchers for your shop
+              </p>
+            </div>
+            <VoucherSearch currentStatus={status} currentSearch={search} />
+          </div>
+
+          <div className="mt-4">
+            <TabsVouchers current={status} search={search} />
+
+            {(search || status !== "all") && (
+              <div className="mt-4 mb-2 text-[13px] leading-4 font-normal text-slate-600">
+                {search ? (
+                  <span>
+                    Found {filteredVouchers.length} voucher
+                    {filteredVouchers.length !== 1 ? "s" : ""} matching "{search}"
+                  </span>
+                ) : (
+                  <span>
+                    Showing {filteredVouchers.length} {status} voucher
+                    {filteredVouchers.length !== 1 ? "s" : ""}
+                  </span>
+                )}
+              </div>
+            )}
+
+            <VoucherList vouchers={filteredVouchers} onEdit={handleEdit} />
           </div>
         </div>
       </div>

@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/contexts/toast-context";
 import { getServerApiBase } from "@/lib/http";
 import { buildAuthHeader } from "@/lib/auth-helpers";
+import { Calendar, Percent, Tag } from "lucide-react";
+import { DateTimePickerField } from "@/components/ui/date-time-picker";
 
 interface EditVoucherPopupProps {
   open: boolean;
@@ -24,7 +26,7 @@ export default function EditVoucherPopup({
   const [minOrderValue, setMinOrderValue] = useState<number>(0);
   const [maxUsage, setMaxUsage] = useState<number>(0);
   const [discountType, setDiscountType] = useState<"percent" | "amount">("percent");
-  const [expiryDate, setExpiryDate] = useState("");
+  const [expiryDateTime, setExpiryDateTime] = useState(""); // yyyy-mm-ddThh:mm
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { showToast } = useToast();
@@ -37,10 +39,14 @@ export default function EditVoucherPopup({
       setMinOrderValue(voucher.MinOrderValue || 0);
       setMaxUsage(voucher.MaxUsage || 0);
       setDiscountType(voucher.DiscountPercent ? "percent" : "amount");
-      // Format date for input field (YYYY-MM-DD)
-      const date = new Date(voucher.ExpiryDate);
-      const formattedDate = date.toISOString().split("T")[0];
-      setExpiryDate(formattedDate);
+      // Format for DateTimePickerField (YYYY-MM-DDTHH:mm)
+      const d = new Date(voucher.ExpiryDate);
+      const pad = (n: number) => String(n).padStart(2, "0");
+      const formatted =
+        Number.isNaN(d.getTime())
+          ? ""
+          : `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+      setExpiryDateTime(formatted);
     }
   }, [voucher]);
 
@@ -62,7 +68,7 @@ export default function EditVoucherPopup({
       return;
     }
 
-    if (!expiryDate) {
+    if (!expiryDateTime) {
       setError("Expiry date is required");
       return;
     }
@@ -73,7 +79,7 @@ export default function EditVoucherPopup({
       const payload: any = {
         VoucherID: voucher?.VoucherID,
         Code: code,
-        ExpiryDate: expiryDate,
+        ExpiryDate: expiryDateTime,
       };
 
       if (discountType === "percent") {
@@ -119,46 +125,58 @@ export default function EditVoucherPopup({
 
   return (
     <div className="fixed inset-0 flex items-center justify-center bg-black/50 z-50">
-      <div className="bg-white rounded-xl shadow-lg w-full max-w-md p-6">
-        <h2 className="text-xl font-semibold mb-4">Edit Voucher</h2>
+      <div className="w-full max-w-md rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+        <h2 className="text-[14px] leading-[18px] font-medium text-[oklch(0.21_0.034_264.665)]">
+          Edit Voucher
+        </h2>
+        <p className="mt-1 text-[12px] leading-4 font-normal text-[oklch(0.551_0.027_264.364)]">
+          Update voucher details for your shop
+        </p>
 
-        <div className="space-y-3">
+        <div className="mt-6 space-y-6">
           <div>
-            <label className="block text-sm font-medium">Voucher Code *</label>
+            <label className="mb-2 block text-[12px] leading-4 font-medium text-gray-700">
+              <Tag className="mr-2 inline h-4 w-4" />
+              Voucher Code *
+            </label>
             <input
               type="text"
               value={code}
               onChange={(e) => setCode(e.target.value)}
               disabled={loading}
-              className="w-full border rounded-md px-3 py-2 mt-1 focus:outline-none focus:ring focus:ring-blue-300"
+              className="w-full rounded-lg border-0 px-4 py-3 text-[12px] leading-4 font-normal text-[oklch(0.208_0.042_265.755)] ring ring-inset ring-gray-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 disabled:opacity-70"
               placeholder="Enter voucher code"
             />
           </div>
 
           {/* Discount Type Selection */}
           <div>
-            <label className="block text-sm font-medium">Discount Type</label>
-            <div className="flex gap-2 mt-1">
+            <label className="mb-2 block text-[12px] leading-4 font-medium text-gray-700">
+              Discount Type
+            </label>
+            <div className="flex gap-2">
               <button
                 type="button"
                 onClick={() => setDiscountType("percent")}
-                className={`flex-1 rounded-md border px-3 py-2 text-sm font-medium transition-colors ${
+                className={`flex-1 rounded-lg border px-4 py-3 text-[13px] leading-4 font-medium transition-colors ${
                   discountType === "percent"
-                    ? "border-blue-500 bg-blue-50 text-blue-700"
+                    ? "border-purple-500 bg-purple-50 text-purple-700"
                     : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
                 }`}
               >
+                <Percent className="mr-2 inline h-4 w-4" />
                 Percentage
               </button>
               <button
                 type="button"
                 onClick={() => setDiscountType("amount")}
-                className={`flex-1 rounded-md border px-3 py-2 text-sm font-medium transition-colors ${
+                className={`flex-1 rounded-lg border px-4 py-3 text-[13px] leading-4 font-medium transition-colors ${
                   discountType === "amount"
-                    ? "border-blue-500 bg-blue-50 text-blue-700"
+                    ? "border-purple-500 bg-purple-50 text-purple-700"
                     : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
                 }`}
               >
+                <Tag className="mr-2 inline h-4 w-4" />
                 Fixed Amount
               </button>
             </div>
@@ -167,7 +185,8 @@ export default function EditVoucherPopup({
           {/* Discount Value */}
           {discountType === "percent" ? (
             <div>
-              <label className="block text-sm font-medium">
+              <label className="mb-2 block text-[12px] leading-4 font-medium text-gray-700">
+                <Percent className="mr-2 inline h-4 w-4" />
                 Discount Percentage *
               </label>
               <input
@@ -177,17 +196,18 @@ export default function EditVoucherPopup({
                 value={discountPercent}
                 onChange={(e) => setDiscountPercent(Number(e.target.value))}
                 disabled={loading}
-                className="w-full border rounded-md px-3 py-2 mt-1 focus:outline-none focus:ring focus:ring-blue-300"
+                className="w-full rounded-lg border-0 px-4 py-3 text-[12px] leading-4 font-normal text-[oklch(0.208_0.042_265.755)] ring ring-inset ring-gray-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 disabled:opacity-70"
                 placeholder="Enter discount percentage (1-100)"
               />
             </div>
           ) : (
             <div>
-              <label className="block text-sm font-medium">
+              <label className="mb-2 block text-[12px] leading-4 font-medium text-gray-700">
+                <Tag className="mr-2 inline h-4 w-4" />
                 Discount Amount *
               </label>
-              <div className="relative mt-1">
-                <div className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
+              <div className="relative">
+                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
                   $
                 </div>
                 <input
@@ -197,7 +217,7 @@ export default function EditVoucherPopup({
                   value={discountAmount}
                   onChange={(e) => setDiscountAmount(Number(e.target.value))}
                   disabled={loading}
-                  className="w-full border rounded-md px-3 py-2 pl-8 focus:outline-none focus:ring focus:ring-blue-300"
+                  className="w-full rounded-lg border-0 px-4 py-3 pl-8 text-[12px] leading-4 font-normal text-[oklch(0.208_0.042_265.755)] ring ring-inset ring-gray-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 disabled:opacity-70"
                   placeholder="Enter discount amount"
                 />
               </div>
@@ -206,11 +226,12 @@ export default function EditVoucherPopup({
 
           {/* Minimum Order Value */}
           <div>
-            <label className="block text-sm font-medium">
+            <label className="mb-2 block text-[12px] leading-4 font-medium text-gray-700">
+              <Tag className="mr-2 inline h-4 w-4" />
               Minimum Order Value (Optional)
             </label>
-            <div className="relative mt-1">
-              <div className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
+            <div className="relative">
+              <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
                 $
               </div>
               <input
@@ -220,7 +241,7 @@ export default function EditVoucherPopup({
                 value={minOrderValue}
                 onChange={(e) => setMinOrderValue(Number(e.target.value))}
                 disabled={loading}
-                className="w-full border rounded-md px-3 py-2 pl-8 focus:outline-none focus:ring focus:ring-blue-300"
+                className="w-full rounded-lg border-0 px-4 py-3 pl-8 text-[12px] leading-4 font-normal text-[oklch(0.208_0.042_265.755)] ring ring-inset ring-gray-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 disabled:opacity-70"
                 placeholder="Enter minimum order value"
               />
             </div>
@@ -228,7 +249,8 @@ export default function EditVoucherPopup({
 
           {/* Max Usage */}
           <div>
-            <label className="block text-sm font-medium">
+            <label className="mb-2 block text-[12px] leading-4 font-medium text-gray-700">
+              <Tag className="mr-2 inline h-4 w-4" />
               Max Usage (Optional)
             </label>
             <input
@@ -237,40 +259,44 @@ export default function EditVoucherPopup({
               value={maxUsage}
               onChange={(e) => setMaxUsage(Number(e.target.value))}
               disabled={loading}
-              className="w-full border rounded-md px-3 py-2 mt-1 focus:outline-none focus:ring focus:ring-blue-300"
+              className="w-full rounded-lg border-0 px-4 py-3 text-[12px] leading-4 font-normal text-[oklch(0.208_0.042_265.755)] ring ring-inset ring-gray-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 disabled:opacity-70"
               placeholder="Enter max usage (leave 0 for unlimited)"
             />
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="mt-1 text-xs leading-4 font-normal text-gray-500">
               Maximum number of times this voucher can be used. Leave 0 for unlimited usage.
             </p>
           </div>
 
           <div>
-            <label className="block text-sm font-medium">Expiry Date *</label>
-            <input
-              type="date"
-              value={expiryDate}
-              onChange={(e) => setExpiryDate(e.target.value)}
+            <label className="mb-2 block text-[12px] leading-4 font-medium text-gray-700">
+              <Calendar className="mr-2 inline h-4 w-4" />
+              Expiry Date *
+            </label>
+            <DateTimePickerField
+              value={expiryDateTime}
+              onChange={setExpiryDateTime}
+              mode="datetime"
+              triggerClassName="w-full rounded-lg border-0 px-4 py-3 text-[12px] leading-4 font-normal text-[oklch(0.208_0.042_265.755)] ring ring-inset ring-gray-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 disabled:opacity-70"
               disabled={loading}
-              className="w-full border rounded-md px-3 py-2 mt-1 focus:outline-none focus:ring focus:ring-blue-300"
+              align="start"
             />
           </div>
 
-          {error && <p className="text-sm text-red-500">{error}</p>}
+          {error && <p className="text-xs leading-4 font-normal text-red-500">{error}</p>}
         </div>
 
         <div className="flex justify-end gap-2 mt-6">
           <Button
             onClick={onClose}
             disabled={loading}
-            className="px-4 py-2 rounded-md border bg-gray-100 hover:bg-gray-200 disabled:opacity-50"
+            className="px-4 py-2 rounded-md border bg-gray-100 hover:bg-gray-200 disabled:opacity-50 text-[13px] leading-4 font-medium"
           >
             Cancel
           </Button>
           <Button
             onClick={handleSubmit}
             disabled={loading}
-            className="px-4 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
+            className="px-4 py-2 rounded-md bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-50 text-[13px] leading-4 font-medium"
           >
             {loading ? "Saving..." : "Apply"}
           </Button>

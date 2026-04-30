@@ -1,4 +1,4 @@
-export type AuditLogStatus = "Success" | "Failed" | "Pending"
+export type AuditLogStatus = "Success" | "Failure"
 
 export type AuditLogRow = {
   id: string
@@ -7,10 +7,8 @@ export type AuditLogRow = {
   role: string
   module: string
   action: string
-  stage: string
   status: AuditLogStatus
   description: string
-  entityId: string
   ipAddress: string
 }
 
