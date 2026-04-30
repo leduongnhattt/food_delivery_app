@@ -12,6 +12,8 @@ import {
   requestJson,
 } from '@/lib/http'
 import type {
+  AdminAuditLogsListResponse,
+  AdminAuditLogsOptionsResponse,
   AdminCustomersListResponse,
   AdminEnterprisesListResponse,
   AdminEnterpriseDetailResponse,
@@ -20,8 +22,11 @@ import type {
   AdminProfileResponse,
   CreateAdminVoucherPayload,
   CreateAdminVoucherResponse,
+  UpdateAdminVoucherPayload,
+  UpdateAdminVoucherResponse,
   CreateEnterpriseApiResponse,
   AdminVouchersListResponse,
+  AdminVoucherDetailResponse,
   AdminCommissionFeesGlobalResponse,
   AdminCommissionFeeGlobalRuleItem,
   AdminCommissionFeeGlobalRulesListResponse,
@@ -121,6 +126,10 @@ function urlAdminVouchers(): string {
 
 function urlAdminDashboardSummary(): string {
   return `${nestApiBase()}/admin/dashboard/summary`
+}
+
+function urlAdminAuditLogs(): string {
+  return `${nestApiBase()}/admin/audit-logs`
 }
 
 function urlAdminCommissionFees(): string {
@@ -327,6 +336,97 @@ export async function getEnterpriseInvitationTemplate(): Promise<{ template: Adm
   )
 }
 
+export async function listAdminAuditLogs(params: {
+  search?: string
+  user?: string
+  role?: string
+  module?: string
+  action?: string
+  status?: string
+  range?: string
+  from?: string
+  to?: string
+  page?: number
+  limit?: number
+  order?: 'asc' | 'desc'
+}): Promise<AdminAuditLogsListResponse> {
+  const qs = buildQueryString({
+    search: params.search,
+    user: params.user,
+    role: params.role,
+    module: params.module,
+    action: params.action,
+    status: params.status,
+    range: params.range,
+    from: params.from,
+    to: params.to,
+    page: params.page,
+    limit: params.limit,
+    order: params.order,
+  })
+  const url = qs ? `${urlAdminAuditLogs()}?${qs}` : urlAdminAuditLogs()
+  return requestJson<AdminAuditLogsListResponse>(url, { method: 'GET' })
+}
+
+export async function getAdminAuditLogsOptions(): Promise<AdminAuditLogsOptionsResponse> {
+  return requestJson<AdminAuditLogsOptionsResponse>(`${urlAdminAuditLogs()}/options`, {
+    method: 'GET',
+  })
+}
+
+export async function exportAdminAuditLogsCsv(params: {
+  search?: string
+  user?: string
+  role?: string
+  module?: string
+  action?: string
+  status?: string
+  range?: string
+  from?: string
+  to?: string
+  order?: 'asc' | 'desc'
+}): Promise<Blob> {
+  const qs = buildQueryString({
+    search: params.search,
+    user: params.user,
+    role: params.role,
+    module: params.module,
+    action: params.action,
+    status: params.status,
+    range: params.range,
+    from: params.from,
+    to: params.to,
+    order: params.order,
+  })
+  const url = qs ? `${urlAdminAuditLogs()}/export?${qs}` : `${urlAdminAuditLogs()}/export`
+
+  const build = (): RequestInit => {
+    const headers = {
+      ...toHeaderRecord(undefined),
+      ...buildAuthHeader(),
+      Accept: 'text/csv',
+    }
+    return { method: 'GET', headers, credentials: 'include' }
+  }
+
+  let res = await fetch(url, build())
+  if (res.status === 401) {
+    const newToken = await refreshAccessToken()
+    if (newToken) {
+      res = await fetch(url, build())
+    }
+  }
+  if (!res.ok) {
+    let message = `Request failed with status ${res.status}`
+    try {
+      const data = await res.json()
+      if (typeof data?.message === 'string' && data.message.trim()) message = data.message
+    } catch {}
+    throw new Error(message)
+  }
+  return res.blob()
+}
+
 export async function updateEnterpriseInvitationTemplate(
   template: AdminInvitationTemplateValue,
 ): Promise<{ success: boolean }> {
@@ -356,23 +456,51 @@ export async function createAdminVoucher(
   )
 }
 
+export async function updateAdminVoucher(
+  voucherId: string,
+  payload: UpdateAdminVoucherPayload,
+): Promise<UpdateAdminVoucherResponse> {
+  return requestJson<UpdateAdminVoucherResponse>(
+    `${urlAdminVouchers()}/${encodeURIComponent(voucherId)}`,
+    { method: 'PATCH', body: JSON.stringify(payload) },
+  )
+}
+
 export async function listAdminVouchers(params: {
-  status?: 'all' | 'pending' | 'approved'
+  status?: 'all' | 'pending' | 'approved' | 'rejected' | 'expired'
   q?: string
+  page?: number
   limit?: number
+  range?: string
 }): Promise<AdminVouchersListResponse> {
   const qs = buildQueryString({
     status: params.status,
     q: params.q,
+    page: params.page,
     limit: params.limit,
+    range: params.range,
   })
   const url = qs ? `${urlAdminVouchers()}?${qs}` : urlAdminVouchers()
   return requestJson<AdminVouchersListResponse>(url, { method: 'GET' })
 }
 
+export async function getAdminVoucherDetail(voucherId: string): Promise<AdminVoucherDetailResponse> {
+  return requestJson<AdminVoucherDetailResponse>(
+    `${urlAdminVouchers()}/${encodeURIComponent(voucherId)}`,
+    { method: 'GET' },
+  )
+}
+
 export async function approveAdminVoucher(voucherId: string): Promise<{ success: boolean }> {
   return requestJson<{ success: boolean }>(
     `${urlAdminVouchers()}/${encodeURIComponent(voucherId)}/approve`,
+    { method: 'PATCH' },
+  )
+}
+
+export async function rejectAdminVoucher(voucherId: string): Promise<{ success: boolean }> {
+  return requestJson<{ success: boolean }>(
+    `${urlAdminVouchers()}/${encodeURIComponent(voucherId)}/reject`,
     { method: 'PATCH' },
   )
 }

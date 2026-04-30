@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from 'react'
+import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { Building2, Users, Tag, Wallet, Activity } from 'lucide-react'
 import RangeSelect from '@/components/admin/shared/range-select'
@@ -124,7 +125,9 @@ export default function AdminDashboardPage() {
                 <h3 className="font-semibold text-indigo-900">Pending voucher approvals</h3>
                 <p className="text-xs text-indigo-700 mt-0.5">Latest 3 submissions waiting for review</p>
               </div>
-              <a href="/admin/discount" className="text-indigo-700 hover:underline text-sm">View all</a>
+              <Link href="/admin/vouchers" className="text-indigo-700 hover:underline text-sm">
+                View all
+              </Link>
             </div>
 
             {loading ? (
@@ -170,7 +173,12 @@ export default function AdminDashboardPage() {
                                 Created {formatDate(String(v.createdAt)).split(',')[0]}
                               </div>
                             </div>
-                            <a href={`/admin/discount?q=${encodeURIComponent(v.code)}`} className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full border border-indigo-200 text-indigo-700 hover:bg-indigo-50 text-sm shrink-0">Review</a>
+                            <Link
+                              href={`/admin/vouchers?q=${encodeURIComponent(v.code)}`}
+                              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full border border-indigo-200 text-indigo-700 hover:bg-indigo-50 text-sm shrink-0"
+                            >
+                              Review
+                            </Link>
                           </div>
                           {typeof usage === 'number' && (
                             <div className="mt-3">

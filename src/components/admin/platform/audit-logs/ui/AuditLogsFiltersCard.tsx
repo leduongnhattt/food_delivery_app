@@ -4,17 +4,10 @@ import React from "react"
 import { Search } from "lucide-react"
 import {
   AdminFilterMenu,
-  adminFilterOptionsFromStrings,
 } from "@/components/admin/shared/AdminFilterMenu"
 import { mergeClasses } from "@/lib/utils"
-import {
-  ACTION_OPTIONS,
-  MODULE_OPTIONS,
-  RANGE_FILTER_OPTIONS,
-  ROLE_OPTIONS,
-  ROW_STATUS_OPTIONS,
-  USER_OPTIONS,
-} from "@/components/admin/platform/audit-logs/constants"
+import type { AdminFilterOption } from "@/components/admin/shared/AdminFilterMenu"
+import { RANGE_FILTER_OPTIONS } from "@/components/admin/platform/audit-logs/constants"
 
 export function AuditLogsFiltersCard({
   search,
@@ -29,6 +22,11 @@ export function AuditLogsFiltersCard({
   setUser,
   role,
   setRole,
+  moduleOptions,
+  actionOptions,
+  statusOptions,
+  userOptions,
+  roleOptions,
   selectedRangeValue,
   setRangeQueryParam,
   openFilterMenuId,
@@ -37,16 +35,21 @@ export function AuditLogsFiltersCard({
 }: {
   search: string
   setSearch: (v: string) => void
-  module: (typeof MODULE_OPTIONS)[number]
-  setModule: (v: (typeof MODULE_OPTIONS)[number]) => void
-  action: (typeof ACTION_OPTIONS)[number]
-  setAction: (v: (typeof ACTION_OPTIONS)[number]) => void
-  rowStatus: (typeof ROW_STATUS_OPTIONS)[number]
-  setRowStatus: (v: (typeof ROW_STATUS_OPTIONS)[number]) => void
-  user: (typeof USER_OPTIONS)[number]
-  setUser: (v: (typeof USER_OPTIONS)[number]) => void
-  role: (typeof ROLE_OPTIONS)[number]
-  setRole: (v: (typeof ROLE_OPTIONS)[number]) => void
+  module: string
+  setModule: (v: string) => void
+  action: string
+  setAction: (v: string) => void
+  rowStatus: string
+  setRowStatus: (v: string) => void
+  user: string
+  setUser: (v: string) => void
+  role: string
+  setRole: (v: string) => void
+  moduleOptions: readonly AdminFilterOption[]
+  actionOptions: readonly AdminFilterOption[]
+  statusOptions: readonly AdminFilterOption[]
+  userOptions: readonly AdminFilterOption[]
+  roleOptions: readonly AdminFilterOption[]
   selectedRangeValue: (typeof RANGE_FILTER_OPTIONS)[number]["value"]
   setRangeQueryParam: (v: string) => void
   openFilterMenuId: string | null
@@ -82,9 +85,9 @@ export function AuditLogsFiltersCard({
                 menuId="user"
                 ariaLabel="Users"
                 value={user}
-                options={adminFilterOptionsFromStrings(USER_OPTIONS)}
+                options={userOptions}
                 onChange={(v) => {
-                  setUser(v as (typeof USER_OPTIONS)[number])
+                  setUser(v)
                   onAnyChange()
                 }}
                 openMenuId={openFilterMenuId}
@@ -96,9 +99,9 @@ export function AuditLogsFiltersCard({
                 menuId="role"
                 ariaLabel="Roles"
                 value={role}
-                options={adminFilterOptionsFromStrings(ROLE_OPTIONS)}
+                options={roleOptions}
                 onChange={(v) => {
-                  setRole(v as (typeof ROLE_OPTIONS)[number])
+                  setRole(v)
                   onAnyChange()
                 }}
                 openMenuId={openFilterMenuId}
@@ -113,9 +116,9 @@ export function AuditLogsFiltersCard({
                 menuId="module"
                 ariaLabel="Modules"
                 value={module}
-                options={adminFilterOptionsFromStrings(MODULE_OPTIONS)}
+                options={moduleOptions}
                 onChange={(v) => {
-                  setModule(v as (typeof MODULE_OPTIONS)[number])
+                  setModule(v)
                   onAnyChange()
                 }}
                 openMenuId={openFilterMenuId}
@@ -127,9 +130,9 @@ export function AuditLogsFiltersCard({
                 menuId="action"
                 ariaLabel="Actions"
                 value={action}
-                options={adminFilterOptionsFromStrings(ACTION_OPTIONS)}
+                options={actionOptions}
                 onChange={(v) => {
-                  setAction(v as (typeof ACTION_OPTIONS)[number])
+                  setAction(v)
                   onAnyChange()
                 }}
                 openMenuId={openFilterMenuId}
@@ -141,9 +144,9 @@ export function AuditLogsFiltersCard({
                 menuId="rowStatus"
                 ariaLabel="Statuses"
                 value={rowStatus}
-                options={adminFilterOptionsFromStrings(ROW_STATUS_OPTIONS)}
+                options={statusOptions}
                 onChange={(v) => {
-                  setRowStatus(v as (typeof ROW_STATUS_OPTIONS)[number])
+                  setRowStatus(v)
                   onAnyChange()
                 }}
                 openMenuId={openFilterMenuId}
