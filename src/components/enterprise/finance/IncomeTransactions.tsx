@@ -1,6 +1,7 @@
 "use client";
 
-import { Inbox, Lock, Search } from "lucide-react";
+import { useCallback } from "react";
+import { Download, Inbox, Lock, Search } from "lucide-react";
 import {
   clampISODate,
   formatCurrency,
@@ -10,6 +11,13 @@ import {
   DropdownSelect,
   type DropdownSelectOption,
 } from "@/components/ui/dropdown-select";
+import { useToast } from "@/contexts/toast-context";
+
+function csvCell(value: string | number): string {
+  const s = String(value);
+  if (/[",\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+  return s;
+}
 
 export type MoneyFlow = "all" | "in" | "out";
 export type TxType = "order_income" | "withdrawal" | "adjustment" | "refund";
@@ -26,6 +34,56 @@ export type IncomeTxRow = {
   amount: number;
   status: "success" | "pending" | "failed" | "expired";
 };
+
+function txTypeLabel(t: IncomeTxRow["transactionType"]): string {
+  if (t === "order_income") return "Order income";
+  if (t === "withdrawal") return "Withdrawal";
+  if (t === "refund") return "Refund";
+  return "Adjustment";
+}
+
+function statusLabel(s: IncomeTxRow["status"]): string {
+  if (s === "expired") return "Expired";
+  return s;
+}
+
+function downloadIncomeTransactionsCsv(rows: IncomeTxRow[]): void {
+  const headers = [
+    "#",
+    "Order ID",
+    "Type",
+    "Description",
+    "Date",
+    "Money Flow",
+    "Amount",
+    "Status",
+  ];
+  const lines: string[] = [headers.map(csvCell).join(",")];
+  rows.forEach((tx, idx) => {
+    lines.push(
+      [
+        csvCell(idx + 1),
+        csvCell(tx.referenceId ?? "-"),
+        csvCell(txTypeLabel(tx.transactionType)),
+        csvCell(tx.description ?? ""),
+        csvCell(formatDateShort(tx.createdAtISO)),
+        csvCell(tx.moneyFlow),
+        csvCell(formatCurrency(tx.amount)),
+        csvCell(statusLabel(tx.status)),
+      ].join(","),
+    );
+  });
+  const stamp = new Date().toISOString().slice(0, 10);
+  const blob = new Blob(["\uFEFF" + lines.join("\r\n")], {
+    type: "text/csv;charset=utf-8",
+  });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `enterprise-income-transactions-${stamp}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
 
 const STATUS_OPTIONS: DropdownSelectOption[] = [
   { value: "all", label: "All" },
@@ -72,6 +130,8 @@ export function IncomeTransactions({
   onReset: () => void | Promise<void>;
   onApply: () => void | Promise<void>;
 }) {
+  const { showToast } = useToast();
+
   const filtered = (() => {
     const from = clampISODate(dateFrom);
     const to = clampISODate(dateTo);
@@ -90,6 +150,21 @@ export function IncomeTransactions({
       return true;
     });
   })();
+
+  const onExportCsv = useCallback(() => {
+    if (!isVerified) return;
+    try {
+      downloadIncomeTransactionsCsv(filtered);
+      showToast(
+        filtered.length
+          ? `Exported ${filtered.length} row${filtered.length === 1 ? "" : "s"} to CSV.`
+          : "Exported CSV (headers only — no rows match current filters).",
+        "success",
+      );
+    } catch {
+      showToast("Export failed. Please try again.", "error");
+    }
+  }, [filtered, isVerified, showToast]);
 
   return (
     <div className="rounded-sm border border-gray-200 bg-white p-5">
@@ -224,10 +299,12 @@ export function IncomeTransactions({
           <div className="flex items-center gap-2">
             <button
               type="button"
-              className="inline-flex h-9 items-center rounded-md border border-gray-200 bg-white px-3 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
-              disabled={!isVerified}
-              title="Export (coming soon)"
+              className="inline-flex h-9 items-center gap-2 rounded-md border border-gray-200 bg-white px-3 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+              disabled={!isVerified || loading}
+              title="Download current table as CSV"
+              onClick={() => onExportCsv()}
             >
+              <Download className="h-4 w-4 shrink-0 text-gray-500" aria-hidden />
               Export
             </button>
           </div>

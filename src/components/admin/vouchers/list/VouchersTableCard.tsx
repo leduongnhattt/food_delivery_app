@@ -3,6 +3,7 @@
 import type { AdminVoucherListItem } from "@/types/admin-api.types"
 import { MoreVertical } from "lucide-react"
 import { getActionMenuPosition } from "@/components/admin/vouchers/list/utils"
+import { Pagination } from "@/components/ui/pagination"
 
 export function VouchersTableCard({
   loading,
@@ -10,12 +11,21 @@ export function VouchersTableCard({
   pendingApproveId,
   pendingRejectId,
   onOpenActionMenu,
+  pagination,
 }: {
   loading: boolean
   visibleVouchers: AdminVoucherListItem[]
   pendingApproveId: string | null
   pendingRejectId: string | null
   onOpenActionMenu: (args: { voucherId: string; voucherStatus: string; left: number; top: number }) => void
+  pagination?: {
+    page: number
+    pageSize: number
+    total: number
+    onPageChange: (nextPage: number) => void
+    onPageSizeChange: (nextSize: number) => void
+    pageSizeOptions?: readonly number[]
+  }
 }) {
   return (
     <div className="rounded-lg border border-slate-200 bg-white">
@@ -135,6 +145,17 @@ export function VouchersTableCard({
           </tbody>
         </table>
       </div>
+
+      {!loading && pagination && pagination.total > 0 ? (
+        <Pagination
+          page={pagination.page}
+          pageSize={pagination.pageSize}
+          total={pagination.total}
+          pageSizeOptions={pagination.pageSizeOptions}
+          onPageChange={pagination.onPageChange}
+          onPageSizeChange={pagination.onPageSizeChange}
+        />
+      ) : null}
     </div>
   )
 }

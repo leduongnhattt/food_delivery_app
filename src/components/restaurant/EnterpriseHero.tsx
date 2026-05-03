@@ -1,11 +1,15 @@
 "use client"
 import Image from 'next/image'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { Badge } from '@/components/ui/badge'
 import { Star, Heart, MapPin, Clock, Phone, Navigation, ArrowLeft } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { useFavoriteRestaurant } from '@/hooks/favorites-hooks'
+import { isAuthenticated } from '@/lib/auth-helpers'
 
 interface Props {
+  restaurantId: string
   name: string
   description: string
   avatarUrl: string
@@ -18,7 +22,30 @@ interface Props {
   closeHours?: string
 }
 
-export default function EnterpriseHero({ name, description, avatarUrl, rating, isOpen, phone, address, deliveryTime, openHours, closeHours }: Props) {
+export default function EnterpriseHero({
+  restaurantId,
+  name,
+  description,
+  avatarUrl,
+  rating,
+  isOpen,
+  phone,
+  address,
+  deliveryTime,
+  openHours,
+  closeHours,
+}: Props) {
+  const router = useRouter()
+  const { isFavorite, loading: favoriteLoading, toggle } = useFavoriteRestaurant(restaurantId)
+
+  async function handleToggleFavorite() {
+    if (!isAuthenticated()) {
+      router.push('/signin')
+      return
+    }
+    await toggle()
+  }
+
   return (
     <div className="bg-gradient-to-br from-gray-50 to-gray-100 py-8 md:py-12">
       <div className="max-w-6xl mx-auto px-4">
@@ -68,8 +95,16 @@ export default function EnterpriseHero({ name, description, avatarUrl, rating, i
                 >
                   {isOpen ? 'Open' : 'Closed'}
                 </Badge>
-                <Button size="sm" variant="secondary" className="bg-white/90 hover:bg-white shadow-md">
-                  <Heart className="w-4 h-4" />
+                <Button
+                  size="sm"
+                  type="button"
+                  variant="secondary"
+                  onClick={() => void handleToggleFavorite()}
+                  disabled={favoriteLoading}
+                  aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+                  className="bg-white/90 hover:bg-white shadow-md"
+                >
+                  <Heart className={`w-4 h-4 ${isFavorite ? 'fill-rose-500 text-rose-500' : ''}`} />
                 </Button>
               </div>
             </div>
