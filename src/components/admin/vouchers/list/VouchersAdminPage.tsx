@@ -9,7 +9,6 @@ import { VouchersFiltersCard } from "@/components/admin/vouchers/list/VouchersFi
 import { VouchersTableCard } from "@/components/admin/vouchers/list/VouchersTableCard"
 import { VouchersFloatingActionMenu } from "@/components/admin/vouchers/list/VouchersFloatingActionMenu"
 import type { CreatedRangeFilter, StatusFilter, VoucherActionMenu } from "@/components/admin/vouchers/list/utils"
-import { Pagination } from "@/components/ui/pagination"
 
 export default function VouchersAdminPage() {
   const { showToast } = useToast()
@@ -182,18 +181,15 @@ export default function VouchersAdminPage() {
         onOpenActionMenu={({ voucherId, voucherStatus, left, top }) =>
           setActionMenu((cur) => (cur?.voucherId === voucherId ? null : { voucherId, voucherStatus, left, top }))
         }
+        pagination={{
+          page,
+          pageSize: limit,
+          total,
+          pageSizeOptions: [12, 20, 50],
+          onPageChange: (p) => setQueryParam({ page: String(p) }),
+          onPageSizeChange: (n) => setQueryParam({ limit: String(n), page: "1" }),
+        }}
       />
-
-      {!loading && total > 0 && (
-        <Pagination
-          page={page}
-          pageSize={limit}
-          total={total}
-          pageSizeOptions={[12, 20, 50]}
-          onPageChange={(p) => setQueryParam({ page: String(p) })}
-          onPageSizeChange={(n) => setQueryParam({ limit: String(n), page: "1" })}
-        />
-      )}
 
       <VouchersFloatingActionMenu
         router={router}

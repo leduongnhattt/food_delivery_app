@@ -1,9 +1,12 @@
 import Image from 'next/image'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { ShoppingCart } from 'lucide-react'
+import { Heart, ShoppingCart } from 'lucide-react'
 import { formatPrice } from '@/lib/utils'
 import { MenuItem } from '@/types/models'
+import { useRouter } from 'next/navigation'
+import { isAuthenticated } from '@/lib/auth-helpers'
+import { useFavoriteFood } from '@/hooks/favorites-hooks'
 
 interface MenuItemCardProps {
   menuItem: MenuItem
@@ -11,6 +14,17 @@ interface MenuItemCardProps {
 }
 
 export function MenuItemCard({ menuItem, onAddToCart }: MenuItemCardProps) {
+  const router = useRouter()
+  const { isFavorite, loading: favoriteLoading, toggle } = useFavoriteFood(menuItem.id)
+
+  async function handleToggleFavorite() {
+    if (!isAuthenticated()) {
+      router.push('/signin')
+      return
+    }
+    await toggle()
+  }
+
   return (
     <Card className="overflow-hidden border border-gray-100 rounded-2xl hover:shadow-xl transition-all duration-300 h-full flex flex-col">
       <div className="relative h-40 w-full">
@@ -20,6 +34,16 @@ export function MenuItemCard({ menuItem, onAddToCart }: MenuItemCardProps) {
           fill
           className="object-cover"
         />
+        <button
+          type="button"
+          onClick={() => void handleToggleFavorite()}
+          disabled={favoriteLoading}
+          aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+          title={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+          className="absolute top-2 right-2 inline-flex items-center justify-center w-9 h-9 rounded-full bg-white/90 hover:bg-white shadow-md ring-1 ring-black/10 transition"
+        >
+          <Heart className={`h-4 w-4 ${isFavorite ? 'fill-rose-500 text-rose-500' : 'text-gray-600'}`} />
+        </button>
         {!menuItem.isAvailable && (
           <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
             <span className="text-white font-semibold">Out of Stock</span>

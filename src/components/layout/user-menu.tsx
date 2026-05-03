@@ -1,7 +1,7 @@
 'use client'
 import { useRouter } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
-import { Headphones } from 'lucide-react'
+import { Headphones, Heart } from 'lucide-react'
 import { useAccountHeader } from '@/hooks/account-hooks'
 
 type UserLike = {
@@ -42,6 +42,11 @@ export function UserMenu(props: {
   function handleSupport() {
     setIsOpen(false)
     router.push(supportHref)
+  }
+
+  function handleFavorites() {
+    setIsOpen(false)
+    router.push('/favorites')
   }
 
   useEffect(() => {
@@ -114,6 +119,16 @@ export function UserMenu(props: {
             >
               <span className="flex items-center justify-center w-7 h-7 rounded-md bg-amber-50 text-amber-600 group-hover:bg-amber-100 transition-transform group-hover:rotate-6">⚙️</span>
               <span className="transition-transform group-hover:translate-x-0.5">Settings</span>
+            </button>
+            <button
+              role="menuitem"
+              onClick={handleFavorites}
+              className="group w-full px-4 py-2 text-left text-sm flex items-center gap-3 text-gray-900 hover:bg-amber-100 hover:font-medium transition-all"
+            >
+              <span className="flex items-center justify-center w-7 h-7 rounded-md bg-rose-50 text-rose-600 group-hover:bg-rose-100 transition-transform group-hover:scale-105">
+                <Heart className="h-4 w-4" aria-hidden />
+              </span>
+              <span className="transition-transform group-hover:translate-x-0.5">Favorites</span>
             </button>
             <div className="my-1 border-t" />
             <button

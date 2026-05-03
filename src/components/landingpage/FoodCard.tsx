@@ -1,8 +1,12 @@
 import React from 'react';
 import Image from 'next/image';
+import { useRouter } from 'next/navigation'
 import { Food } from '@/types/models';
 import { formatPrice } from '@/lib/utils';
 import { HighlightText } from '@/components/ui/highlight-text';
+import { Heart } from 'lucide-react'
+import { isAuthenticated } from '@/lib/auth-helpers'
+import { useFavoriteFood } from '@/hooks/favorites-hooks'
 
 interface FoodCardProps {
   food: Food;
@@ -11,9 +15,20 @@ interface FoodCardProps {
 }
 
 const FoodCard: React.FC<FoodCardProps> = ({ food, onOrderNow, searchQuery = '' }) => {
+  const router = useRouter()
+  const { isFavorite, loading: favoriteLoading, toggle } = useFavoriteFood(food.foodId)
+
   const handleOrderClick = (): void => {
     onOrderNow(food.foodId);
   };
+
+  async function handleToggleFavorite() {
+    if (!isAuthenticated()) {
+      router.push('/signin')
+      return
+    }
+    await toggle()
+  }
 
   // Defensive availability: prefer explicit isAvailable; fallback to true (do not infer from stock)
   const availableFlag = (food as any)?.isAvailable
@@ -66,6 +81,20 @@ const FoodCard: React.FC<FoodCardProps> = ({ food, onOrderNow, searchQuery = '' 
             No Image
           </div>
         )}
+        <button
+          type="button"
+          onClick={(ev) => {
+            ev.preventDefault()
+            ev.stopPropagation()
+            void handleToggleFavorite()
+          }}
+          disabled={favoriteLoading}
+          aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+          title={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+          className="absolute top-2 right-2 inline-flex items-center justify-center w-9 h-9 rounded-full bg-white/90 hover:bg-white shadow-md ring-1 ring-black/10 transition disabled:opacity-60 disabled:cursor-not-allowed"
+        >
+          <Heart className={`h-4 w-4 ${isFavorite ? 'fill-rose-500 text-rose-500' : 'text-gray-700'}`} />
+        </button>
         {/* No stock hint badge; availability is controlled by flag */}
         {!available && (
           <div className="absolute top-2 right-2 bg-red-500 text-white text-xs px-2 py-1 rounded-full">

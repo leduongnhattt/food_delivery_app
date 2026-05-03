@@ -92,6 +92,7 @@ export default function RestaurantPage({ params }: RestaurantPageProps) {
     <div className="min-h-screen bg-gray-50">
       
       <EnterpriseHero 
+        restaurantId={id}
         name={restaurant!.name}
         description={restaurant!.description}
         avatarUrl={restaurant!.avatarUrl}

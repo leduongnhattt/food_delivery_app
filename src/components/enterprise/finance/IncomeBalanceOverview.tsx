@@ -1,7 +1,8 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
-import { ChevronRight, Eye } from "lucide-react";
+import { ChevronRight, Eye, EyeOff } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 
 export function IncomeBalanceOverview({
@@ -27,6 +28,8 @@ export function IncomeBalanceOverview({
   maskedAccountNumber: string | null;
   onSelectBank: () => void;
 }) {
+  const [balanceVisible, setBalanceVisible] = useState(true);
+
   return (
     <div className="rounded-sm border border-gray-200 bg-white p-5">
       <h2 className="mb-4 text-base font-medium text-gray-900">Balance Overview</h2>
@@ -45,8 +48,25 @@ export function IncomeBalanceOverview({
                   <div className="h-7 w-32 animate-pulse rounded bg-gray-200" />
                 ) : (
                   <>
-                    <span className="text-2xl font-semibold text-gray-900">{formatCurrency(balance)}</span>
-                    <Eye className="h-4 w-4 cursor-pointer text-gray-400 hover:text-gray-600" aria-hidden />
+                    <span
+                      className="text-2xl font-semibold text-gray-900 tabular-nums tracking-tight"
+                      aria-live="polite"
+                    >
+                      {balanceVisible ? formatCurrency(balance) : "$ ••••••"}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setBalanceVisible((v) => !v)}
+                      className="rounded p-1 text-gray-400 hover:bg-gray-200/60 hover:text-gray-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                      aria-label={balanceVisible ? "Hide balance" : "Show balance"}
+                      title={balanceVisible ? "Hide balance" : "Show balance"}
+                    >
+                      {balanceVisible ? (
+                        <Eye className="h-4 w-4" aria-hidden />
+                      ) : (
+                        <EyeOff className="h-4 w-4" aria-hidden />
+                      )}
+                    </button>
                   </>
                 )}
               </div>
