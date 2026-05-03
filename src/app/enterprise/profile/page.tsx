@@ -2,7 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useToast } from "@/contexts/toast-context";
 import { useAccountHeader } from "@/hooks/account-hooks";
 import { buildAuthHeader, getAuthToken } from "@/lib/auth-helpers";
@@ -24,6 +24,66 @@ const profileFieldClass = mergeClasses(
   "disabled:cursor-not-allowed disabled:opacity-50"
 );
 
+type EnterpriseProfileBaseline = {
+  enterpriseName: string;
+  email: string;
+  address: string;
+  phoneNumber: string;
+  description: string;
+  openHours: string;
+  closeHours: string;
+  avatar: string;
+};
+
+function normalizeBaseline(input: {
+  enterpriseName: string;
+  email: string;
+  address: string;
+  phoneNumber: string;
+  description: string;
+  openHours: string;
+  closeHours: string;
+  avatar: string;
+}): EnterpriseProfileBaseline {
+  return {
+    enterpriseName: input.enterpriseName.trim(),
+    email: input.email.trim().toLowerCase(),
+    address: input.address.trim(),
+    phoneNumber: input.phoneNumber.trim(),
+    description: input.description.trim(),
+    openHours: input.openHours.trim(),
+    closeHours: input.closeHours.trim(),
+    avatar: input.avatar.trim(),
+  };
+}
+
+function baselineEqual(a: EnterpriseProfileBaseline, b: EnterpriseProfileBaseline): boolean {
+  return (
+    a.enterpriseName === b.enterpriseName &&
+    a.email === b.email &&
+    a.address === b.address &&
+    a.phoneNumber === b.phoneNumber &&
+    a.description === b.description &&
+    a.openHours === b.openHours &&
+    a.closeHours === b.closeHours &&
+    a.avatar === b.avatar
+  );
+}
+
+/** `input[type=time]` value is `HH:mm` (24h). Returns minutes from midnight, or null if empty/invalid. */
+function timeValueToMinutesFromMidnight(value: string): number | null {
+  const s = value.trim();
+  if (!s) return null;
+  const m = /^(\d{1,2}):(\d{2})$/.exec(s);
+  if (!m) return null;
+  const h = Number(m[1]);
+  const min = Number(m[2]);
+  if (!Number.isFinite(h) || !Number.isFinite(min) || h < 0 || h > 23 || min < 0 || min > 59) {
+    return null;
+  }
+  return h * 60 + min;
+}
+
 export default function EnterpriseProfile() {
   const [enterpriseName, setEnterpriseName] = useState("");
   const [email, setEmail] = useState("");
@@ -38,6 +98,7 @@ export default function EnterpriseProfile() {
 
   const { showToast } = useToast();
   const accountHeader = useAccountHeader();
+  const profileBaselineRef = useRef<EnterpriseProfileBaseline | null>(null);
 
   // Validation functions
   const validateEnterpriseName = (name: string) => {
@@ -74,6 +135,16 @@ export default function EnterpriseProfile() {
       setCloseHours(enterprise.CloseHours || "");
       const avatarUrl = enterprise.account.Avatar || accountHeader.avatar || "";
       setAvatar(avatarUrl);
+      profileBaselineRef.current = normalizeBaseline({
+        enterpriseName: enterprise.EnterpriseName || "",
+        email: enterprise.account.Email || "",
+        address: enterprise.Address || "",
+        phoneNumber: enterprise.PhoneNumber || "",
+        description: enterprise.Description || "",
+        openHours: enterprise.OpenHours || "",
+        closeHours: enterprise.CloseHours || "",
+        avatar: avatarUrl,
+      });
     } catch (error) {
       console.error("Error fetching profile:", error);
       showToast("Failed to load profile data", "error");
@@ -88,6 +159,12 @@ export default function EnterpriseProfile() {
   useEffect(() => {
     if (accountHeader.avatar) {
       setAvatar(accountHeader.avatar);
+      if (profileBaselineRef.current) {
+        profileBaselineRef.current = {
+          ...profileBaselineRef.current,
+          avatar: accountHeader.avatar.trim(),
+        };
+      }
     }
   }, [accountHeader.avatar]);
 
@@ -133,8 +210,12 @@ export default function EnterpriseProfile() {
       
       const json = await res.json();
       if (json?.url) {
-        setAvatar(json.url);
+        const url = String(json.url).trim();
+        setAvatar(url);
         showToast("Avatar updated successfully!", "success");
+        if (profileBaselineRef.current) {
+          profileBaselineRef.current = { ...profileBaselineRef.current, avatar: url };
+        }
       }
     } catch (error) {
       console.error("Error uploading avatar:", error);
@@ -173,6 +254,37 @@ export default function EnterpriseProfile() {
       return;
     }
 
+    const openTrim = openHours.trim();
+    const closeTrim = closeHours.trim();
+    if (openTrim && closeTrim) {
+      const openM = timeValueToMinutesFromMidnight(openTrim);
+      const closeM = timeValueToMinutesFromMidnight(closeTrim);
+      if (openM !== null && closeM !== null && openM >= closeM) {
+        showToast("Opening time must be earlier than closing time", "error");
+        setIsLoading(false);
+        return;
+      }
+    }
+
+    const nextBaseline = normalizeBaseline({
+      enterpriseName,
+      email: emailTrim,
+      address,
+      phoneNumber,
+      description,
+      openHours,
+      closeHours,
+      avatar,
+    });
+    if (
+      profileBaselineRef.current &&
+      baselineEqual(profileBaselineRef.current, nextBaseline)
+    ) {
+      showToast("No changes detected", "info");
+      setIsLoading(false);
+      return;
+    }
+
     try {
       const payload = {
         EnterpriseName: enterpriseName.trim(),
@@ -207,6 +319,7 @@ export default function EnterpriseProfile() {
       } else {
         showToast("Profile updated successfully!", "success");
         setEmail(emailTrim);
+        profileBaselineRef.current = nextBaseline;
       }
     } catch (error) {
       console.error("Error updating profile:", error);
