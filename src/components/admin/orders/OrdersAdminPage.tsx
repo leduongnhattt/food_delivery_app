@@ -403,6 +403,7 @@ export default function OrdersAdminPage() {
             fromDate: fromDateFilter,
             toDate: toDateFilter,
           }}
+          onResetAllFilters={clearCursorHistory}
           statusControl={
             <OrderStatusSelect current={statusFilter} onStatusChange={clearCursorHistory} />
           }
