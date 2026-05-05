@@ -17,6 +17,7 @@ import {
 } from "@/components/admin/orders/detail/AdminOrderHistoryCard";
 import { AdminOrderLogisticsInfoCard } from "@/components/admin/orders/detail/AdminOrderLogisticsInfoCard";
 import { AdminOrderPaymentFeesCard } from "@/components/admin/orders/detail/AdminOrderPaymentFeesCard";
+import { adminPaymentSummaryLine, primaryPaymentRow } from "@/lib/admin-order-payment";
 
 export default function OrderDetailPage({
   order,
@@ -24,11 +25,10 @@ export default function OrderDetailPage({
   order: AdminOrderDetail;
 }) {
   const [tab, setTab] = useState<AdminOrderDetailsTab>("order_info");
-  const sellerNames = useMemo(() => {
-    return Array.from(
-      new Set(order.orderDetails.map((d) => d.food.enterprise.EnterpriseName).filter(Boolean)),
-    );
-  }, [order.orderDetails]);
+
+  const paymentSummaryLabel = useMemo(() => {
+    return adminPaymentSummaryLine(primaryPaymentRow(order.payments));
+  }, [order.payments]);
 
   const timelineSteps = useMemo(() => {
     const createdAt = order.OrderDate;
@@ -63,7 +63,7 @@ export default function OrderDetailPage({
       <AdminOrderSummaryCards
         orderStatus={order.Status}
         logisticsLabel="Logistics Ready"
-        paymentMethodLabel={sellerNames.length ? "Cash" : "—"}
+        paymentMethodLabel={paymentSummaryLabel}
       />
 
       <AdminOrderDetailsTabs value={tab} onChange={setTab} />

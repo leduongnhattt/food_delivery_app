@@ -115,13 +115,41 @@ function flatNavLinks(): { href: string; label: string }[] {
   return out;
 }
 
+/** Sub-routes under `/admin/orders` that are not the order list / order detail. */
+const ADMIN_ORDERS_NON_LIST_SEGMENTS = new Set(["returns-refunds", "bulk-update-tools"]);
+
+function normalizeAdminPath(p: string): string {
+  return (p.split("?")[0] || "").replace(/\/+$/, "") || "/";
+}
+
+/**
+ * Sidebar "active" state. `/admin/orders` must not match sibling paths like
+ * `/admin/orders/bulk-update-tools` (previously `startsWith(href + "/")` caused that bug).
+ */
+function isNavItemActive(rawPathname: string, href: string): boolean {
+  const path = normalizeAdminPath(rawPathname);
+  const hrefNormalized = normalizeAdminPath(href);
+
+  if (hrefNormalized === "/admin/orders") {
+    if (path === "/admin/orders") return true;
+    if (!path.startsWith("/admin/orders/")) return false;
+    const rest = path.slice("/admin/orders/".length);
+    const firstSegment = rest.split("/")[0] ?? "";
+    if (!firstSegment) return false;
+    if (ADMIN_ORDERS_NON_LIST_SEGMENTS.has(firstSegment)) return false;
+    return true;
+  }
+
+  return path === hrefNormalized || path.startsWith(`${hrefNormalized}/`);
+}
+
 function matchNavBase(
   path: string,
   items: { href: string; label: string }[],
 ): { href: string; label: string } | null {
   const sorted = [...items].sort((a, b) => b.href.length - a.href.length);
   for (const it of sorted) {
-    if (path === it.href || path.startsWith(it.href + "/")) return it;
+    if (isNavItemActive(path, it.href)) return it;
   }
   return null;
 }
@@ -258,9 +286,6 @@ export default function AdminNavbar() {
     document.addEventListener("click", onDocClick);
     return () => document.removeEventListener("click", onDocClick);
   }, [openProfileMenu]);
-
-  const isActive = (href: string) =>
-    pathname === href || pathname.startsWith(href + "/");
 
   const handleLogout = async () => {
     try {
@@ -422,22 +447,24 @@ export default function AdminNavbar() {
                     </div>
 
                     <div className="py-1">
-                      <a
-                        href="#"
-                        onClick={(e) => e.preventDefault()}
+                      <Link
+                        href="/admin/profile"
+                        prefetch
+                        onClick={() => setOpenProfileMenu(false)}
                         className="w-full flex items-center gap-3 px-4 py-2 text-[12px] leading-4 font-normal text-[oklch(0.208_0.042_265.755)] hover:bg-slate-50"
                       >
                         <User className="w-4 h-4 text-slate-500" />
-                        <span className="flex-1">Shop Information</span>
-                      </a>
-                      <a
-                        href="#"
-                        onClick={(e) => e.preventDefault()}
+                        <span className="flex-1">Profile</span>
+                      </Link>
+                      <Link
+                        href="/admin/profile#admin-profile-settings"
+                        prefetch
+                        onClick={() => setOpenProfileMenu(false)}
                         className="w-full flex items-center gap-3 px-4 py-2 text-[12px] leading-4 font-normal text-[oklch(0.208_0.042_265.755)] hover:bg-slate-50"
                       >
                         <Settings className="w-4 h-4 text-slate-500" />
-                        <span className="flex-1">Shop Setting</span>
-                      </a>
+                        <span className="flex-1">Settings</span>
+                      </Link>
                       <a
                         href="#"
                         onClick={(e) => e.preventDefault()}
@@ -508,7 +535,7 @@ export default function AdminNavbar() {
                             label: string;
                             items: { href: string; label: string }[];
                           };
-                          const groupActive = g.items.some((x) => isActive(x.href));
+                          const groupActive = g.items.some((x) => isNavItemActive(pathname, x.href));
                           const isGroupOpen = openGroups[g.id] ?? true;
                           return (
                             <li key={`group:${g.id}`} className="px-2">
@@ -544,7 +571,7 @@ export default function AdminNavbar() {
                               >
                                 <ul className="py-1">
                                   {g.items.map(({ href, label }) => {
-                                    const active = isActive(href);
+                                    const active = isNavItemActive(pathname, href);
                                     return (
                                       <li key={href}>
                                         <Link
@@ -574,7 +601,7 @@ export default function AdminNavbar() {
                         }
 
                         const link = item as { href: string; label: string };
-                        const active = isActive(link.href);
+                        const active = isNavItemActive(pathname, link.href);
                         return (
                           <li key={link.href}>
                             <Link
