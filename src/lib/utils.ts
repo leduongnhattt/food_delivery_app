@@ -112,6 +112,21 @@ export function sumPrices(prices: number[]): number {
   return Math.round(prices.reduce((sum, price) => sum + price, 0) * 100) / 100
 }
 
+/** Coerce API amounts (`number` or numeric `string`) to a finite number; non-finite values become `0`. */
+export function parseFiniteNumber(value: number | string): number {
+  const parsed = typeof value === 'number' ? value : Number(value)
+  return Number.isFinite(parsed) ? parsed : 0
+}
+
+/** Optional amounts from API: missing/empty/non-finite → `null`. */
+export function parseOptionalFiniteNumber(
+  value: string | number | null | undefined,
+): number | null {
+  if (value === null || value === undefined || value === '') return null
+  const parsed = typeof value === 'number' ? value : Number(value)
+  return Number.isFinite(parsed) ? parsed : null
+}
+
 export function formatDate(dateString: string): string {
   const date = new Date(dateString)
   if (isNaN(date.getTime())) return 'Invalid Date'

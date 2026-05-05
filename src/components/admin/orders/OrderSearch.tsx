@@ -43,12 +43,15 @@ type Props = {
   currentStatus: string;
   initialValues: FilterValues;
   statusControl?: React.ReactNode;
+  /** Called before navigating to a clean `/admin/orders` URL (e.g. clear cursor stack in session). */
+  onResetAllFilters?: () => void;
 };
 
 export default function OrderSearch({
   currentStatus,
   initialValues,
   statusControl,
+  onResetAllFilters,
 }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -63,6 +66,14 @@ export default function OrderSearch({
   );
   const [fromDate, setFromDate] = useState(initialValues.fromDate);
   const [toDate, setToDate] = useState(initialValues.toDate);
+  /** When the URL query changes (reset, back/forward, debounced updates), align local filter state — not on every parent re-render. */
+  useEffect(() => {
+    setPaymentMethod(initialValues.paymentMethod);
+    setPaymentStatus(initialValues.paymentStatus);
+    setFromDate(initialValues.fromDate);
+    setToDate(initialValues.toDate);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: `initialValues` is a new object each render from parent
+  }, [searchParams.toString()]);
   const [isPaymentMethodMenuOpen, setIsPaymentMethodMenuOpen] = useState(false);
   const paymentMethodMenuRef = useRef<HTMLDivElement>(null);
   const [isPaymentStatusMenuOpen, setIsPaymentStatusMenuOpen] = useState(false);
@@ -103,8 +114,9 @@ export default function OrderSearch({
       // Reset cursor when any filter changes
       params.delete("cursor");
 
+      const qs = params.toString();
       startTransition(() => {
-        router.replace(`/admin/orders?${params.toString()}`, { scroll: false });
+        router.replace(qs ? `/admin/orders?${qs}` : "/admin/orders", { scroll: false });
       });
     },
     [currentStatus, router, startTransition],
@@ -191,18 +203,18 @@ export default function OrderSearch({
     setPaymentStatus("");
     setFromDate("");
     setToDate("");
-    updateUrlFilters({
-      q: qValue,
-      qMode,
-      paymentMethod: "",
-      paymentStatus: "",
-      fromDate: "",
-      toDate: "",
+    setQModeState("buyer");
+    setIsPaymentMethodMenuOpen(false);
+    setIsPaymentStatusMenuOpen(false);
+    onResetAllFilters?.();
+    startTransition(() => {
+      router.replace("/admin/orders", { scroll: false });
     });
   }
 
   const hasActiveFilters =
     !!qValue.trim() ||
+    currentStatus !== "all" ||
     !!paymentMethod ||
     !!paymentStatus ||
     !!fromDate ||
@@ -256,7 +268,11 @@ export default function OrderSearch({
                   restoreSearchFocusRef.current = true;
                   onQChange(e);
                 }}
-                placeholder={qMode === "orderId" ? "Input order ID" : "Input buyer or seller name"}
+                placeholder={
+                  qMode === "orderId"
+                    ? "Last 5 characters shown in the list (or full order ID)"
+                    : "Input buyer or seller name"
+                }
                 disabled={isPending}
                 aria-label="Search"
                 className="h-8 min-h-8 min-w-0 w-full rounded-none rounded-r-md border-0 border-l border-slate-200 bg-white px-3 ps-10 text-[13px] leading-normal text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-0 disabled:cursor-not-allowed disabled:opacity-75"

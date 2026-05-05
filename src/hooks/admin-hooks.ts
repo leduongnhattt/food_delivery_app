@@ -33,6 +33,10 @@ export function useAdminSearchInput(searchFromUrl: string, onApply: (trimmed: st
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current)
+      timeoutRef.current = null
+    }
     setValue(searchFromUrl)
   }, [searchFromUrl])
 

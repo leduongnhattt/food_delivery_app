@@ -290,9 +290,37 @@ export type AdminOrdersListResponse = {
 export type AdminOrderDetail = {
   OrderID: string;
   TotalAmount: number;
+  /** `ORDER.CommissionAmount` — platform commission total (after settlement job) */
+  CommissionAmount?: string | number | null;
   Status: string;
   OrderDate: string;
   CustomerID: string;
+  /** `ORDER.DeliveryAddress` — only when Nest admin detail select includes it */
+  DeliveryAddress?: string | null;
+  DeliveryNote?: string | null;
+  EstimatedDeliveryTime?: string | null;
+  DeliveredAt?: string | null;
+
+  /** `ORDER.Metadata` — e.g. `{ checkout: { subtotal, deliveryFee, voucherDiscount } }` from checkout */
+  Metadata?: Record<string, unknown> | null;
+
+  /** From `payments` on order — newest first when API includes them */
+  payments?: Array<{
+    PaymentMethod: string;
+    PaymentDate: string | null;
+    PaymentStatus: string;
+    TransactionID?: string | null;
+  }>;
+
+  /** Applied voucher on order (`ORDER.VoucherID` → `VOUCHER`) */
+  voucher?: {
+    VoucherID: string;
+    Code: string;
+    DiscountPercent: string | number | null;
+    DiscountAmount: string | number | null;
+    EnterpriseID: string | null;
+    CreatedBy: string;
+  } | null;
 
   customer: {
     FullName: string;
@@ -303,6 +331,8 @@ export type AdminOrderDetail = {
     FoodID: string;
     Quantity: number;
     SubTotal: number;
+    AppliedCommissionPercent?: string | number | null;
+    CommissionLineAmount?: string | number | null;
 
     food: {
       DishName: string;
@@ -310,6 +340,8 @@ export type AdminOrderDetail = {
       enterprise: {
         EnterpriseID: string;
         EnterpriseName: string;
+        Address?: string;
+        PhoneNumber?: string;
       };
     };
   }>;
