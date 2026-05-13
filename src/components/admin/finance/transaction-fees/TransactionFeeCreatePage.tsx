@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useToast } from "@/contexts/toast-context";
 import {
@@ -9,7 +9,9 @@ import {
 } from "@/components/admin/finance/transaction-fees/TransactionFeeRuleForm";
 import {
   createTransactionFeeChannelRule,
+  getTransactionFeeGlobalRule,
   getTransactionFeesGlobal,
+  updateTransactionFeeGlobalRule,
   updateTransactionFeesGlobal,
 } from "@/services/admin.service";
 
@@ -17,6 +19,7 @@ export function TransactionFeeCreatePage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const scopeGlobal = searchParams.get("scope") === "global";
+  const globalRuleIdParam = searchParams.get("globalRuleId");
   const { showToast } = useToast();
 
   const [submitting, setSubmitting] = useState(false);
@@ -25,37 +28,62 @@ export function TransactionFeeCreatePage() {
     Partial<TransactionFeeRuleFormValues> | null
   >(null);
 
-  const loadGlobalPrefill = useCallback(async () => {
-    try {
-      const globalRule = await getTransactionFeesGlobal();
-      setGlobalPrefill({
-        feeName: globalRule.RuleName ?? "",
-        isGlobalRule: true,
-        ratePercent: String(globalRule.RatePercent),
-        isActive: globalRule.IsActive,
-        customPeriod: true,
-        effectiveFrom: globalRule.EffectiveFrom,
-        effectiveTo: globalRule.EffectiveTo ?? "",
-        paymentChannelPostValue: "",
-      });
-    } catch {
-      setGlobalPrefill({
-        feeName: "",
-        isGlobalRule: true,
-        ratePercent: "0",
-        isActive: true,
-        customPeriod: false,
-        effectiveFrom: "",
-        effectiveTo: "",
-        paymentChannelPostValue: "",
-      });
-    }
-  }, []);
-
   useEffect(() => {
     if (!scopeGlobal) return;
-    void loadGlobalPrefill();
-  }, [scopeGlobal, loadGlobalPrefill]);
+    void (async () => {
+      try {
+        if (globalRuleIdParam) {
+          const { item: g } = await getTransactionFeeGlobalRule(globalRuleIdParam);
+          setGlobalPrefill({
+            feeName: g.RuleName ?? "",
+            isGlobalRule: true,
+            ratePercent: String(g.RatePercent),
+            isActive: g.IsActive,
+            customPeriod: true,
+            effectiveFrom: g.EffectiveFrom,
+            effectiveTo: g.EffectiveTo ?? "",
+            paymentChannelPostValue: "",
+          });
+          return;
+        }
+        const globalRule = await getTransactionFeesGlobal();
+        if (!globalRule) {
+          setGlobalPrefill({
+            feeName: "",
+            isGlobalRule: true,
+            ratePercent: "0",
+            isActive: true,
+            customPeriod: false,
+            effectiveFrom: "",
+            effectiveTo: "",
+            paymentChannelPostValue: "",
+          });
+          return;
+        }
+        setGlobalPrefill({
+          feeName: globalRule.RuleName ?? "",
+          isGlobalRule: true,
+          ratePercent: String(globalRule.RatePercent),
+          isActive: globalRule.IsActive,
+          customPeriod: true,
+          effectiveFrom: globalRule.EffectiveFrom,
+          effectiveTo: globalRule.EffectiveTo ?? "",
+          paymentChannelPostValue: "",
+        });
+      } catch {
+        setGlobalPrefill({
+          feeName: "",
+          isGlobalRule: true,
+          ratePercent: "0",
+          isActive: true,
+          customPeriod: false,
+          effectiveFrom: "",
+          effectiveTo: "",
+          paymentChannelPostValue: "",
+        });
+      }
+    })();
+  }, [scopeGlobal, globalRuleIdParam]);
 
   async function handleSubmit(values: TransactionFeeRuleFormValues) {
     setError(null);
@@ -74,13 +102,24 @@ export function TransactionFeeCreatePage() {
     try {
       const global = scopeGlobal || values.isGlobalRule;
       if (global) {
-        await updateTransactionFeesGlobal({
-          ruleName: trimmedFeeName,
-          ratePercent: ratePercentNumber,
-          isActive: values.isActive,
-          effectiveFrom: values.effectiveFrom.trim(),
-          effectiveTo: values.effectiveTo.trim() ? values.effectiveTo.trim() : null,
-        });
+        const editGlobalId = globalRuleIdParam?.trim() || "";
+        if (editGlobalId) {
+          await updateTransactionFeeGlobalRule(editGlobalId, {
+            ruleName: trimmedFeeName,
+            ratePercent: ratePercentNumber,
+            isActive: values.isActive,
+            effectiveFrom: values.effectiveFrom.trim(),
+            effectiveTo: values.effectiveTo.trim() ? values.effectiveTo.trim() : null,
+          });
+        } else {
+          await updateTransactionFeesGlobal({
+            ruleName: trimmedFeeName,
+            ratePercent: ratePercentNumber,
+            isActive: values.isActive,
+            effectiveFrom: values.effectiveFrom.trim(),
+            effectiveTo: values.effectiveTo.trim() ? values.effectiveTo.trim() : null,
+          });
+        }
       } else {
         if (!values.paymentChannelPostValue.trim()) return; // validated in form
         const effectiveToTrim = values.effectiveTo.trim();

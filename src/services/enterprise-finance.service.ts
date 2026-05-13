@@ -42,6 +42,32 @@ export type EnterpriseIncomeTx = {
   metadata: unknown;
 };
 
+export type EnterpriseIncomeLedgerDetail = {
+  success: boolean;
+  entry: {
+    id: string;
+    createdAt: string;
+    transactionType: string;
+    description: string;
+    referenceType: string | null;
+    referenceId: string | null;
+    moneyFlow: "in" | "out";
+    amount: number;
+    status: string;
+    metadata: unknown;
+  };
+  payoutRequest: {
+    id: string;
+    status: string;
+    amount: number;
+    currency: string;
+    expiresAt: string;
+    createdAt: string;
+    reason: string | null;
+  } | null;
+  canCancelWithdrawal: boolean;
+};
+
 export class EnterpriseIncomeService {
   static async summary(): Promise<EnterpriseIncomeSummary> {
     const base = getServerApiBase();
@@ -87,5 +113,23 @@ export class EnterpriseIncomeService {
       cache: "no-store",
     });
   }
-}
 
+  static async ledgerEntry(ledgerEntryId: string): Promise<EnterpriseIncomeLedgerDetail> {
+    const base = getServerApiBase();
+    return requestJson(`${base}/enterprise/income/ledger/${encodeURIComponent(ledgerEntryId)}`, {
+      method: "GET",
+      cache: "no-store",
+    });
+  }
+
+  static async cancelLedgerWithdrawal(ledgerEntryId: string): Promise<{ success: boolean }> {
+    const base = getServerApiBase();
+    return requestJson(
+      `${base}/enterprise/income/ledger/${encodeURIComponent(ledgerEntryId)}/cancel-withdrawal`,
+      {
+        method: "POST",
+        cache: "no-store",
+      },
+    );
+  }
+}

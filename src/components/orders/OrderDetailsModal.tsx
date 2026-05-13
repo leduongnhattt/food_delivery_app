@@ -326,6 +326,48 @@ export function OrderDetailsModal({ open, loading, order, onClose }: OrderDetail
                     </div>
                   ))}
                 </div>
+                {(() => {
+                  const lineSum = order.items.reduce(
+                    (s, it) => s + Number(it.price || 0),
+                    0,
+                  )
+                  const p = order.pricing
+                  if (p) {
+                    return (
+                      <div className="border-t border-gray-100 px-4 py-3 space-y-2 text-xs">
+                        <div className="flex justify-between text-gray-700">
+                          <span>Subtotal</span>
+                          <span className="font-medium tabular-nums">{formatPrice(p.subtotal)}</span>
+                        </div>
+                        <div className="flex justify-between text-gray-700">
+                          <span>Delivery fee</span>
+                          <span className="font-medium tabular-nums">{formatPrice(p.deliveryFee)}</span>
+                        </div>
+                        {p.voucherDiscount > 0 ? (
+                          <div className="flex justify-between text-emerald-700">
+                            <span>
+                              Voucher discount
+                              {order.voucherCode ? (
+                                <span className="text-emerald-800/90"> ({order.voucherCode})</span>
+                              ) : null}
+                            </span>
+                            <span className="font-semibold tabular-nums">
+                              −{formatPrice(p.voucherDiscount)}
+                            </span>
+                          </div>
+                        ) : null}
+                      </div>
+                    )
+                  }
+                  if (Math.abs(lineSum - order.totalAmount) > 0.02) {
+                    return (
+                      <div className="border-t border-gray-100 px-4 py-2 text-[11px] text-gray-500">
+                        Items subtotal {formatPrice(lineSum)}. Total includes delivery and other charges.
+                      </div>
+                    )
+                  }
+                  return null
+                })()}
                 <div className="px-4 py-3 border-t border-gray-100 flex items-center justify-between">
                   <div className="text-sm text-gray-700">Order Total</div>
                   <div className="text-sm font-bold text-gray-900">{formatPrice(order.totalAmount)}</div>

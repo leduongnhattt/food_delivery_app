@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback } from "react";
+import Link from "next/link";
 import { Download, Inbox, Lock, Search } from "lucide-react";
 import {
   clampISODate,
@@ -21,7 +22,7 @@ function csvCell(value: string | number): string {
 
 export type MoneyFlow = "all" | "in" | "out";
 export type TxType = "order_income" | "withdrawal" | "adjustment" | "refund";
-export type TxStatus = "all" | "success" | "pending" | "failed" | "expired";
+export type TxStatus = "all" | "success" | "pending" | "failed" | "expired" | "cancelled";
 
 export type IncomeTxRow = {
   id: string;
@@ -32,7 +33,7 @@ export type IncomeTxRow = {
   referenceId?: string | null;
   moneyFlow: "in" | "out";
   amount: number;
-  status: "success" | "pending" | "failed" | "expired";
+  status: "success" | "pending" | "failed" | "expired" | "cancelled";
 };
 
 function txTypeLabel(t: IncomeTxRow["transactionType"]): string {
@@ -42,15 +43,16 @@ function txTypeLabel(t: IncomeTxRow["transactionType"]): string {
   return "Adjustment";
 }
 
-function statusLabel(s: IncomeTxRow["status"]): string {
-  if (s === "expired") return "Expired";
-  return s;
+function statusLabel(status: IncomeTxRow["status"]): string {
+  if (status === "expired") return "expired";
+  if (status === "cancelled") return "cancelled";
+  return status;
 }
 
 function downloadIncomeTransactionsCsv(rows: IncomeTxRow[]): void {
   const headers = [
     "#",
-    "Order ID",
+    "Reference ID",
     "Type",
     "Description",
     "Date",
@@ -78,10 +80,10 @@ function downloadIncomeTransactionsCsv(rows: IncomeTxRow[]): void {
     type: "text/csv;charset=utf-8",
   });
   const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `enterprise-income-transactions-${stamp}.csv`;
-  a.click();
+  const downloadLink = document.createElement("a");
+  downloadLink.href = url;
+  downloadLink.download = `enterprise-income-transactions-${stamp}.csv`;
+  downloadLink.click();
   URL.revokeObjectURL(url);
 }
 
@@ -91,6 +93,7 @@ const STATUS_OPTIONS: DropdownSelectOption[] = [
   { value: "success", label: "Success" },
   { value: "failed", label: "Failed" },
   { value: "expired", label: "Expired" },
+  { value: "cancelled", label: "Cancelled" },
 ];
 
 export function IncomeTransactions({
@@ -135,7 +138,7 @@ export function IncomeTransactions({
   const filtered = (() => {
     const from = clampISODate(dateFrom);
     const to = clampISODate(dateTo);
-    const q = searchOrderId.trim().toLowerCase();
+    const searchQueryLower = searchOrderId.trim().toLowerCase();
     const types = new Set(txTypes);
     return rows.filter((r) => {
       if (from && r.createdAtISO.slice(0, 10) < from) return false;
@@ -143,9 +146,9 @@ export function IncomeTransactions({
       if (moneyFlow !== "all" && r.moneyFlow !== moneyFlow) return false;
       if (types.size > 0 && !types.has(r.transactionType)) return false;
       if (txStatus !== "all" && r.status !== txStatus) return false;
-      if (q) {
+      if (searchQueryLower) {
         const ref = (r.referenceId ?? "").toLowerCase();
-        if (!ref.includes(q)) return false;
+        if (!ref.includes(searchQueryLower)) return false;
       }
       return true;
     });
@@ -289,7 +292,7 @@ export function IncomeTransactions({
               <input
                 value={searchOrderId}
                 onChange={(e) => setSearchOrderId(e.target.value)}
-                placeholder="Search Order ID"
+                placeholder="Search by reference ID"
                 className="h-9 w-80 rounded-md border border-gray-200 bg-white pl-9 pr-3 text-xs text-gray-700"
                 disabled={!isVerified}
               />
@@ -331,7 +334,7 @@ export function IncomeTransactions({
             <thead>
               <tr className="border-b border-gray-200 text-left text-gray-500">
                 <th className="w-12 pb-3 font-medium">#</th>
-                <th className="w-56 pb-3 font-medium">Order ID</th>
+                <th className="w-56 pb-3 font-medium">Reference ID</th>
                 <th className="w-[360px] pb-3 font-medium">Type | Description</th>
                 <th className="w-28 pb-3 font-medium">Date</th>
                 <th className="w-24 pb-3 text-center font-medium">Money Flow</th>
@@ -341,10 +344,15 @@ export function IncomeTransactions({
             </thead>
             <tbody className="divide-y divide-gray-100">
               {filtered.map((tx, idx) => (
-                <tr key={tx.id} className="group cursor-pointer hover:bg-gray-50">
+                <tr key={tx.id} className="group hover:bg-gray-50">
                   <td className="py-3 text-gray-600">{idx + 1}</td>
                   <td className="py-3">
-                    <span className="block truncate whitespace-nowrap text-blue-600 hover:underline">{tx.referenceId ?? "-"}</span>
+                    <Link
+                      href={`/enterprise/income/ledger/${encodeURIComponent(tx.id)}`}
+                      className="block truncate whitespace-nowrap text-blue-600 hover:underline"
+                    >
+                      {tx.referenceId ?? "—"}
+                    </Link>
                   </td>
                   <td className="py-3">
                     <div className="min-w-0">
@@ -358,7 +366,7 @@ export function IncomeTransactions({
                   <td className="py-3 text-center text-gray-600">{tx.moneyFlow}</td>
                   <td className="py-3 pr-4 text-right font-semibold text-gray-900">{formatCurrency(tx.amount)}</td>
                   <td className="py-3 text-right text-gray-600">
-                    {tx.status === "expired" ? "Expired" : tx.status}
+                    {statusLabel(tx.status)}
                   </td>
                 </tr>
               ))}

@@ -139,7 +139,7 @@ export default function GoogleAuthButton({
       {/* Custom styled button for Google login */}
       <button
         type="button"
-        className={`w-full bg-white text-gray-700 h-12 rounded-lg font-medium transition-all text-sm sm:text-base border border-gray-200 shadow-sm hover:bg-gray-50 flex items-center justify-center gap-2 ${className}`}
+        className={`w-full bg-white text-gray-700 h-10 sm:h-11 rounded-lg font-medium transition-all text-sm sm:text-base border border-gray-200 shadow-sm hover:bg-gray-50 flex items-center justify-center gap-2 ${className}`}
         onClick={handleGoogleLogin}
         disabled={isLoading}
       >

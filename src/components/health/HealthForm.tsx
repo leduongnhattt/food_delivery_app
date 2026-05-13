@@ -3,6 +3,10 @@ import React from 'react'
 import { Button } from '@/components/ui/button'
 import { Zap, Brain, Loader2 } from 'lucide-react'
 import { type HealthProfile } from '@/services/gemini-health-ai.service'
+import {
+  DropdownSelect,
+  type DropdownSelectOption,
+} from '@/components/ui/dropdown-select'
 
 interface FormErrors {
   age?: string
@@ -19,6 +23,28 @@ interface HealthFormProps {
 }
 
 export default function HealthForm({ formData, isAnalyzing, errors = {}, onInputChange, onAnalyze }: HealthFormProps) {
+  const genderOptions: DropdownSelectOption[] = [
+    { value: 'male', label: 'Male' },
+    { value: 'female', label: 'Female' },
+    { value: 'other', label: 'Other' },
+  ]
+
+  const activityOptions: DropdownSelectOption[] = [
+    { value: 'sedentary', label: 'Sedentary (little/no exercise)' },
+    { value: 'light', label: 'Lightly active (light exercise 1-3 days/week)' },
+    { value: 'moderate', label: 'Moderately active (moderate exercise 3-5 days/week)' },
+    { value: 'active', label: 'Very active (hard exercise 6-7 days/week)' },
+    { value: 'very-active', label: 'Extra active (very hard exercise & physical job)' },
+  ]
+
+  const goalOptions: DropdownSelectOption[] = [
+    { value: 'weight-loss', label: 'Weight Loss' },
+    { value: 'weight-gain', label: 'Weight Gain' },
+    { value: 'muscle-gain', label: 'Muscle Gain' },
+    { value: 'maintenance', label: 'Weight Maintenance' },
+    { value: 'health-improvement', label: 'General Health Improvement' },
+  ]
+
   return (
     <div className="p-3 sm:p-6 border-r overflow-y-auto lg:col-span-1 h-full">
       <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
@@ -53,15 +79,14 @@ export default function HealthForm({ formData, isAnalyzing, errors = {}, onInput
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Gender *
           </label>
-          <select 
+          <DropdownSelect
             value={formData.gender}
-            onChange={(e) => onInputChange('gender', e.target.value)}
-            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:border-purple-500"
-          >
-            <option value="male">Male</option>
-            <option value="female">Female</option>
-            <option value="other">Other</option>
-          </select>
+            onChange={(value) => onInputChange('gender', value)}
+            options={genderOptions}
+            className="w-full"
+            usePortal
+            aria-label="Select gender"
+          />
         </div>
         
         <div>
@@ -112,34 +137,30 @@ export default function HealthForm({ formData, isAnalyzing, errors = {}, onInput
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Activity Level *
           </label>
-          <select 
+          <DropdownSelect
             value={formData.activityLevel}
-            onChange={(e) => onInputChange('activityLevel', e.target.value)}
-            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:border-purple-500"
-          >
-            <option value="sedentary">Sedentary (little/no exercise)</option>
-            <option value="light">Lightly active (light exercise 1-3 days/week)</option>
-            <option value="moderate">Moderately active (moderate exercise 3-5 days/week)</option>
-            <option value="active">Very active (hard exercise 6-7 days/week)</option>
-            <option value="very-active">Extra active (very hard exercise & physical job)</option>
-          </select>
+            onChange={(value) => onInputChange('activityLevel', value)}
+            options={activityOptions}
+            className="w-full"
+            menuClassName="min-w-[18rem]"
+            usePortal
+            aria-label="Select activity level"
+          />
         </div>
         
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Health Goals *
           </label>
-          <select 
+          <DropdownSelect
             value={formData.healthGoal}
-            onChange={(e) => onInputChange('healthGoal', e.target.value)}
-            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:border-purple-500"
-          >
-            <option value="weight-loss">Weight Loss</option>
-            <option value="weight-gain">Weight Gain</option>
-            <option value="muscle-gain">Muscle Gain</option>
-            <option value="maintenance">Weight Maintenance</option>
-            <option value="health-improvement">General Health Improvement</option>
-          </select>
+            onChange={(value) => onInputChange('healthGoal', value)}
+            options={goalOptions}
+            className="w-full"
+            menuClassName="min-w-[18rem]"
+            usePortal
+            aria-label="Select health goal"
+          />
         </div>
         
         <div>
