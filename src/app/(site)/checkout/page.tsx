@@ -27,6 +27,7 @@ import {
   getCheckoutPrimaryButtonLabel,
   type CheckoutPaymentMethod,
 } from '@/lib/orders'
+import { computeCheckoutVoucherDiscountUsd } from '@/lib/checkout-voucher'
 import { OrderService } from '@/services/order.service'
 import type { Order } from '@/services/order.service'
 
@@ -34,8 +35,13 @@ const RESTAURANT_LOGO_DEBOUNCE_MS = 200
 
 // Offers now loaded from API
 
-// Types
-type AppliedVoucher = { code: string; discount: number } | null
+// Types — store voucher rule from API; dollar discount is derived from current subtotal
+type AppliedVoucher = {
+  code: string
+  discountAmount?: number | null
+  discountPercent?: number | null
+  minOrderValue?: number | null
+} | null
 
 interface CheckoutData {
   cartItems: CartItem[]
@@ -158,7 +164,13 @@ export default function CheckoutPage() {
     if (!promo) return
     VoucherService.validate(promo)
       .then((v) => {
-        if (v) setAppliedVoucher({ code: promo, discount: Number(v.DiscountAmount) || 0 })
+        if (v)
+          setAppliedVoucher({
+            code: promo,
+            discountAmount: v.DiscountAmount ?? null,
+            discountPercent: v.DiscountPercent ?? null,
+            minOrderValue: v.MinOrderValue ?? null,
+          })
       })
       .finally(() => router.replace('/checkout'))
   }, [searchParams, router])
@@ -169,7 +181,10 @@ export default function CheckoutPage() {
     (sum, item) => sum + calculatePrice(item.menuItem.price, item.quantity),
     0
   )
-  const voucherDiscount = appliedVoucher?.discount || 0
+  const voucherDiscount = useMemo(
+    () => computeCheckoutVoucherDiscountUsd(subtotal, appliedVoucher ?? undefined),
+    [subtotal, appliedVoucher],
+  )
   const deliveryFee = restaurantInfo?.deliveryFee ?? 0
   const total = Math.max(0, subtotal + deliveryFee - voucherDiscount)
 
@@ -357,10 +372,14 @@ export default function CheckoutPage() {
   }
 
   const handleApplyVoucher = (code: string) => {
-    const v = availableVouchers.find(o => o.code === code)
+    const v = availableVouchers.find((o) => o.code === code)
     if (!v) return
-    const discount = Number(v.amount || 0)
-    setAppliedVoucher({ code, discount })
+    setAppliedVoucher({
+      code,
+      discountAmount: v.amount ?? null,
+      discountPercent: v.percent ?? null,
+      minOrderValue: v.minOrder ?? null,
+    })
     setIsOffersModalOpen(false)
   }
 
@@ -619,7 +638,11 @@ export default function CheckoutPage() {
               />
 
               <PromoOffers
-                applied={appliedVoucher}
+                applied={
+                  appliedVoucher
+                    ? { code: appliedVoucher.code, discount: voucherDiscount }
+                    : null
+                }
                 offers={availableVouchers.map(v => ({ code: v.code, amount: v.amount, percent: v.percent, minOrder: v.minOrder, eligible: subtotal >= (v.minOrder || 0) }))}
                 isModalOpen={isOffersModalOpen}
                 onOpenModal={() => setIsOffersModalOpen(true)}
@@ -645,7 +668,11 @@ export default function CheckoutPage() {
                 totalItems={totalItems}
                 subtotal={subtotal}
                 deliveryFee={deliveryFee}
-                discount={appliedVoucher ? { code: appliedVoucher.code, amount: appliedVoucher.discount } : null}
+                discount={
+                  appliedVoucher
+                    ? { code: appliedVoucher.code, amount: voucherDiscount }
+                    : null
+                }
                 total={total}
                 buttonText={getCheckoutPrimaryButtonLabel(
                   paymentMethod,

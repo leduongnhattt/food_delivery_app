@@ -8,7 +8,6 @@ import { ConfirmActionModal } from "@/components/enterprise/ConfirmActionModal";
 import { FinanceVerifyGate } from "@/components/enterprise/FinanceVerifyGate";
 import {
   EnterpriseIncomeService,
-  type EnterpriseIncomeSummary,
   type EnterpriseIncomeTx,
 } from "@/services/enterprise-finance.service";
 import { IncomePreview } from "@/components/enterprise/finance/IncomePreview";
@@ -21,13 +20,14 @@ import {
   type TxType,
 } from "@/components/enterprise/finance/IncomeTransactions";
 import { clampISODate, formatCurrency } from "@/lib/utils";
+import { useToast } from "@/contexts/toast-context";
 
 export default function EnterpriseIncomePage() {
+  const { showToast } = useToast();
   const [loading, setLoading] = useState(true);
 
   const [isVerified] = useState(true);
 
-  const [summary, setSummary] = useState<EnterpriseIncomeSummary | null>(null);
   const [balance, setBalance] = useState<number>(0);
   const [canWithdraw, setCanWithdraw] = useState<boolean>(false);
   const [withdrawing, setWithdrawing] = useState(false);
@@ -81,7 +81,6 @@ export default function EnterpriseIncomePage() {
           refreshBankPreview(),
         ]);
         if (cancelled) return;
-        setSummary(s);
         setBalance(typeof s.balance === "number" ? s.balance : 0);
         setCanWithdraw(!!s.canWithdraw);
         const list = Array.isArray(tx.transactions) ? tx.transactions : [];
@@ -119,8 +118,9 @@ export default function EnterpriseIncomePage() {
     const transactionType: TxType =
       tt.includes("withdraw") ? "withdrawal" : tt.includes("refund") ? "refund" : tt.includes("adjust") ? "adjustment" : "order_income";
     const statusLower = (t.status || "").toLowerCase();
-    const status: IncomeTxRow["status"] =
-      statusLower.includes("fail")
+    const status: IncomeTxRow["status"] = statusLower.includes("cancel")
+      ? "cancelled"
+      : statusLower.includes("fail")
         ? "failed"
         : statusLower.includes("expire")
           ? "expired"
@@ -143,7 +143,7 @@ export default function EnterpriseIncomePage() {
   const filtered = useMemo(() => {
     const from = clampISODate(dateFrom);
     const to = clampISODate(dateTo);
-    const q = searchOrderId.trim().toLowerCase();
+    const searchQueryLower = searchOrderId.trim().toLowerCase();
     const types = new Set(txTypes);
     return rows.filter((r) => {
       if (from && r.createdAtISO.slice(0, 10) < from) return false;
@@ -151,9 +151,9 @@ export default function EnterpriseIncomePage() {
       if (moneyFlow !== "all" && r.moneyFlow !== moneyFlow) return false;
       if (types.size > 0 && !types.has(r.transactionType)) return false;
       if (txStatus !== "all" && r.status !== txStatus) return false;
-      if (q) {
+      if (searchQueryLower) {
         const ref = (r.referenceId ?? "").toLowerCase();
-        if (!ref.includes(q)) return false;
+        if (!ref.includes(searchQueryLower)) return false;
       }
       return true;
     });
@@ -166,18 +166,21 @@ export default function EnterpriseIncomePage() {
       const payoutDestinationId = defaultBankId ?? undefined;
       await EnterpriseIncomeService.withdraw({
         payoutDestinationId,
-        settlementId: summary?.settlement?.id ?? undefined,
       });
-      const s = await EnterpriseIncomeService.summary();
-      setSummary(s);
-      setBalance(typeof s.balance === "number" ? s.balance : 0);
-      setCanWithdraw(!!s.canWithdraw);
+      const summaryResponse = await EnterpriseIncomeService.summary();
+      setBalance(typeof summaryResponse.balance === "number" ? summaryResponse.balance : 0);
+      setCanWithdraw(!!summaryResponse.canWithdraw);
       await refreshTransactions();
+      showToast("Withdrawal request created.", "success");
+    } catch (error) {
+      console.error(error);
+      const message = error instanceof Error ? error.message : "Withdraw failed.";
+      showToast(message, "error");
     } finally {
       setWithdrawing(false);
       setConfirmWithdrawOpen(false);
     }
-  }, [canWithdraw, defaultBankId, refreshTransactions, summary?.settlement?.id, withdrawing]);
+  }, [canWithdraw, defaultBankId, refreshTransactions, showToast, withdrawing]);
 
   return (
     <FinanceVerifyGate storageKey="enterprise_finance_verified:income" preview={<IncomePreview />}>

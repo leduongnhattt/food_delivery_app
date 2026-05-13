@@ -7,6 +7,8 @@ import { type GeminiHealthAnalysis, type HealthProfile } from '@/services/gemini
 import { BASE_IMAGE_URL } from '@/lib/app-constants'
 import { useToast } from '@/contexts/toast-context'
 import { getServerApiBase } from '@/lib/http'
+import { isAuthenticated } from '@/lib/auth-helpers'
+import { useRouter } from 'next/navigation'
 import FloatingButton from './FloatingButton'
 import HealthForm from './HealthForm'
 import RecommendationsDisplay from './RecommendationsDisplay'
@@ -24,7 +26,9 @@ interface FormErrors {
 
 export default function HealthChatbot({ className = '' }: HealthChatbotProps) {
   const { showToast } = useToast()
+  const router = useRouter()
   const [isOpen, setIsOpen] = useState(false)
+  const [isDismissed, setIsDismissed] = useState(false)
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [geminiAnalysis, setGeminiAnalysis] = useState<GeminiHealthAnalysis | null>(null)
   const [errors, setErrors] = useState<FormErrors>({})
@@ -103,6 +107,18 @@ export default function HealthChatbot({ className = '' }: HealthChatbotProps) {
   }
 
   const handleAnalyze = async () => {
+    if (!isAuthenticated()) {
+      const next =
+        typeof window !== 'undefined'
+          ? `${window.location.pathname}${window.location.search}`
+          : '/'
+
+      router.push(
+        `/signin?reason=auth_required&next=${encodeURIComponent(next)}`,
+      )
+      return
+    }
+
     if (!validateForm()) {
       return
     }
@@ -168,7 +184,20 @@ export default function HealthChatbot({ className = '' }: HealthChatbotProps) {
 
   return (
     <>
-      <FloatingButton className={className} onOpen={handleOpen} />
+      {!isDismissed ? (
+        <FloatingButton
+          className={[
+            className,
+            isOpen ? 'pointer-events-none opacity-0' : null,
+          ]
+            .filter(Boolean)
+            .join(' ')}
+          onOpen={handleOpen}
+          onDismiss={() => {
+            setIsDismissed(true)
+          }}
+        />
+      ) : null}
 
       {/* Health Analysis Modal */}
       {isOpen && (

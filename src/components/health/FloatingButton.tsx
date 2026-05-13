@@ -1,19 +1,27 @@
 'use client'
 import React, { useState, useRef, useEffect } from 'react'
-import Image from 'next/image'
-import { BASE_IMAGE_URL } from '@/lib/app-constants'
+import { BotMessageSquare, X } from 'lucide-react'
 
 interface FloatingButtonProps {
   className?: string
   onOpen: () => void
+  onDismiss?: () => void
 }
 
-export default function FloatingButton({ className = '', onOpen }: FloatingButtonProps) {
+export default function FloatingButton({ className = '', onOpen, onDismiss }: FloatingButtonProps) {
   const [isDragging, setIsDragging] = useState(false)
   const [position, setPosition] = useState({ x: 0, y: 0 })
   const chatbotRef = useRef<HTMLDivElement>(null)
   const isDraggingRef = useRef(false)
   const dragStartPos = useRef({ x: 0, y: 0 })
+  const pointerStart = useRef({ x: 0, y: 0 })
+  const hasMovedRef = useRef(false)
+  const suppressClickRef = useRef(false)
+
+  const BUTTON_H = 56
+  const BUTTON_W = 56
+  const MARGIN_BOTTOM = 20
+  const MARGIN_RIGHT = 40
 
   const handleMouseDown = (e: React.MouseEvent) => {
     e.preventDefault()
@@ -21,6 +29,9 @@ export default function FloatingButton({ className = '', onOpen }: FloatingButto
     
     setIsDragging(true)
     isDraggingRef.current = true
+    pointerStart.current = { x: e.clientX, y: e.clientY }
+    hasMovedRef.current = false
+    suppressClickRef.current = false
     
     // Store initial mouse position relative to button
     dragStartPos.current = {
@@ -38,16 +49,20 @@ export default function FloatingButton({ className = '', onOpen }: FloatingButto
     // Calculate new position
     const newX = e.clientX - dragStartPos.current.x
     const newY = e.clientY - dragStartPos.current.y
+
+    const moved =
+      Math.abs(e.clientX - pointerStart.current.x) +
+        Math.abs(e.clientY - pointerStart.current.y) >
+      6
+    if (moved) hasMovedRef.current = true
     
     // Keep within viewport bounds
-    const buttonSize = 56
-    const margin = 20 // Increased margin for better spacing
-    const maxX = window.innerWidth - buttonSize - margin
-    const maxY = window.innerHeight - buttonSize - margin
+    const maxX = window.innerWidth - BUTTON_W - MARGIN_RIGHT
+    const maxY = window.innerHeight - BUTTON_H - MARGIN_BOTTOM
     
     setPosition({
-      x: Math.max(margin, Math.min(newX, maxX)),
-      y: Math.max(margin, Math.min(newY, maxY))
+      x: Math.max(MARGIN_RIGHT, Math.min(newX, maxX)),
+      y: Math.max(MARGIN_BOTTOM, Math.min(newY, maxY))
     })
   }
 
@@ -59,13 +74,10 @@ export default function FloatingButton({ className = '', onOpen }: FloatingButto
     
     setIsDragging(false)
     isDraggingRef.current = false
-    
-    // Simple click detection - if not much movement, it's a click
-    const dragDistance = Math.abs(e.clientX - (e.clientX - dragStartPos.current.x)) + 
-                        Math.abs(e.clientY - (e.clientY - dragStartPos.current.y))
-    
-    if (dragDistance < 5) { // 5px threshold for click vs drag
-      onOpen()
+
+    // If user dragged, suppress the subsequent click event.
+    if (hasMovedRef.current) {
+      suppressClickRef.current = true
     }
   }
 
@@ -73,10 +85,13 @@ export default function FloatingButton({ className = '', onOpen }: FloatingButto
     e.preventDefault()
     e.stopPropagation()
     
-    // Only open if not dragging
-    if (!isDraggingRef.current) {
-      onOpen()
+    if (suppressClickRef.current) {
+      suppressClickRef.current = false
+      return
     }
+
+    // Only open if not dragging
+    if (!isDraggingRef.current) onOpen()
   }
 
   // Global mouse event handlers for smooth dragging
@@ -84,20 +99,24 @@ export default function FloatingButton({ className = '', onOpen }: FloatingButto
     const handleGlobalMouseMove = (e: MouseEvent) => {
       if (isDraggingRef.current) {
         e.preventDefault()
+
+        const moved =
+          Math.abs(e.clientX - pointerStart.current.x) +
+            Math.abs(e.clientY - pointerStart.current.y) >
+          6
+        if (moved) hasMovedRef.current = true
         
         // Calculate new position
         const newX = e.clientX - dragStartPos.current.x
         const newY = e.clientY - dragStartPos.current.y
         
         // Keep within viewport bounds
-        const buttonSize = 56
-        const margin = 20 // Increased margin for better spacing
-        const maxX = window.innerWidth - buttonSize - margin
-        const maxY = window.innerHeight - buttonSize - margin
+        const maxX = window.innerWidth - BUTTON_W - MARGIN_RIGHT
+        const maxY = window.innerHeight - BUTTON_H - MARGIN_BOTTOM
         
         setPosition({
-          x: Math.max(margin, Math.min(newX, maxX)),
-          y: Math.max(margin, Math.min(newY, maxY))
+          x: Math.max(MARGIN_RIGHT, Math.min(newX, maxX)),
+          y: Math.max(MARGIN_BOTTOM, Math.min(newY, maxY))
         })
       }
     }
@@ -107,6 +126,10 @@ export default function FloatingButton({ className = '', onOpen }: FloatingButto
         e.preventDefault()
         setIsDragging(false)
         isDraggingRef.current = false
+
+        if (hasMovedRef.current) {
+          suppressClickRef.current = true
+        }
       }
     }
     
@@ -123,21 +146,22 @@ export default function FloatingButton({ className = '', onOpen }: FloatingButto
   // Set default position to bottom right corner
   useEffect(() => {
     const setDefaultPosition = () => {
-      // Set specific position: x=1442, y=600
-      setPosition({
-        x: 1442,
-        y: 600
+      setPosition((prev) => {
+        // If already positioned (e.g. restored by future persistence), keep it.
+        if (prev.x !== 0 || prev.y !== 0) return prev
+
+        const x = Math.max(MARGIN_RIGHT, window.innerWidth - BUTTON_W - MARGIN_RIGHT)
+        const y = Math.max(MARGIN_BOTTOM, window.innerHeight - BUTTON_H - MARGIN_BOTTOM)
+        return { x, y }
       })
     }
     
     setDefaultPosition()
     
     const handleResize = () => {
-      const buttonSize = 56
-      const margin = 20
       setPosition(prev => ({
-        x: Math.min(prev.x, window.innerWidth - buttonSize - margin),
-        y: Math.min(prev.y, window.innerHeight - buttonSize - margin)
+        x: Math.min(prev.x, window.innerWidth - BUTTON_W - MARGIN_RIGHT),
+        y: Math.min(prev.y, window.innerHeight - BUTTON_H - MARGIN_BOTTOM)
       }))
     }
     
@@ -174,6 +198,9 @@ export default function FloatingButton({ className = '', onOpen }: FloatingButto
         const touch = e.touches[0]
         setIsDragging(true)
         isDraggingRef.current = true
+        pointerStart.current = { x: touch.clientX, y: touch.clientY }
+        hasMovedRef.current = false
+        suppressClickRef.current = false
         
         // Store initial touch position relative to button
         dragStartPos.current = {
@@ -188,20 +215,24 @@ export default function FloatingButton({ className = '', onOpen }: FloatingButto
         e.stopPropagation()
         
         const touch = e.touches[0]
+
+        const moved =
+          Math.abs(touch.clientX - pointerStart.current.x) +
+            Math.abs(touch.clientY - pointerStart.current.y) >
+          10
+        if (moved) hasMovedRef.current = true
         
         // Calculate new position
         const newX = touch.clientX - dragStartPos.current.x
         const newY = touch.clientY - dragStartPos.current.y
         
         // Keep within viewport bounds
-        const buttonSize = 56
-        const margin = 20 // Increased margin for better spacing
-        const maxX = window.innerWidth - buttonSize - margin
-        const maxY = window.innerHeight - buttonSize - margin
+        const maxX = window.innerWidth - BUTTON_W - MARGIN_RIGHT
+        const maxY = window.innerHeight - BUTTON_H - MARGIN_BOTTOM
         
         setPosition({
-          x: Math.max(margin, Math.min(newX, maxX)),
-          y: Math.max(margin, Math.min(newY, maxY))
+          x: Math.max(MARGIN_RIGHT, Math.min(newX, maxX)),
+          y: Math.max(MARGIN_BOTTOM, Math.min(newY, maxY))
         })
       }}
       onTouchEnd={(e) => {
@@ -212,42 +243,64 @@ export default function FloatingButton({ className = '', onOpen }: FloatingButto
         
         setIsDragging(false)
         isDraggingRef.current = false
-        
-        // Check if it was a tap (not drag)
-        const touch = e.changedTouches[0]
-        const dragDistance = Math.abs(touch.clientX - (touch.clientX - dragStartPos.current.x)) + 
-                            Math.abs(touch.clientY - (touch.clientY - dragStartPos.current.y))
-        
-        if (dragDistance < 10) { // 10px threshold for tap vs drag
-          onOpen()
+
+        if (hasMovedRef.current) {
+          suppressClickRef.current = true
+          return
         }
+
+        onOpen()
       }}
     >
-      <div 
-        className="w-14 h-14 bg-white rounded-full shadow-lg flex items-center justify-center border-2 border-pink-200 touch-none"
+      <div
+        className="touch-none"
         style={{
-          willChange: 'transform, box-shadow',
+          willChange: 'transform',
           transform: isDragging ? 'scale(1.05)' : 'scale(1)',
-          boxShadow: isDragging 
-            ? '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)' 
-            : '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
-          transition: isDragging ? 'none' : 'all 0.2s ease-out'
+          transition: isDragging ? 'none' : 'all 0.2s ease-out',
         }}
       >
-        <Image 
-          src={`${BASE_IMAGE_URL}/logo.png`}
-          alt="Health Assistant"
-          width={40}
-          height={40}
-          className="w-10 h-10 object-contain pointer-events-none"
-          style={{ willChange: 'transform' }}
-          priority
-        />
+        <div className="relative flex items-center">
+          {/* Simple round launcher */}
+          <div
+            className={[
+              "relative flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-pink-500 to-purple-600 text-white shadow-xl ring-2 ring-white/70",
+              !isDragging ? "animate-bounce" : null,
+            ]
+              .filter(Boolean)
+              .join(" ")}
+          >
+            <BotMessageSquare className="h-6 w-6" aria-hidden />
+
+            {onDismiss ? (
+              <button
+                type="button"
+                aria-label="Hide AI Health"
+                className="absolute -right-2 -top-2 inline-flex h-7 w-7 items-center justify-center rounded-full bg-white text-slate-500 shadow ring-1 ring-slate-200 hover:bg-slate-50 hover:text-slate-700 focus:outline-none focus:ring-2 focus:ring-sky-300"
+                onClick={(e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  onDismiss()
+                }}
+                onMouseDown={(e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                }}
+                onTouchStart={(e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                }}
+              >
+                <X className="h-4 w-4" />
+              </button>
+            ) : null}
+          </div>
+        </div>
       </div>
       
       {/* Pulse animation - only when not dragging */}
       {!isDragging && (
-        <div className="absolute inset-0 bg-gradient-to-br from-pink-400 to-purple-500 rounded-full animate-ping opacity-30 pointer-events-none"></div>
+        <div className="absolute -inset-3 rounded-full bg-gradient-to-br from-pink-400 to-purple-500 opacity-20 blur-xl pointer-events-none" />
       )}
     </div>
   )
