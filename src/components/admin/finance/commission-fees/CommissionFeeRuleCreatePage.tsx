@@ -11,7 +11,9 @@ import {
 import {
   createCommissionFeeCategoryRule,
   fetchFoodCategoriesList,
+  getCommissionFeeGlobalRule,
   getCommissionFeesGlobal,
+  updateCommissionFeeGlobalRule,
   updateCommissionFeesGlobal,
 } from "@/services/admin.service";
 
@@ -19,6 +21,7 @@ export function CommissionFeeRuleCreatePage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const scopeGlobal = searchParams.get("scope") === "global";
+  const globalRuleIdParam = searchParams.get("globalRuleId");
   const { showToast } = useToast();
 
   const [categoryOptions, setCategoryOptions] = useState<FoodCategoryOption[]>([]);
@@ -48,7 +51,36 @@ export function CommissionFeeRuleCreatePage() {
     if (!scopeGlobal) return;
     void (async () => {
       try {
+        if (globalRuleIdParam) {
+          const { item: g } = await getCommissionFeeGlobalRule(globalRuleIdParam);
+          setGlobalPrefill({
+            ruleName: g.RuleName ?? "",
+            isGlobalRule: true,
+            foodCategoryId: "",
+            commissionPercent: String(g.CommissionPercent),
+            isActive: g.IsActive,
+            customPeriod: true,
+            effectiveFrom: g.EffectiveFrom,
+            effectiveTo: g.EffectiveTo ?? "",
+            activatedAt: g.ActivatedAt,
+            expiredAt: g.ExpiredAt,
+          });
+          return;
+        }
         const globalRule = await getCommissionFeesGlobal();
+        if (!globalRule) {
+          setGlobalPrefill({
+            ruleName: "",
+            isGlobalRule: true,
+            foodCategoryId: "",
+            commissionPercent: "0",
+            isActive: true,
+            customPeriod: false,
+            effectiveFrom: "",
+            effectiveTo: "",
+          });
+          return;
+        }
         setGlobalPrefill({
           ruleName: globalRule.RuleName ?? "",
           isGlobalRule: true,
@@ -58,6 +90,8 @@ export function CommissionFeeRuleCreatePage() {
           customPeriod: true,
           effectiveFrom: globalRule.EffectiveFrom,
           effectiveTo: globalRule.EffectiveTo ?? "",
+          activatedAt: globalRule.ActivatedAt,
+          expiredAt: globalRule.ExpiredAt,
         });
       } catch {
         setGlobalPrefill({
@@ -72,7 +106,7 @@ export function CommissionFeeRuleCreatePage() {
         });
       }
     })();
-  }, [scopeGlobal]);
+  }, [scopeGlobal, globalRuleIdParam]);
 
   async function handleSubmit(values: CommissionFeeRuleFormValues) {
     setError(null);
@@ -95,13 +129,24 @@ export function CommissionFeeRuleCreatePage() {
     setSubmitting(true);
     try {
       if (global) {
-        await updateCommissionFeesGlobal({
-          ruleName: trimmedRuleName,
-          commissionPercent: commissionPercentNumber,
-          isActive: values.isActive,
-          effectiveFrom: values.effectiveFrom.trim(),
-          effectiveTo: values.effectiveTo.trim() ? values.effectiveTo.trim() : null,
-        });
+        const editGlobalId = globalRuleIdParam?.trim() || "";
+        if (editGlobalId) {
+          await updateCommissionFeeGlobalRule(editGlobalId, {
+            ruleName: trimmedRuleName,
+            commissionPercent: commissionPercentNumber,
+            isActive: values.isActive,
+            effectiveFrom: values.effectiveFrom.trim(),
+            effectiveTo: values.effectiveTo.trim() ? values.effectiveTo.trim() : null,
+          });
+        } else {
+          await updateCommissionFeesGlobal({
+            ruleName: trimmedRuleName,
+            commissionPercent: commissionPercentNumber,
+            isActive: values.isActive,
+            effectiveFrom: values.effectiveFrom.trim(),
+            effectiveTo: values.effectiveTo.trim() ? values.effectiveTo.trim() : null,
+          });
+        }
       } else {
         const effectiveToTrim = values.effectiveTo.trim();
         await createCommissionFeeCategoryRule({

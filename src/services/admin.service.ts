@@ -527,6 +527,16 @@ export async function listCommissionFeeGlobalRules(): Promise<AdminCommissionFee
   )
 }
 
+export async function getCommissionFeeGlobalRule(ruleId: string): Promise<{
+  success: boolean
+  item: AdminCommissionFeeGlobalRuleItem
+}> {
+  return requestJson<{ success: boolean; item: AdminCommissionFeeGlobalRuleItem }>(
+    `${urlAdminCommissionFees()}/global-rules/${encodeURIComponent(ruleId)}`,
+    { method: 'GET' },
+  )
+}
+
 export async function activateCommissionFeeGlobalRule(
   ruleId: string,
 ): Promise<{ success: boolean; item: AdminCommissionFeeGlobalRuleItem }> {
@@ -668,6 +678,16 @@ export async function getTransactionFeesGlobal(): Promise<AdminTransactionFeesGl
 export async function listTransactionFeeGlobalRules(): Promise<AdminTransactionFeeGlobalRulesListResponse> {
   return requestJson<AdminTransactionFeeGlobalRulesListResponse>(
     `${urlAdminTransactionFees()}/global-rules`,
+    { method: 'GET' },
+  )
+}
+
+export async function getTransactionFeeGlobalRule(ruleId: string): Promise<{
+  success: boolean
+  item: AdminTransactionFeeGlobalRuleItem
+}> {
+  return requestJson<{ success: boolean; item: AdminTransactionFeeGlobalRuleItem }>(
+    `${urlAdminTransactionFees()}/global-rules/${encodeURIComponent(ruleId)}`,
     { method: 'GET' },
   )
 }

@@ -1,14 +1,11 @@
 import type { ReactNode } from "react";
 import type { Metadata } from "next";
-import { AppProvider } from "@/components/providers/app-provider";
 
 export const metadata: Metadata = {
   title: "HanalaFood - Sign Up",
   description: "Create a new HanalaFood account",
 };
 
-export default function LoginLayout({ children }: { children: ReactNode }) {
-  return (
-    <AppProvider>{children}</AppProvider>
-  );
+export default function SignupSegmentLayout({ children }: { children: ReactNode }) {
+  return children;
 }

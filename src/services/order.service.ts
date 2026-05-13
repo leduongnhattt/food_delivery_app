@@ -20,6 +20,12 @@ export interface Order {
     restaurantName: string
     restaurantAvatarUrl?: string | null
     items: OrderItem[]
+    pricing?: {
+        subtotal: number
+        deliveryFee: number
+        voucherDiscount: number
+    } | null
+    voucherCode?: string | null
     totalAmount: number
     status: 'pending' | 'confirmed' | 'preparing' | 'out_for_delivery' | 'delivered' | 'completed' | 'cancelled' | 'refunded'
     cancelReason?: string | null
@@ -124,11 +130,28 @@ function normalizeOrderStatus(input: unknown): Order['status'] {
 }
 
 function normalizeOrder(raw: any): Order {
+    const pricingRaw = raw?.pricing
+    const pricing =
+        pricingRaw &&
+        typeof pricingRaw === 'object' &&
+        !Array.isArray(pricingRaw)
+            ? {
+                  subtotal: Number(pricingRaw.subtotal) || 0,
+                  deliveryFee: Number(pricingRaw.deliveryFee) || 0,
+                  voucherDiscount: Number(pricingRaw.voucherDiscount) || 0,
+              }
+            : null
+
     return {
         ...raw,
         status: normalizeOrderStatus(raw?.status),
         paymentStatus: raw?.paymentStatus ? String(raw.paymentStatus).toLowerCase() : raw?.paymentStatus ?? null,
         paymentMethod: raw?.paymentMethod ? String(raw.paymentMethod).toLowerCase() : raw?.paymentMethod,
+        pricing,
+        voucherCode:
+            typeof raw?.voucherCode === 'string' && raw.voucherCode.trim()
+                ? raw.voucherCode.trim()
+                : raw?.voucherCode ?? null,
     } as Order
 }
 
